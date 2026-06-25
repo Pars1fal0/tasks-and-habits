@@ -71,6 +71,7 @@ function createWindow() {
         document.querySelector("#taskDate").value = document.querySelector("#activeDate").value;
         document.querySelector("#taskTime").value = "18:45";
         document.querySelector("#taskCategoryId").value = categoryOption?.value || "";
+        document.querySelector("#taskPriority").value = "high";
         document.querySelector("#taskReminder").value = "30";
         document.querySelector("#taskRepeat").value = "every2days";
         submit(document.querySelector("#taskForm"));
@@ -79,6 +80,7 @@ function createWindow() {
         document.querySelector("#taskDate").value = document.querySelector("#activeDate").value;
         document.querySelector("#taskTime").value = "19:30";
         document.querySelector("#taskCategoryId").value = categoryOption?.value || "";
+        document.querySelector("#taskPriority").value = "low";
         document.querySelector("#taskReminder").value = "30";
         document.querySelector("#taskRepeat").value = "none";
         submit(document.querySelector("#taskForm"));

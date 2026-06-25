@@ -1,29 +1,43 @@
 const STORAGE_KEY = "rhythm-day-state-v1";
 const UI_STATE_KEY = "rhythm-day-ui-v1";
-const SCHEMA_VERSION = 4;
+const BACKUP_KEY = "rhythm-day-backup-v1";
+const SCHEMA_VERSION = 5;
+const BACKUP_INTERVAL_MS = 5 * 60 * 1000;
 const VALID_PRIORITIES = ["high", "medium", "low"];
 const VALID_REPEATS = ["none", "daily", "every2days", "every3days", "weekdays", "weekends", "weekly", "monthly", "yearly"];
 const VALID_HABIT_REPEATS = ["daily", "every2days", "every3days", "weekdays", "weekends", "weekly"];
+const VALID_REMINDER_OFFSETS = ["none", "0", "5", "15", "30", "60", "1440"];
 
 let state = normalizeState(loadStoredState());
 let activeDate = toDateKey(new Date());
 let activeView = "tasks";
 let taskFilter = "all";
-let taskCategoryFilter = loadUiState().taskCategoryFilter || "all";
+const initialUiState = loadUiState();
+let taskCategoryFilter = initialUiState.taskCategoryFilter || "all";
+let taskSearchQuery = initialUiState.taskSearchQuery || "";
+let archiveCategoryFilter = initialUiState.archiveCategoryFilter || "all";
+let archiveSearchQuery = initialUiState.archiveSearchQuery || "";
 let draggedTaskId = null;
 let toastTimer = null;
+let lastBackupAt = 0;
 
 const els = {
   activeDate: document.querySelector("#activeDate"),
+  archiveCategoryFilter: document.querySelector("#archiveCategoryFilter"),
   archiveEmpty: document.querySelector("#archiveEmpty"),
   archiveList: document.querySelector("#archiveList"),
+  archiveSearch: document.querySelector("#archiveSearch"),
+  backupStatus: document.querySelector("#backupStatus"),
   categoryColor: document.querySelector("#categoryColor"),
   categoryForm: document.querySelector("#categoryForm"),
   categoryList: document.querySelector("#categoryList"),
   categoryName: document.querySelector("#categoryName"),
   clearArchiveFilter: document.querySelector("#clearArchiveFilter"),
+  clearTaskSearch: document.querySelector("#clearTaskSearch"),
   desktopStatus: document.querySelector("#desktopStatus"),
   exportButton: document.querySelector("#exportButton"),
+  excludedList: document.querySelector("#excludedList"),
+  excludedPanel: document.querySelector("#excludedPanel"),
   focusBar: document.querySelector("#focusBar"),
   focusMeta: document.querySelector("#focusMeta"),
   focusPercent: document.querySelector("#focusPercent"),
@@ -52,6 +66,7 @@ const els = {
   prevDay: document.querySelector("#prevDay"),
   resetHabitForm: document.querySelector("#resetHabitForm"),
   resetTaskForm: document.querySelector("#resetTaskForm"),
+  restoreBackupButton: document.querySelector("#restoreBackupButton"),
   sideProgressBar: document.querySelector("#sideProgressBar"),
   sideProgressValue: document.querySelector("#sideProgressValue"),
   taskCategoryId: document.querySelector("#taskCategoryId"),
@@ -68,6 +83,7 @@ const els = {
   taskProgressRing: document.querySelector("#taskProgressRing"),
   taskReminder: document.querySelector("#taskReminder"),
   taskRepeat: document.querySelector("#taskRepeat"),
+  taskSearch: document.querySelector("#taskSearch"),
   taskTemplate: document.querySelector("#taskTemplate"),
   taskTime: document.querySelector("#taskTime"),
   taskTitle: document.querySelector("#taskTitle"),
@@ -111,15 +127,19 @@ init();
 
 function init() {
   els.activeDate.value = activeDate;
+  els.taskSearch.value = taskSearchQuery;
+  els.archiveSearch.value = archiveSearchQuery;
   bindEvents();
   resetTaskForm();
   resetHabitForm();
   registerServiceWorker();
   updateNotificationButton();
+  updateBackupStatus();
   render();
   syncDesktopReminders();
   setInterval(checkDueNotifications, 30000);
   setInterval(syncDesktopReminders, 60000);
+  setInterval(() => createBackup({ silent: true }), BACKUP_INTERVAL_MS);
 }
 
 function bindEvents() {
@@ -141,6 +161,25 @@ function bindEvents() {
 
   els.taskCategoryFilter.addEventListener("change", () => {
     taskCategoryFilter = els.taskCategoryFilter.value || "all";
+    saveUiState();
+    renderTasks();
+  });
+
+  els.taskSearch.addEventListener("input", () => {
+    taskSearchQuery = cleanSearchQuery(els.taskSearch.value);
+    saveUiState();
+    renderTasks();
+  });
+
+  els.clearTaskSearch.addEventListener("click", () => {
+    taskFilter = "all";
+    taskCategoryFilter = "all";
+    taskSearchQuery = "";
+    els.taskSearch.value = "";
+    els.taskCategoryFilter.value = "all";
+    document.querySelectorAll("[data-task-filter]").forEach((item) => {
+      item.classList.toggle("is-active", item.dataset.taskFilter === "all");
+    });
     saveUiState();
     renderTasks();
   });
@@ -186,9 +225,27 @@ function bindEvents() {
   els.categoryForm.addEventListener("submit", saveCategoryFromForm);
   els.notifyButton.addEventListener("click", requestNotifications);
   els.exportButton.addEventListener("click", exportData);
+  els.restoreBackupButton.addEventListener("click", restoreBackup);
   els.importButton.addEventListener("click", () => els.importFile.click());
   els.importFile.addEventListener("change", importData);
-  els.clearArchiveFilter.addEventListener("click", renderArchive);
+  els.archiveSearch.addEventListener("input", () => {
+    archiveSearchQuery = cleanSearchQuery(els.archiveSearch.value);
+    saveUiState();
+    renderArchive();
+  });
+  els.archiveCategoryFilter.addEventListener("change", () => {
+    archiveCategoryFilter = els.archiveCategoryFilter.value || "all";
+    saveUiState();
+    renderArchive();
+  });
+  els.clearArchiveFilter.addEventListener("click", () => {
+    archiveSearchQuery = "";
+    archiveCategoryFilter = "all";
+    els.archiveSearch.value = "";
+    els.archiveCategoryFilter.value = "all";
+    saveUiState();
+    renderArchive();
+  });
 }
 
 function render() {
@@ -264,8 +321,9 @@ function renderTasks() {
   const tasks = getOrderedTasksForDate(activeDate);
   const visibleTasks = tasks.filter((task) => {
     const done = isTaskDone(task, activeDate);
-    const matchesCategory = taskCategoryFilter === "all" ? true : (task.categoryId || "none") === taskCategoryFilter;
+    const matchesCategory = matchesCategoryFilter(task, taskCategoryFilter);
     if (!matchesCategory) return false;
+    if (!taskMatchesSearch(task, taskSearchQuery, activeDate)) return false;
     if (taskFilter === "open") return !done;
     if (taskFilter === "done") return done;
     return true;
@@ -276,13 +334,18 @@ function renderTasks() {
 
   const doneCount = tasks.filter((task) => isTaskDone(task, activeDate)).length;
   const percent = tasks.length ? Math.round((doneCount / tasks.length) * 100) : 0;
+  const hasActiveFilters = taskFilter !== "all" || taskCategoryFilter !== "all" || taskSearchQuery;
 
-  els.taskEmpty.textContent =
-    taskCategoryFilter === "all" ? "На выбранный день задач нет." : "В этой категории на выбранный день задач нет.";
+  els.taskEmpty.textContent = tasks.length
+    ? "По текущим фильтрам задач нет."
+    : "На выбранный день задач нет.";
   els.taskEmpty.classList.toggle("is-visible", visibleTasks.length === 0);
-  els.taskCounter.textContent = `${doneCount} из ${tasks.length} выполнено`;
+  els.taskCounter.textContent = hasActiveFilters
+    ? `${visibleTasks.length} из ${tasks.length} найдено · ${doneCount} выполнено`
+    : `${doneCount} из ${tasks.length} выполнено`;
   els.taskProgress.textContent = `${percent}%`;
   els.taskProgressRing.style.setProperty("--progress", `${percent * 3.6}deg`);
+  renderExcludedTasks();
 }
 
 function createTaskNode(task) {
@@ -347,6 +410,9 @@ function createTaskNode(task) {
   });
 
   node.querySelector(".edit-task").addEventListener("click", () => fillTaskForm(task));
+  const excludeButton = node.querySelector(".exclude-task");
+  excludeButton.hidden = task.repeat === "none";
+  excludeButton.addEventListener("click", () => excludeTaskDate(task, activeDate));
   node.querySelector(".delete-task").addEventListener("click", () => {
     state.tasks = state.tasks.filter((item) => item.id !== task.id);
     Object.keys(state.taskOrder).forEach((dateKey) => {
@@ -357,6 +423,54 @@ function createTaskNode(task) {
   });
 
   return node;
+}
+
+function renderExcludedTasks() {
+  const excludedTasks = excludedTasksForDate(activeDate);
+  els.excludedList.replaceChildren();
+  els.excludedPanel.classList.toggle("is-visible", excludedTasks.length > 0);
+
+  excludedTasks.forEach((task) => {
+    const node = document.createElement("article");
+    node.className = "excluded-item";
+    const details = taskDetails(task).filter((detail) => detail !== repeatLabels[task.repeat]);
+    node.innerHTML = `
+      <div>
+        <h3>${escapeHtml(task.title)}</h3>
+        <p>${escapeHtml(repeatLabels[task.repeat] || "Повтор")} · ${escapeHtml(details.join(" · ") || "Без категории")}</p>
+      </div>
+      <button class="ghost-button compact-button restore-excluded" type="button">Вернуть в день</button>
+    `;
+
+    node.querySelector(".restore-excluded").addEventListener("click", () => {
+      restoreTaskDate(task, activeDate);
+    });
+
+    els.excludedList.appendChild(node);
+  });
+}
+
+function excludeTaskDate(task, dateKey) {
+  if (task.repeat === "none") return;
+  task.excludedDates = task.excludedDates || {};
+  task.excludedDates[dateKey] = true;
+  delete task.completed?.[dateKey];
+  delete task.notified?.[dateKey];
+  if (Array.isArray(state.taskOrder[dateKey])) {
+    state.taskOrder[dateKey] = state.taskOrder[dateKey].filter((id) => id !== task.id);
+  }
+  saveState();
+  render();
+  showToast("Повтор исключен на выбранный день");
+}
+
+function restoreTaskDate(task, dateKey) {
+  if (task.excludedDates) {
+    delete task.excludedDates[dateKey];
+  }
+  saveState();
+  render();
+  showToast("Повтор возвращен в план");
 }
 
 function renderHabits() {
@@ -494,9 +608,15 @@ function renderHeatmap() {
 }
 
 function renderArchive() {
-  const entries = archiveEntries();
+  const allEntries = archiveEntries();
+  const entries = allEntries.filter((entry) => {
+    return matchesCategoryFilter(entry.task, archiveCategoryFilter) && archiveEntryMatchesSearch(entry, archiveSearchQuery);
+  });
   els.archiveList.replaceChildren();
   entries.forEach((entry) => els.archiveList.appendChild(createArchiveNode(entry)));
+  els.archiveEmpty.textContent = allEntries.length
+    ? "По текущим фильтрам записей нет."
+    : "Завершенных задач пока нет.";
   els.archiveEmpty.classList.toggle("is-visible", entries.length === 0);
 }
 
@@ -530,6 +650,7 @@ function createArchiveNode(entry) {
 function renderCategories() {
   els.taskCategoryId.replaceChildren();
   els.taskCategoryFilter.replaceChildren();
+  els.archiveCategoryFilter.replaceChildren();
 
   const emptyOption = document.createElement("option");
   emptyOption.value = "";
@@ -541,10 +662,16 @@ function renderCategories() {
   allOption.textContent = "Все категории";
   els.taskCategoryFilter.appendChild(allOption);
 
+  const archiveAllOption = allOption.cloneNode(true);
+  els.archiveCategoryFilter.appendChild(archiveAllOption);
+
   const uncategorizedOption = document.createElement("option");
   uncategorizedOption.value = "none";
   uncategorizedOption.textContent = "Без категории";
   els.taskCategoryFilter.appendChild(uncategorizedOption);
+
+  const archiveUncategorizedOption = uncategorizedOption.cloneNode(true);
+  els.archiveCategoryFilter.appendChild(archiveUncategorizedOption);
 
   const categories = [...state.categories].sort((a, b) => a.name.localeCompare(b.name, "ru"));
 
@@ -558,6 +685,9 @@ function renderCategories() {
     filterOption.value = category.id;
     filterOption.textContent = category.name;
     els.taskCategoryFilter.appendChild(filterOption);
+
+    const archiveFilterOption = filterOption.cloneNode(true);
+    els.archiveCategoryFilter.appendChild(archiveFilterOption);
   });
 
   const filterExists = taskCategoryFilter === "all" || taskCategoryFilter === "none" || categories.some((category) => category.id === taskCategoryFilter);
@@ -565,7 +695,14 @@ function renderCategories() {
     taskCategoryFilter = "all";
     saveUiState();
   }
+  const archiveFilterExists =
+    archiveCategoryFilter === "all" || archiveCategoryFilter === "none" || categories.some((category) => category.id === archiveCategoryFilter);
+  if (!archiveFilterExists) {
+    archiveCategoryFilter = "all";
+    saveUiState();
+  }
   els.taskCategoryFilter.value = taskCategoryFilter;
+  els.archiveCategoryFilter.value = archiveCategoryFilter;
 
   els.categoryList.replaceChildren();
   categories.forEach((category) => {
@@ -597,6 +734,7 @@ function saveTaskFromForm(event) {
     repeat: els.taskRepeat.value,
     reminderOffset: els.taskReminder.value,
     completed: existing?.completed || {},
+    excludedDates: existing?.excludedDates || {},
     notified: existing?.notified || {},
     createdAt: existing?.createdAt || new Date().toISOString(),
   };
@@ -719,6 +857,7 @@ function deleteCategory(categoryId) {
     });
   }
   if (taskCategoryFilter === categoryId) taskCategoryFilter = "all";
+  if (archiveCategoryFilter === categoryId) archiveCategoryFilter = "all";
   saveState();
   saveUiState();
   render();
@@ -731,6 +870,7 @@ function exportData() {
     exportedAt: new Date().toISOString(),
     state,
   };
+  createBackup({ payload, silent: true });
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -753,6 +893,7 @@ async function importData() {
     const importedState = normalizeState(parsed.state || parsed);
     replaceState(importedState);
     saveState();
+    createBackup({ silent: true });
     render();
     showToast("Данные импортированы");
   } catch {
@@ -768,7 +909,10 @@ function tasksForDate(dateKey) {
 
 function getOrderedTasksForDate(dateKey) {
   const tasks = tasksForDate(dateKey);
-  const order = state.taskOrder[dateKey] || [];
+  const taskIds = new Set(tasks.map((task) => task.id));
+  const order = Array.isArray(state.taskOrder[dateKey])
+    ? state.taskOrder[dateKey].filter((id) => taskIds.has(id))
+    : [];
   const orderMap = new Map(order.map((id, index) => [id, index]));
 
   return tasks.sort((a, b) => {
@@ -787,6 +931,10 @@ function reorderTask(dateKey, sourceId, targetId) {
 }
 
 function taskOccursOn(task, dateKey) {
+  return taskScheduledOn(task, dateKey) && !isTaskExcluded(task, dateKey);
+}
+
+function taskScheduledOn(task, dateKey) {
   if (task.repeat === "none") return task.date === dateKey;
   const date = parseDate(dateKey);
   const start = parseDate(task.date);
@@ -810,6 +958,16 @@ function taskOccursOn(task, dateKey) {
     return date.getDate() === start.getDate() && date.getMonth() === start.getMonth();
   }
   return false;
+}
+
+function isTaskExcluded(task, dateKey) {
+  return task.excludedDates?.[dateKey] === true;
+}
+
+function excludedTasksForDate(dateKey) {
+  return state.tasks
+    .filter((task) => task.repeat !== "none" && taskScheduledOn(task, dateKey) && isTaskExcluded(task, dateKey))
+    .sort(sortTasks);
 }
 
 function habitsForDate(dateKey) {
@@ -866,14 +1024,19 @@ function habitStreak(habit, dateKey = toDateKey(new Date())) {
 }
 
 function sortTasks(a, b, orderMap = new Map()) {
-  const manualDiff = (orderMap.get(a.id) ?? Infinity) - (orderMap.get(b.id) ?? Infinity);
+  const manualRankA = orderMap.get(a.id);
+  const manualRankB = orderMap.get(b.id);
+  const hasManualOrder = manualRankA !== undefined || manualRankB !== undefined;
   const priorityWeight = { high: 0, medium: 1, low: 2 };
   const priorityDiff = (priorityWeight[a.priority] ?? 1) - (priorityWeight[b.priority] ?? 1);
   const timeDiff = timeValue(a.time).localeCompare(timeValue(b.time));
   const categoryDiff = categoryLabel(a).localeCompare(categoryLabel(b), "ru");
 
+  if (hasManualOrder) {
+    const manualDiff = (manualRankA ?? Number.MAX_SAFE_INTEGER) - (manualRankB ?? Number.MAX_SAFE_INTEGER);
+    if (manualDiff !== 0) return manualDiff;
+  }
   if (priorityDiff !== 0) return priorityDiff;
-  if (manualDiff !== 0) return manualDiff;
   if (timeDiff !== 0) return timeDiff;
   return categoryDiff;
 }
@@ -886,6 +1049,39 @@ function taskDetails(task) {
   if (task.repeat !== "none") details.push(repeatLabels[task.repeat]);
   if (task.time && task.reminderOffset !== "none") details.push(reminderLabel(task.reminderOffset));
   return details;
+}
+
+function matchesCategoryFilter(task, filter) {
+  return filter === "all" ? true : (task.categoryId || "none") === filter;
+}
+
+function taskMatchesSearch(task, query, dateKey = "") {
+  const search = cleanSearchQuery(query);
+  if (!search) return true;
+
+  const category = getCategory(task.categoryId);
+  const haystack = [
+    task.title,
+    category?.name,
+    priorityLabels[task.priority],
+    repeatLabels[task.repeat],
+    task.time,
+    dateKey,
+    dateKey ? formatLongDate(dateKey) : "",
+    task.reminderOffset !== "none" ? reminderLabel(task.reminderOffset) : "",
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return search.split(" ").every((token) => haystack.includes(token));
+}
+
+function archiveEntryMatchesSearch(entry, query) {
+  const search = cleanSearchQuery(query);
+  if (!search) return true;
+
+  return taskMatchesSearch(entry.task, search, entry.dateKey);
 }
 
 function taskMetaMarkup(task) {
@@ -1055,7 +1251,7 @@ function candidateReminderDates(task, now) {
 }
 
 function getDueDate(task, dateKey) {
-  const [hours, minutes] = (task.time || "09:00").split(":").map(Number);
+  const [hours, minutes] = (cleanTimeValue(task.time) || "09:00").split(":").map(Number);
   const date = parseDate(dateKey);
   date.setHours(hours || 0, minutes || 0, 0, 0);
   return date;
@@ -1063,9 +1259,11 @@ function getDueDate(task, dateKey) {
 
 function getReminderDate(task, dateKey) {
   if (!task.time || task.reminderOffset === "none") return null;
+  const offset = Number(task.reminderOffset || 0);
+  if (!Number.isFinite(offset)) return null;
   const due = getDueDate(task, dateKey);
   const reminder = new Date(due);
-  reminder.setMinutes(due.getMinutes() - Number(task.reminderOffset || 0));
+  reminder.setMinutes(due.getMinutes() - offset);
   return reminder;
 }
 
@@ -1094,12 +1292,36 @@ function loadUiState() {
 }
 
 function saveUiState() {
-  localStorage.setItem(UI_STATE_KEY, JSON.stringify({ taskCategoryFilter }));
+  localStorage.setItem(
+    UI_STATE_KEY,
+    JSON.stringify({
+      archiveCategoryFilter,
+      archiveSearchQuery,
+      taskCategoryFilter,
+      taskSearchQuery,
+    }),
+  );
+}
+
+function cleanSearchQuery(value) {
+  return cleanText(value).toLowerCase();
 }
 
 function cleanTimeValue(value) {
   const time = String(value || "").trim();
-  return /^\d{2}:\d{2}$/.test(time) ? time : "";
+  const match = /^(\d{1,2}):(\d{2})$/.exec(time);
+  if (!match) return "";
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (!Number.isInteger(hours) || !Number.isInteger(minutes)) return "";
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return "";
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+function normalizeReminderOffset(value, hasTime = true) {
+  const offset = String(value ?? (hasTime ? "15" : "none"));
+  if (VALID_REMINDER_OFFSETS.includes(offset)) return offset;
+  return hasTime ? "15" : "none";
 }
 
 function syncTaskTimePresets() {
@@ -1148,36 +1370,47 @@ function normalizeState(raw) {
   };
 
   normalized.tasks = Array.isArray(raw.tasks)
-    ? raw.tasks.map((task) => ({
-        id: task.id || createId(),
-        title: cleanText(task.title) || "Задача",
-        date: task.date || toDateKey(new Date()),
-        time: cleanTimeValue(task.time),
-        categoryId: task.categoryId || ensureCategory(task.category),
-        priority: VALID_PRIORITIES.includes(task.priority) ? task.priority : "medium",
-        repeat: VALID_REPEATS.includes(task.repeat) ? task.repeat : "none",
-        reminderOffset: task.reminderOffset ?? (task.time ? "15" : "none"),
-        completed: task.completed && typeof task.completed === "object" ? task.completed : {},
-        notified: task.notified && typeof task.notified === "object" ? task.notified : {},
-        createdAt: task.createdAt || new Date().toISOString(),
-      }))
+    ? raw.tasks.map((task) => {
+        const time = cleanTimeValue(task.time);
+        const categoryId = normalized.categories.some((category) => category.id === task.categoryId)
+          ? task.categoryId
+          : ensureCategory(task.category);
+
+        return {
+          id: task.id || createId(),
+          title: cleanText(task.title) || "Задача",
+          date: normalizeDateKey(task.date),
+          time,
+          categoryId,
+          priority: VALID_PRIORITIES.includes(task.priority) ? task.priority : "medium",
+          repeat: VALID_REPEATS.includes(task.repeat) ? task.repeat : "none",
+          reminderOffset: normalizeReminderOffset(task.reminderOffset, Boolean(time)),
+          completed: normalizeTaskFlags(task.completed),
+          excludedDates: normalizeTaskFlags(task.excludedDates),
+          notified: normalizeTaskFlags(task.notified),
+          createdAt: task.createdAt || new Date().toISOString(),
+        };
+      })
     : [];
 
   normalized.habits = Array.isArray(raw.habits)
-    ? raw.habits.map((habit) => ({
-        id: habit.id || createId(),
-        title: cleanText(habit.title) || "Привычка",
-        type: habit.type === "number" ? "number" : "check",
-        repeat: normalizeHabitRepeat(habit.repeat),
-        startDate: habit.startDate || toDateKey(new Date(habit.createdAt || Date.now())),
-        unit: cleanText(habit.unit),
-        goal: Math.max(1, Number(habit.goal || 1)),
-        logs: habit.logs && typeof habit.logs === "object" ? habit.logs : {},
-        createdAt: habit.createdAt || new Date().toISOString(),
-      }))
+    ? raw.habits.map((habit) => {
+        const type = habit.type === "number" ? "number" : "check";
+        return {
+          id: habit.id || createId(),
+          title: cleanText(habit.title) || "Привычка",
+          type,
+          repeat: normalizeHabitRepeat(habit.repeat),
+          startDate: normalizeDateKey(habit.startDate, toDateKey(new Date(habit.createdAt || Date.now()))),
+          unit: cleanText(habit.unit),
+          goal: Math.max(1, Number(habit.goal || 1)),
+          logs: normalizeHabitLogs(habit.logs, type),
+          createdAt: habit.createdAt || new Date().toISOString(),
+        };
+      })
     : [];
 
-  normalized.taskOrder = raw.taskOrder && typeof raw.taskOrder === "object" ? raw.taskOrder : {};
+  normalized.taskOrder = normalizeTaskOrder(raw.taskOrder);
   return normalized;
 }
 
@@ -1188,7 +1421,76 @@ function replaceState(nextState) {
 function saveState() {
   state.schemaVersion = SCHEMA_VERSION;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  createBackup({ silent: true, throttle: true });
   syncDesktopReminders();
+}
+
+function createBackup({ payload = null, silent = false, throttle = false } = {}) {
+  const now = Date.now();
+  if (throttle && now - lastBackupAt < 60000) return;
+
+  const backup = payload || {
+    app: "Ритм дня",
+    schemaVersion: SCHEMA_VERSION,
+    exportedAt: new Date(now).toISOString(),
+    state,
+  };
+
+  try {
+    localStorage.setItem(BACKUP_KEY, JSON.stringify(backup));
+    lastBackupAt = now;
+    updateBackupStatus();
+    if (!silent) showToast("Локальный бэкап обновлен");
+  } catch {
+    if (!silent) showToast("Не удалось создать бэкап");
+  }
+}
+
+function restoreBackup() {
+  const backup = loadBackup();
+  if (!backup) {
+    showToast("Локальный бэкап пока не найден");
+    return;
+  }
+
+  const backupDate = backup.exportedAt ? formatBackupDate(backup.exportedAt) : "без даты";
+  const confirmed = window.confirm(`Восстановить данные из локального бэкапа (${backupDate})? Текущий план будет заменен.`);
+  if (!confirmed) return;
+
+  replaceState(backup.state || backup);
+  saveState();
+  render();
+  showToast("Данные восстановлены из бэкапа");
+}
+
+function loadBackup() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(BACKUP_KEY));
+    if (!parsed || typeof parsed !== "object") return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function updateBackupStatus() {
+  const backup = loadBackup();
+  if (!backup?.exportedAt) {
+    els.backupStatus.textContent = "Бэкап еще не создан";
+    return;
+  }
+  els.backupStatus.textContent = `Бэкап: ${formatBackupDate(backup.exportedAt)}`;
+}
+
+function formatBackupDate(value) {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "без даты";
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
 }
 
 function seedIfEmpty() {
@@ -1314,14 +1616,75 @@ function getWeekDates(dateKey) {
 }
 
 function parseDate(dateKey) {
-  const [year, month, day] = dateKey.split("-").map(Number);
+  const [year, month, day] = normalizeDateKey(dateKey).split("-").map(Number);
   return new Date(year, month - 1, day);
 }
 
+function normalizeDateKey(value, fallback = toDateKey(new Date())) {
+  const dateKey = String(value || "").trim();
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey);
+  if (!match) return fallback;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+  const isValid =
+    date.getFullYear() === year &&
+    date.getMonth() === month - 1 &&
+    date.getDate() === day;
+
+  return isValid ? dateKey : fallback;
+}
+
+function normalizeTaskFlags(value) {
+  const flags = {};
+  if (!value || typeof value !== "object" || Array.isArray(value)) return flags;
+
+  Object.entries(value).forEach(([dateKey, done]) => {
+    const normalizedDate = normalizeDateKey(dateKey, "");
+    if (normalizedDate && done === true) flags[normalizedDate] = true;
+  });
+
+  return flags;
+}
+
+function normalizeHabitLogs(value, type) {
+  const logs = {};
+  if (!value || typeof value !== "object" || Array.isArray(value)) return logs;
+
+  Object.entries(value).forEach(([dateKey, entry]) => {
+    const normalizedDate = normalizeDateKey(dateKey, "");
+    if (!normalizedDate) return;
+    if (type === "number") {
+      const amount = Number(entry);
+      if (Number.isFinite(amount) && amount > 0) logs[normalizedDate] = amount;
+      return;
+    }
+    if (entry === true) logs[normalizedDate] = true;
+  });
+
+  return logs;
+}
+
+function normalizeTaskOrder(value) {
+  const taskOrder = {};
+  if (!value || typeof value !== "object" || Array.isArray(value)) return taskOrder;
+
+  Object.entries(value).forEach(([dateKey, ids]) => {
+    const normalizedDate = normalizeDateKey(dateKey, "");
+    if (!normalizedDate || !Array.isArray(ids)) return;
+    taskOrder[normalizedDate] = [...new Set(ids.map((id) => String(id || "")).filter(Boolean))];
+  });
+
+  return taskOrder;
+}
+
 function toDateKey(date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
+  const safeDate = date instanceof Date && Number.isFinite(date.getTime()) ? date : new Date();
+  const year = safeDate.getFullYear();
+  const month = String(safeDate.getMonth() + 1).padStart(2, "0");
+  const day = String(safeDate.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
 
