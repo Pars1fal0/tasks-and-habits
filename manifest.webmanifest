@@ -1,0 +1,18 @@
+{
+  "name": "Ритм дня",
+  "short_name": "Ритм",
+  "description": "Локальный трекер задач и привычек",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#090d10",
+  "theme_color": "#090d10",
+  "lang": "ru",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

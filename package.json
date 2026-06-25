@@ -1,0 +1,54 @@
+{
+  "name": "rhythm-day",
+  "version": "0.4.0",
+  "private": true,
+  "description": "Локальный десктопный трекер задач и привычек",
+  "main": "desktop/main.cjs",
+  "scripts": {
+    "desktop": "electron .",
+    "desktop:smoke": "electron . --smoke-test",
+    "build:win": "electron-builder --win portable nsis",
+    "pack:win": "electron-builder --win portable"
+  },
+  "build": {
+    "appId": "local.rhythm-day.tracker",
+    "productName": "Ритм дня",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "app.js",
+      "desktop/**/*",
+      "icon.svg",
+      "index.html",
+      "manifest.webmanifest",
+      "styles.css",
+      "sw.js"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "allowToChangeInstallationDirectory": true,
+      "oneClick": false,
+      "perMachine": false
+    }
+  },
+  "devDependencies": {
+    "electron": "^42.5.0",
+    "electron-builder": "^26.0.12"
+  }
+}

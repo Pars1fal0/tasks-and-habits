@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#090d10">
+    <title>Ритм дня</title>
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="stylesheet" href="styles.css?v=8">
+  </head>
+  <body>
+    <svg class="icon-sprite" aria-hidden="true">
+      <symbol id="icon-archive" viewBox="0 0 24 24"><path d="M4 7h16v13H4V7Z"/><path d="M3 4h18v3H3V4Z"/><path d="M9 11h6"/></symbol>
+      <symbol id="icon-bell" viewBox="0 0 24 24"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z"/><path d="M10 21h4"/></symbol>
+      <symbol id="icon-calendar" viewBox="0 0 24 24"><path d="M5 4h14a2 2 0 0 1 2 2v14H3V6a2 2 0 0 1 2-2Z"/><path d="M8 2v4M16 2v4M3 10h18"/></symbol>
+      <symbol id="icon-category" viewBox="0 0 24 24"><path d="M4 5h7v7H4V5ZM13 5h7v7h-7V5ZM4 14h7v5H4v-5ZM13 14h7v5h-7v-5Z"/></symbol>
+      <symbol id="icon-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+      <symbol id="icon-chevron-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+      <symbol id="icon-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+      <symbol id="icon-clock" viewBox="0 0 24 24"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z"/><path d="M12 7v5l3 2"/></symbol>
+      <symbol id="icon-download" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></symbol>
+      <symbol id="icon-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4Z"/><path d="m13 7 4 4"/></symbol>
+      <symbol id="icon-flame" viewBox="0 0 24 24"><path d="M12 22c4 0 7-3 7-7 0-4-3-7-4-12-4 3-7 6-7 10 0 2 1 4 3 5-1-4 1-6 3-8 0 4 2 5 2 8 0 2-2 4-4 4Z"/></symbol>
+      <symbol id="icon-grip" viewBox="0 0 24 24"><path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01"/></symbol>
+      <symbol id="icon-habit" viewBox="0 0 24 24"><path d="M7 12a5 5 0 0 1 10 0v6H7v-6Z"/><path d="M9 9V6a3 3 0 0 1 6 0v3"/></symbol>
+      <symbol id="icon-heat" viewBox="0 0 24 24"><path d="M4 4h4v4H4V4ZM10 4h4v4h-4V4ZM16 4h4v4h-4V4ZM4 10h4v4H4v-4ZM10 10h4v4h-4v-4ZM16 10h4v4h-4v-4ZM4 16h4v4H4v-4ZM10 16h4v4h-4v-4ZM16 16h4v4h-4v-4Z"/></symbol>
+      <symbol id="icon-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 7v5l3 2"/></symbol>
+      <symbol id="icon-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="icon-tasks" viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12"/><path d="m3 6 1 1 2-2M3 12l1 1 2-2M3 18l1 1 2-2"/></symbol>
+      <symbol id="icon-trash" viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/><path d="M10 11v5M14 11v5"/></symbol>
+      <symbol id="icon-upload" viewBox="0 0 24 24"><path d="M12 21V9"/><path d="m7 14 5-5 5 5"/><path d="M5 4h14"/></symbol>
+    </svg>
+
+    <div class="ambient-grid" aria-hidden="true"></div>
+
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Навигация">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">R</div>
+          <div>
+            <div class="brand-title">Ритм дня</div>
+            <div class="brand-subtitle">Локальный трекер</div>
+          </div>
+        </div>
+
+        <nav class="nav-tabs" aria-label="Разделы">
+          <button class="nav-tab is-active" data-view="tasks" type="button" aria-current="page">
+            <svg class="ui-icon"><use href="#icon-tasks"></use></svg>
+            <span>Задачи</span>
+          </button>
+          <button class="nav-tab" data-view="habits" type="button">
+            <svg class="ui-icon"><use href="#icon-habit"></use></svg>
+            <span>Привычки</span>
+          </button>
+          <button class="nav-tab" data-view="overview" type="button">
+            <svg class="ui-icon"><use href="#icon-heat"></use></svg>
+            <span>Обзор</span>
+          </button>
+          <button class="nav-tab" data-view="archive" type="button">
+            <svg class="ui-icon"><use href="#icon-archive"></use></svg>
+            <span>Архив</span>
+          </button>
+        </nav>
+
+        <div class="sidebar-pulse">
+          <span class="metric-label">Пульс дня</span>
+          <strong id="sideProgressValue">0%</strong>
+          <div class="mini-meter" aria-hidden="true">
+            <span id="sideProgressBar"></span>
+          </div>
+        </div>
+
+        <div class="data-actions">
+          <button class="ghost-button icon-text-button" id="exportButton" type="button">
+            <svg class="ui-icon"><use href="#icon-download"></use></svg>
+            Экспорт
+          </button>
+          <button class="ghost-button icon-text-button" id="importButton" type="button">
+            <svg class="ui-icon"><use href="#icon-upload"></use></svg>
+            Импорт
+          </button>
+          <input id="importFile" type="file" accept="application/json,.json" hidden>
+        </div>
+
+        <div class="sidebar-footer">
+          <button class="ghost-button icon-text-button" id="notifyButton" type="button">
+            <svg class="ui-icon"><use href="#icon-bell"></use></svg>
+            Уведомления
+          </button>
+          <div class="storage-note" id="desktopStatus">Данные на этом устройстве</div>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div class="title-block">
+            <p class="eyebrow" id="todayLabel"></p>
+            <h1 id="pageTitle">Задачи на день</h1>
+          </div>
+
+          <div class="date-control" aria-label="Дата">
+            <button class="icon-button" id="prevDay" type="button" aria-label="Предыдущий день">
+              <svg class="ui-icon"><use href="#icon-chevron-left"></use></svg>
+            </button>
+            <input id="activeDate" type="date" aria-label="Выбранная дата">
+            <button class="icon-button" id="nextDay" type="button" aria-label="Следующий день">
+              <svg class="ui-icon"><use href="#icon-chevron-right"></use></svg>
+            </button>
+          </div>
+        </header>
+
+        <section class="focus-board" aria-label="Состояние дня">
+          <article class="focus-card">
+            <div class="focus-copy">
+              <span class="metric-label">Следующее действие</span>
+              <strong id="focusTitle">План загружается</strong>
+              <p id="focusMeta"></p>
+            </div>
+            <div class="focus-progress" aria-label="Прогресс дня">
+              <span id="focusPercent">0%</span>
+              <div class="focus-bar" aria-hidden="true">
+                <span id="focusBar"></span>
+              </div>
+            </div>
+          </article>
+
+          <article class="stat-card stat-card-cool">
+            <span class="metric-label">Открыто</span>
+            <strong id="todayOpenMetric">0</strong>
+          </article>
+          <article class="stat-card stat-card-warm">
+            <span class="metric-label">Готово</span>
+            <strong id="todayDoneMetric">0</strong>
+          </article>
+          <article class="stat-card stat-card-bright">
+            <span class="metric-label">Привычки</span>
+            <strong id="habitDoneMetric">0/0</strong>
+          </article>
+        </section>
+
+        <section class="view is-active" id="tasksView" aria-labelledby="tasksHeading">
+          <div class="toolbar">
+            <div class="task-toolbar-meta">
+              <div class="filter-group" aria-label="Фильтр задач">
+                <button class="chip is-active" data-task-filter="all" type="button">Все</button>
+                <button class="chip" data-task-filter="open" type="button">Активные</button>
+                <button class="chip" data-task-filter="done" type="button">Готовые</button>
+              </div>
+              <label class="sort-control">
+                <span>Категория</span>
+                <select id="taskCategoryFilter" aria-label="Фильтр задач по категории">
+                  <option value="all">Все категории</option>
+                </select>
+              </label>
+            </div>
+            <button class="primary-button icon-text-button" id="openTaskForm" type="button">
+              <svg class="ui-icon"><use href="#icon-plus"></use></svg>
+              Новая задача
+            </button>
+          </div>
+
+          <div class="split-layout">
+            <section class="panel main-panel" aria-labelledby="tasksHeading">
+              <div class="panel-heading">
+                <div>
+                  <h2 id="tasksHeading">Лента задач</h2>
+                  <p id="taskCounter"></p>
+                </div>
+                <div class="completion-ring" id="taskProgressRing" aria-label="Выполнение задач">
+                  <span id="taskProgress">0%</span>
+                </div>
+              </div>
+              <div class="task-list" id="taskList"></div>
+              <div class="empty-state" id="taskEmpty">На выбранный день задач нет.</div>
+            </section>
+
+            <aside class="right-rail">
+              <section class="panel form-panel" id="taskFormPanel" aria-labelledby="taskFormHeading">
+                <div class="panel-heading compact">
+                  <div>
+                    <span class="metric-label">Создание</span>
+                    <h2 id="taskFormHeading">Задача</h2>
+                  </div>
+                  <button class="icon-button subtle" id="closeTaskForm" type="button" aria-label="Закрыть форму">×</button>
+                </div>
+                <form id="taskForm" class="stack-form">
+                  <input type="hidden" id="taskId">
+                  <label>
+                    Название
+                    <input id="taskTitle" type="text" maxlength="80" required placeholder="Например: закрыть отчет">
+                  </label>
+                  <div class="deadline-card">
+                    <div class="deadline-title">
+                      <svg class="ui-icon"><use href="#icon-clock"></use></svg>
+                      Дедлайн
+                    </div>
+                    <div class="form-grid">
+                      <label>
+                        Дата
+                        <input id="taskDate" type="date" required>
+                      </label>
+                      <label>
+                        Время
+                        <input id="taskTime" type="time" step="300">
+                      </label>
+                    </div>
+                    <div class="time-presets" aria-label="Быстрый выбор времени">
+                      <button class="time-preset" data-time-preset="08:00" type="button">08:00</button>
+                      <button class="time-preset" data-time-preset="09:00" type="button">09:00</button>
+                      <button class="time-preset" data-time-preset="10:00" type="button">10:00</button>
+                      <button class="time-preset" data-time-preset="12:00" type="button">12:00</button>
+                      <button class="time-preset" data-time-preset="15:00" type="button">15:00</button>
+                      <button class="time-preset" data-time-preset="18:00" type="button">18:00</button>
+                      <button class="time-preset" data-time-preset="21:00" type="button">21:00</button>
+                      <button class="time-preset time-preset-clear" data-time-preset="" type="button">Без времени</button>
+                    </div>
+                    <label>
+                      Напомнить
+                      <select id="taskReminder">
+                        <option value="none">Не напоминать</option>
+                        <option value="0">В момент дедлайна</option>
+                        <option value="5">За 5 минут</option>
+                        <option value="15" selected>За 15 минут</option>
+                        <option value="30">За 30 минут</option>
+                        <option value="60">За 1 час</option>
+                        <option value="1440">За день</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div class="form-grid">
+                    <label>
+                      Категория
+                      <select id="taskCategoryId"></select>
+                    </label>
+                    <label>
+                      Приоритет
+                      <select id="taskPriority">
+                        <option value="high">Высокий</option>
+                        <option value="medium" selected>Средний</option>
+                        <option value="low">Низкий</option>
+                      </select>
+                    </label>
+                  </div>
+                  <label>
+                    Повтор
+                    <select id="taskRepeat">
+                      <option value="none">Без повтора</option>
+                      <option value="daily">Каждый день</option>
+                      <option value="every2days">Каждые 2 дня</option>
+                      <option value="every3days">Каждые 3 дня</option>
+                      <option value="weekdays">По будням</option>
+                      <option value="weekends">По выходным</option>
+                      <option value="weekly">Каждую неделю</option>
+                      <option value="monthly">Каждый месяц</option>
+                      <option value="yearly">Каждый год</option>
+                    </select>
+                  </label>
+                  <div class="form-actions">
+                    <button class="primary-button" type="submit">Сохранить</button>
+                    <button class="ghost-button" id="resetTaskForm" type="button">Очистить</button>
+                  </div>
+                </form>
+              </section>
+
+              <section class="panel categories-panel" aria-labelledby="categoriesHeading">
+                <div class="panel-heading compact">
+                  <div>
+                    <span class="metric-label">Справочник</span>
+                    <h2 id="categoriesHeading">Категории</h2>
+                  </div>
+                </div>
+                <form id="categoryForm" class="category-form">
+                  <input id="categoryName" type="text" maxlength="28" placeholder="Новая категория" required>
+                  <input id="categoryColor" type="color" value="#00a78e" aria-label="Цвет категории">
+                  <button class="icon-button" type="submit" aria-label="Добавить категорию">
+                    <svg class="ui-icon"><use href="#icon-plus"></use></svg>
+                  </button>
+                </form>
+                <div class="category-list" id="categoryList"></div>
+              </section>
+            </aside>
+          </div>
+        </section>
+
+        <section class="view" id="habitsView" aria-labelledby="habitsHeading">
+          <div class="toolbar">
+            <div>
+              <h2 id="habitsHeading">Привычки</h2>
+              <p class="muted">Серии считаются по выполненным дням.</p>
+            </div>
+            <button class="primary-button icon-text-button" id="openHabitForm" type="button">
+              <svg class="ui-icon"><use href="#icon-plus"></use></svg>
+              Новая привычка
+            </button>
+          </div>
+
+          <div class="split-layout">
+            <section class="panel main-panel">
+              <div class="habit-list" id="habitList"></div>
+              <div class="empty-state" id="habitEmpty">Добавь первую привычку.</div>
+            </section>
+
+            <aside class="right-rail">
+              <section class="panel form-panel" id="habitFormPanel" aria-labelledby="habitFormHeading">
+                <div class="panel-heading compact">
+                  <div>
+                    <span class="metric-label">Настройка</span>
+                    <h2 id="habitFormHeading">Привычка</h2>
+                  </div>
+                  <button class="icon-button subtle" id="closeHabitForm" type="button" aria-label="Закрыть форму">×</button>
+                </div>
+                <form id="habitForm" class="stack-form">
+                  <input type="hidden" id="habitId">
+                  <label>
+                    Название
+                    <input id="habitTitle" type="text" maxlength="80" required placeholder="Например: вода">
+                  </label>
+                  <div class="form-grid">
+                    <label>
+                      Тип
+                      <select id="habitType">
+                        <option value="check">Галочка</option>
+                        <option value="number">Число и цель</option>
+                      </select>
+                    </label>
+                    <label>
+                      Повтор
+                      <select id="habitRepeat">
+                        <option value="daily">Каждый день</option>
+                        <option value="every2days">Каждые 2 дня</option>
+                        <option value="every3days">Каждые 3 дня</option>
+                        <option value="weekdays">По будням</option>
+                        <option value="weekends">По выходным</option>
+                        <option value="weekly">Раз в неделю</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div class="form-grid">
+                    <label>
+                      Единица
+                      <input id="habitUnit" type="text" maxlength="12" placeholder="мл">
+                    </label>
+                    <label>
+                      Цель в день
+                      <input id="habitGoal" type="number" min="1" step="1" placeholder="2000">
+                    </label>
+                  </div>
+                  <div class="form-actions">
+                    <button class="primary-button" type="submit">Сохранить</button>
+                    <button class="ghost-button" id="resetHabitForm" type="button">Очистить</button>
+                  </div>
+                </form>
+              </section>
+            </aside>
+          </div>
+        </section>
+
+        <section class="view" id="overviewView" aria-labelledby="overviewHeading">
+          <div class="toolbar">
+            <div>
+              <h2 id="overviewHeading">Обзор недели</h2>
+              <p class="muted">Сводка по задачам и привычкам вокруг выбранной даты.</p>
+            </div>
+          </div>
+          <div class="overview-grid">
+            <section class="panel metric-panel metric-panel-dark">
+              <span class="metric-label">Задачи</span>
+              <strong id="weeklyTaskMetric">0%</strong>
+              <p id="weeklyTaskText"></p>
+            </section>
+            <section class="panel metric-panel metric-panel-light">
+              <span class="metric-label">Привычки</span>
+              <strong id="weeklyHabitMetric">0%</strong>
+              <p id="weeklyHabitText"></p>
+            </section>
+            <section class="panel week-panel">
+              <h2>Неделя</h2>
+              <div class="week-strip" id="weekStrip"></div>
+            </section>
+            <section class="panel heatmap-panel">
+              <div class="panel-heading compact">
+                <div>
+                  <span class="metric-label">Календарь</span>
+                  <h2>Heatmap</h2>
+                </div>
+                <div class="heatmap-legend">
+                  <span>Задачи</span>
+                  <span>Привычки</span>
+                </div>
+              </div>
+              <div class="heatmap-grid" id="heatmapGrid"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="archiveView" aria-labelledby="archiveHeading">
+          <div class="toolbar">
+            <div>
+              <h2 id="archiveHeading">Архив</h2>
+              <p class="muted">История завершенных задач.</p>
+            </div>
+            <button class="ghost-button icon-text-button" id="clearArchiveFilter" type="button">
+              <svg class="ui-icon"><use href="#icon-history"></use></svg>
+              Все записи
+            </button>
+          </div>
+          <section class="panel main-panel">
+            <div class="archive-list" id="archiveList"></div>
+            <div class="empty-state" id="archiveEmpty">Завершенных задач пока нет.</div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <div class="toast" id="appToast" role="status" aria-live="polite"></div>
+
+    <template id="taskTemplate">
+      <article class="task-item" draggable="true">
+        <div class="task-accent" aria-hidden="true"></div>
+        <button class="drag-handle" type="button" aria-label="Перетащить задачу">
+          <svg class="ui-icon"><use href="#icon-grip"></use></svg>
+        </button>
+        <button class="check-button" type="button" aria-label="Отметить задачу"></button>
+        <div class="task-content">
+          <div class="task-row">
+            <h3></h3>
+            <span class="priority-pill"></span>
+          </div>
+          <div class="task-meta"></div>
+        </div>
+        <div class="task-actions">
+          <button class="icon-button subtle edit-task" type="button" aria-label="Редактировать">
+            <svg class="ui-icon"><use href="#icon-edit"></use></svg>
+          </button>
+          <button class="icon-button subtle delete-task" type="button" aria-label="Удалить">
+            <svg class="ui-icon"><use href="#icon-trash"></use></svg>
+          </button>
+        </div>
+      </article>
+    </template>
+
+    <template id="habitTemplate">
+      <article class="habit-item">
+        <div class="habit-main">
+          <div>
+            <h3></h3>
+            <p class="habit-streak"></p>
+          </div>
+          <div class="habit-actions">
+            <button class="icon-button subtle edit-habit" type="button" aria-label="Редактировать">
+              <svg class="ui-icon"><use href="#icon-edit"></use></svg>
+            </button>
+            <button class="icon-button subtle delete-habit" type="button" aria-label="Удалить">
+              <svg class="ui-icon"><use href="#icon-trash"></use></svg>
+            </button>
+          </div>
+        </div>
+        <div class="habit-control"></div>
+      </article>
+    </template>
+
+    <script src="app.js?v=9" defer></script>
+  </body>
+</html>
