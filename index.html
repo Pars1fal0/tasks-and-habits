@@ -114,6 +114,7 @@
             <button class="icon-button" id="nextDay" type="button" aria-label="Следующий день">
               <svg class="ui-icon"><use href="#icon-chevron-right"></use></svg>
             </button>
+            <button class="ghost-button compact-button today-button" id="todayButton" type="button">Сегодня</button>
           </div>
         </header>
 
@@ -175,6 +176,14 @@
             </button>
           </div>
 
+          <form class="quick-task-form" id="quickTaskForm">
+            <label class="quick-task-input">
+              <span>Быстрый ввод</span>
+              <input id="quickTaskInput" type="text" autocomplete="off" placeholder="Позвонить врачу завтра 10:00 #здоровье !high">
+            </label>
+            <button class="primary-button compact-button" type="submit">Добавить</button>
+          </form>
+
           <div class="split-layout">
             <section class="panel main-panel" aria-labelledby="tasksHeading">
               <div class="panel-heading">
@@ -185,6 +194,15 @@
                 <div class="completion-ring" id="taskProgressRing" aria-label="Выполнение задач">
                   <span id="taskProgress">0%</span>
                 </div>
+              </div>
+              <div class="overdue-panel" id="overduePanel">
+                <div class="overdue-heading">
+                  <div>
+                    <span class="metric-label">Просроченные</span>
+                    <p id="overdueCounter"></p>
+                  </div>
+                </div>
+                <div class="overdue-list" id="overdueList"></div>
               </div>
               <div class="task-list" id="taskList"></div>
               <div class="empty-state" id="taskEmpty">На выбранный день задач нет.</div>
@@ -395,6 +413,45 @@
               <strong id="weeklyHabitMetric">0%</strong>
               <p id="weeklyHabitText"></p>
             </section>
+            <section class="panel week-board-panel">
+              <div class="panel-heading compact">
+                <div>
+                  <span class="metric-label">Неделя</span>
+                  <h2 id="weekBoardLabel">Доска задач</h2>
+                </div>
+              </div>
+              <div class="week-board-grid" id="weekBoardGrid"></div>
+            </section>
+            <section class="panel month-panel">
+              <div class="panel-heading compact">
+                <div>
+                  <span class="metric-label">Месяц</span>
+                  <h2 id="monthLabel">Календарь задач</h2>
+                </div>
+                <div class="month-nav" aria-label="Навигация по месяцам">
+                  <button class="icon-button subtle" id="prevMonth" type="button" aria-label="Предыдущий месяц">
+                    <svg class="ui-icon" aria-hidden="true">
+                      <use href="#icon-chevron-left"></use>
+                    </svg>
+                  </button>
+                  <button class="icon-button subtle" id="nextMonth" type="button" aria-label="Следующий месяц">
+                    <svg class="ui-icon" aria-hidden="true">
+                      <use href="#icon-chevron-right"></use>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div class="month-weekdays" aria-hidden="true">
+                <span>Пн</span>
+                <span>Вт</span>
+                <span>Ср</span>
+                <span>Чт</span>
+                <span>Пт</span>
+                <span>Сб</span>
+                <span>Вс</span>
+              </div>
+              <div class="month-grid" id="monthGrid"></div>
+            </section>
             <section class="panel week-panel">
               <h2>Неделя</h2>
               <div class="week-strip" id="weekStrip"></div>
@@ -464,6 +521,12 @@
             <span class="priority-pill"></span>
           </div>
           <div class="task-meta"></div>
+          <div class="postpone-actions" aria-label="Отложить задачу">
+            <button class="ghost-button compact-button postpone-tomorrow" type="button">Завтра</button>
+            <button class="ghost-button compact-button postpone-week" type="button">Неделя</button>
+            <button class="ghost-button compact-button postpone-date" type="button">Дата</button>
+            <input class="postpone-date-input" type="date" aria-label="Дата переноса">
+          </div>
         </div>
         <div class="task-actions">
           <button class="icon-button subtle edit-task" type="button" aria-label="Редактировать">
@@ -499,6 +562,9 @@
       </article>
     </template>
 
-    <script src="app.js?v=9" defer></script>
+    <script src="quick-input.js?v=1" defer></script>
+    <script src="task-moves.js?v=1" defer></script>
+    <script src="toast.js?v=1" defer></script>
+    <script src="app.js?v=10" defer></script>
   </body>
 </html>

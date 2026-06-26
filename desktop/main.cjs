@@ -14,6 +14,10 @@ let reminderSnapshot = [];
 const sentReminders = new Set();
 
 if (isSmokeTest) {
+  app.disableHardwareAcceleration();
+  app.commandLine.appendSwitch("disable-gpu");
+  app.commandLine.appendSwitch("disable-gpu-compositing");
+  app.commandLine.appendSwitch("in-process-gpu");
   app.setPath("userData", fs.mkdtempSync(path.join(os.tmpdir(), "rhythm-day-smoke-")));
 }
 
@@ -103,21 +107,96 @@ function createWindow() {
         click('[data-view="archive"]');
         const archived = [...document.querySelectorAll(".archive-item h3")].some((item) => item.textContent === taskTitle);
 
+        click('[data-view="tasks"]');
+        document.querySelector("#quickTaskInput").value = "Smoke Quick завтра 10:00 #SmokeQuick !high";
+        submit(document.querySelector("#quickTaskForm"));
+        const quickTaskCard = [...document.querySelectorAll(".task-item")].find((item) => item.querySelector("h3")?.textContent === "Smoke Quick");
+        const quickTaskCreated =
+          Boolean(quickTaskCard) &&
+          quickTaskCard?.querySelector(".task-meta")?.textContent.includes("10:00") &&
+          quickTaskCard?.querySelector(".priority-pill")?.textContent === "Высокий";
+        const quickTaskId = quickTaskCard?.dataset.taskId;
+        const quickSourceDate = document.querySelector("#activeDate").value;
+        const quickTargetDate = addDays(quickSourceDate, 1);
+        if (quickTaskId) moveTaskToDate(quickTaskId, quickSourceDate, quickTargetDate);
+        const calendarDragMove =
+          Boolean(quickTaskId) &&
+          document.querySelector("#activeDate").value === quickTargetDate &&
+          state.tasks.some((task) => task.id === quickTaskId && task.date === quickTargetDate);
+        click('[data-view="overview"]');
+        const hasWeekBoard =
+          document.querySelectorAll(".week-board-day").length === 7 &&
+          [...document.querySelectorAll(".week-task-chip span")].some((item) => item.textContent === "Smoke Quick");
+        const relativeQuick = parseQuickTaskInput("Smoke Relative через 2 часа #SmokeQuick !low");
+        const phraseQuick = parseQuickTaskInput("Smoke Next в следующий понедельник вечером #SmokeQuick !high");
+
+        click('[data-view="tasks"]');
+        document.querySelector("#quickTaskInput").value = "Smoke Undo 2026-07-12 #SmokeQuick";
+        submit(document.querySelector("#quickTaskForm"));
+        const hasUndoButton = document.querySelector("#appToast button")?.textContent === "Отменить";
+        const undoTaskCreated = state.tasks.some((task) => task.title === "Smoke Undo");
+        document.querySelector("#appToast button")?.click();
+        const undoRestored = !state.tasks.some((task) => task.title === "Smoke Undo");
+        const backupBeforeImport = localStorage.getItem("rhythm-day-backup-v1");
+        const importUndo = createUndoSnapshot();
+        createImportSafetyBackup(importUndo);
+        state.tasks.push({
+          id: "smoke-import-task",
+          title: "Smoke Imported",
+          date: "2026-07-13",
+          time: "",
+          categoryId: "",
+          priority: "medium",
+          repeat: "none",
+          reminderOffset: "none",
+          completed: {},
+          excludedDates: {},
+          notified: {},
+          createdAt: new Date().toISOString(),
+        });
+        saveState({ skipBackup: true });
+        const safetyBackup = JSON.parse(localStorage.getItem("rhythm-day-import-safety-backup-v1") || "null");
+        const importSafetyBackupCreated = Boolean(safetyBackup?.state?.tasks);
+        const importBackupPreserved = localStorage.getItem("rhythm-day-backup-v1") === backupBeforeImport;
+        replaceState(JSON.parse(importUndo.state));
+        saveState({ skipBackup: true });
+        render();
+
         return {
           title: document.title,
           hasTaskForm: Boolean(document.querySelector("#taskForm")),
           hasHabitList: Boolean(document.querySelector("#habitList")),
           hasArchive: Boolean(document.querySelector("#archiveView")),
           hasHeatmap: document.querySelectorAll(".heatmap-cell").length === 70,
+          hasMonthCalendar: document.querySelectorAll(".month-day").length === 42,
+          hasWeekBoard,
+          hasTodayButton: Boolean(document.querySelector("#todayButton")),
+          hasQuickInput: Boolean(document.querySelector("#quickTaskInput")),
           hasCategories: document.querySelectorAll(".category-item").length >= 1,
           hasJsonActions: Boolean(document.querySelector("#exportButton")) && Boolean(document.querySelector("#importFile")),
+          modulesLoaded: Boolean(window.RhythmQuickInput && window.RhythmTaskMoves && window.RhythmToast),
           desktopBridge: Boolean(window.rhythmDesktop?.syncReminders),
           taskCreated: Boolean(taskCard),
+          quickTaskCreated,
+          smartQuickRelative: relativeQuick.title === "Smoke Relative" && Boolean(relativeQuick.time) && relativeQuick.priority === "low",
+          smartQuickPhrase: phraseQuick.title === "Smoke Next" && phraseQuick.time === "18:00" && phraseQuick.priority === "high",
+          hasUndoButton,
+          undoTaskCreated,
+          undoRestored,
+          importSafetyBackupCreated,
+          importBackupPreserved,
+          calendarDragMove,
           dndOrderChanged,
           archived,
         };
       })()`,
     );
+    const failedChecks = Object.entries(result).filter(([key, value]) => key !== "title" && value !== true);
+    if (failedChecks.length) {
+      console.error(`SMOKE_FAIL ${JSON.stringify(failedChecks)}`);
+      app.exit(1);
+      return;
+    }
     console.log(`SMOKE_OK ${JSON.stringify(result)}`);
     app.quit();
   });

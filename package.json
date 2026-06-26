@@ -22,7 +22,10 @@
       "icon.svg",
       "index.html",
       "manifest.webmanifest",
+      "quick-input.js",
       "styles.css",
+      "task-moves.js",
+      "toast.js",
       "sw.js"
     ],
     "win": {

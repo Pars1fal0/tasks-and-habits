@@ -1,9 +1,12 @@
 const CACHE_PREFIX = "rhythm-day-";
-const CACHE_NAME = `${CACHE_PREFIX}app-v6`;
+const CACHE_NAME = `${CACHE_PREFIX}app-v13`;
 const APP_SHELL = [
   "./",
   "index.html",
   "styles.css",
+  "quick-input.js",
+  "task-moves.js",
+  "toast.js",
   "app.js",
   "manifest.webmanifest",
   "icon.svg",

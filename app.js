@@ -1,6 +1,7 @@
 const STORAGE_KEY = "rhythm-day-state-v1";
 const UI_STATE_KEY = "rhythm-day-ui-v1";
 const BACKUP_KEY = "rhythm-day-backup-v1";
+const IMPORT_SAFETY_BACKUP_KEY = "rhythm-day-import-safety-backup-v1";
 const SCHEMA_VERSION = 5;
 const BACKUP_INTERVAL_MS = 5 * 60 * 1000;
 const VALID_PRIORITIES = ["high", "medium", "low"];
@@ -18,7 +19,8 @@ let taskSearchQuery = initialUiState.taskSearchQuery || "";
 let archiveCategoryFilter = initialUiState.archiveCategoryFilter || "all";
 let archiveSearchQuery = initialUiState.archiveSearchQuery || "";
 let draggedTaskId = null;
-let toastTimer = null;
+let draggedTaskDate = "";
+let pointerDragTask = null;
 let lastBackupAt = 0;
 
 const els = {
@@ -57,13 +59,22 @@ const els = {
   heatmapGrid: document.querySelector("#heatmapGrid"),
   importButton: document.querySelector("#importButton"),
   importFile: document.querySelector("#importFile"),
+  monthGrid: document.querySelector("#monthGrid"),
+  monthLabel: document.querySelector("#monthLabel"),
   navTabs: document.querySelectorAll(".nav-tab"),
   nextDay: document.querySelector("#nextDay"),
+  nextMonth: document.querySelector("#nextMonth"),
   notifyButton: document.querySelector("#notifyButton"),
   openHabitForm: document.querySelector("#openHabitForm"),
   openTaskForm: document.querySelector("#openTaskForm"),
+  overdueCounter: document.querySelector("#overdueCounter"),
+  overdueList: document.querySelector("#overdueList"),
+  overduePanel: document.querySelector("#overduePanel"),
   pageTitle: document.querySelector("#pageTitle"),
   prevDay: document.querySelector("#prevDay"),
+  prevMonth: document.querySelector("#prevMonth"),
+  quickTaskForm: document.querySelector("#quickTaskForm"),
+  quickTaskInput: document.querySelector("#quickTaskInput"),
   resetHabitForm: document.querySelector("#resetHabitForm"),
   resetTaskForm: document.querySelector("#resetTaskForm"),
   restoreBackupButton: document.querySelector("#restoreBackupButton"),
@@ -87,6 +98,7 @@ const els = {
   taskTemplate: document.querySelector("#taskTemplate"),
   taskTime: document.querySelector("#taskTime"),
   taskTitle: document.querySelector("#taskTitle"),
+  todayButton: document.querySelector("#todayButton"),
   todayDoneMetric: document.querySelector("#todayDoneMetric"),
   todayLabel: document.querySelector("#todayLabel"),
   todayOpenMetric: document.querySelector("#todayOpenMetric"),
@@ -97,12 +109,19 @@ const els = {
     overview: document.querySelector("#overviewView"),
     tasks: document.querySelector("#tasksView"),
   },
+  weekBoardGrid: document.querySelector("#weekBoardGrid"),
+  weekBoardLabel: document.querySelector("#weekBoardLabel"),
   weekStrip: document.querySelector("#weekStrip"),
   weeklyHabitMetric: document.querySelector("#weeklyHabitMetric"),
   weeklyHabitText: document.querySelector("#weeklyHabitText"),
   weeklyTaskMetric: document.querySelector("#weeklyTaskMetric"),
   weeklyTaskText: document.querySelector("#weeklyTaskText"),
 };
+
+const toastController = window.RhythmToast.createToastController({
+  element: els.toast,
+  restoreUndoSnapshot,
+});
 
 const priorityLabels = {
   high: "Высокий",
@@ -151,6 +170,9 @@ function bindEvents() {
 
   els.prevDay.addEventListener("click", () => shiftDate(-1));
   els.nextDay.addEventListener("click", () => shiftDate(1));
+  els.todayButton.addEventListener("click", goToday);
+  els.prevMonth.addEventListener("click", () => shiftMonth(-1));
+  els.nextMonth.addEventListener("click", () => shiftMonth(1));
 
   els.navTabs.forEach((button) => {
     button.addEventListener("click", () => {
@@ -203,6 +225,7 @@ function bindEvents() {
   });
   els.resetTaskForm.addEventListener("click", resetTaskForm);
   els.taskForm.addEventListener("submit", saveTaskFromForm);
+  els.quickTaskForm.addEventListener("submit", saveQuickTask);
   els.taskTime.addEventListener("input", syncTaskTimePresets);
   document.querySelectorAll("[data-time-preset]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -246,6 +269,9 @@ function bindEvents() {
     saveUiState();
     renderArchive();
   });
+  document.addEventListener("pointermove", handleCalendarPointerMove);
+  document.addEventListener("pointerup", finishCalendarPointerDrag);
+  document.addEventListener("pointercancel", cancelCalendarPointerDrag);
 }
 
 function render() {
@@ -329,6 +355,7 @@ function renderTasks() {
     return true;
   });
 
+  renderOverdueTasks();
   els.taskList.replaceChildren();
   visibleTasks.forEach((task) => els.taskList.appendChild(createTaskNode(task)));
 
@@ -355,6 +382,7 @@ function createTaskNode(task) {
   const title = node.querySelector("h3");
   const check = node.querySelector(".check-button");
   const meta = node.querySelector(".task-meta");
+  const postponeDateInput = node.querySelector(".postpone-date-input");
   const priority = node.querySelector(".priority-pill");
 
   node.dataset.taskId = task.id;
@@ -375,16 +403,15 @@ function createTaskNode(task) {
 
   node.addEventListener("dragstart", (event) => {
     draggedTaskId = task.id;
+    draggedTaskDate = activeDate;
     node.classList.add("is-dragging");
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", task.id);
+    event.dataTransfer.setData("application/x-rhythm-task", JSON.stringify({ taskId: task.id, dateKey: activeDate }));
   });
   node.addEventListener("dragend", () => {
-    draggedTaskId = null;
+    clearTaskDragState();
     node.classList.remove("is-dragging");
-    document.querySelectorAll(".task-item.is-drop-target").forEach((item) => {
-      item.classList.remove("is-drop-target");
-    });
   });
   node.addEventListener("dragover", (event) => {
     event.preventDefault();
@@ -397,32 +424,111 @@ function createTaskNode(task) {
     event.preventDefault();
     const sourceId = draggedTaskId || event.dataTransfer.getData("text/plain");
     if (sourceId && sourceId !== task.id) {
+      const undo = createUndoSnapshot();
       reorderTask(activeDate, sourceId, task.id);
       saveState();
       render();
+      showToast("Порядок задач изменен", { undo });
     }
   });
 
   check.addEventListener("click", () => {
+    const undo = createUndoSnapshot();
     task.completed[activeDate] = !done;
     saveState();
     render();
+    showToast(done ? "Задача снова активна" : "Задача выполнена", { undo });
   });
 
   node.querySelector(".edit-task").addEventListener("click", () => fillTaskForm(task));
+  node.querySelector(".postpone-tomorrow").addEventListener("click", () => {
+    postponeTask(task, activeDate, addDays(activeDate, 1));
+  });
+  node.querySelector(".postpone-week").addEventListener("click", () => {
+    postponeTask(task, activeDate, addDays(activeDate, 7));
+  });
+  node.querySelector(".postpone-date").addEventListener("click", () => {
+    postponeDateInput.value = addDays(activeDate, 1);
+    postponeDateInput.classList.add("is-visible");
+    if (postponeDateInput.showPicker) {
+      postponeDateInput.showPicker();
+    } else {
+      postponeDateInput.focus();
+    }
+  });
+  postponeDateInput.addEventListener("change", () => {
+    if (!postponeDateInput.value) return;
+    postponeTask(task, activeDate, postponeDateInput.value);
+  });
   const excludeButton = node.querySelector(".exclude-task");
   excludeButton.hidden = task.repeat === "none";
   excludeButton.addEventListener("click", () => excludeTaskDate(task, activeDate));
   node.querySelector(".delete-task").addEventListener("click", () => {
+    const undo = createUndoSnapshot();
     state.tasks = state.tasks.filter((item) => item.id !== task.id);
     Object.keys(state.taskOrder).forEach((dateKey) => {
       state.taskOrder[dateKey] = state.taskOrder[dateKey].filter((id) => id !== task.id);
     });
     saveState();
     render();
+    showToast("Задача удалена", { undo });
   });
 
   return node;
+}
+
+function renderOverdueTasks() {
+  const overdueEntries = overdueTaskEntries();
+  els.overdueList.replaceChildren();
+  els.overduePanel.classList.toggle("is-visible", overdueEntries.length > 0);
+  els.overdueCounter.textContent = overdueEntries.length
+    ? `${overdueEntries.length} невыполнено`
+    : "";
+
+  overdueEntries.forEach((entry) => {
+    const node = document.createElement("article");
+    node.className = "overdue-item";
+    const category = getCategory(entry.task.categoryId);
+    const details = [
+      formatLongDate(entry.dateKey),
+      entry.task.time ? `до ${entry.task.time}` : "до конца дня",
+      category?.name || "Без категории",
+      priorityLabels[entry.task.priority] || "Средний",
+    ];
+    if (entry.task.repeat !== "none") details.push(repeatLabels[entry.task.repeat]);
+
+    node.innerHTML = `
+      <div>
+        <h3>${escapeHtml(entry.task.title)}</h3>
+        <p>${details.map((detail) => `<span>${escapeHtml(detail)}</span>`).join(" · ")}</p>
+      </div>
+      <div class="overdue-actions">
+        <button class="ghost-button compact-button overdue-go" type="button">К дню</button>
+        <button class="ghost-button compact-button overdue-today" type="button">Сегодня</button>
+        <button class="primary-button compact-button overdue-done" type="button">Готово</button>
+      </div>
+    `;
+
+    node.querySelector(".overdue-go").addEventListener("click", () => {
+      activeDate = entry.dateKey;
+      resetTaskForm();
+      render();
+    });
+
+    node.querySelector(".overdue-today").addEventListener("click", () => {
+      postponeTask(entry.task, entry.dateKey, toDateKey(new Date()), { clearPastTimeToday: true });
+    });
+
+    node.querySelector(".overdue-done").addEventListener("click", () => {
+      const undo = createUndoSnapshot();
+      entry.task.completed[entry.dateKey] = true;
+      saveState();
+      render();
+      showToast("Просроченная задача закрыта", { undo });
+    });
+
+    els.overdueList.appendChild(node);
+  });
 }
 
 function renderExcludedTasks() {
@@ -452,6 +558,7 @@ function renderExcludedTasks() {
 
 function excludeTaskDate(task, dateKey) {
   if (task.repeat === "none") return;
+  const undo = createUndoSnapshot();
   task.excludedDates = task.excludedDates || {};
   task.excludedDates[dateKey] = true;
   delete task.completed?.[dateKey];
@@ -461,16 +568,180 @@ function excludeTaskDate(task, dateKey) {
   }
   saveState();
   render();
-  showToast("Повтор исключен на выбранный день");
+  showToast("Повтор исключен на выбранный день", { undo });
 }
 
 function restoreTaskDate(task, dateKey) {
+  const undo = createUndoSnapshot();
   if (task.excludedDates) {
     delete task.excludedDates[dateKey];
   }
   saveState();
   render();
-  showToast("Повтор возвращен в план");
+  showToast("Повтор возвращен в план", { undo });
+}
+
+function openDateTasks(dateKey) {
+  activeDate = dateKey;
+  activeView = "tasks";
+  resetTaskForm();
+  render();
+}
+
+function moveTaskToDate(taskId, sourceDateKey, targetDateKey) {
+  const task = state.tasks.find((item) => item.id === taskId);
+  const sourceDate = normalizeDateKey(sourceDateKey || activeDate, "");
+  const targetDate = normalizeDateKey(targetDateKey, "");
+  if (!task || !sourceDate || !targetDate || sourceDate === targetDate) return;
+  postponeTask(task, sourceDate, targetDate);
+}
+
+function attachTaskDropZone(element, dateKey) {
+  element.addEventListener("dragover", (event) => {
+    const transfer = getDraggedTaskTransfer(event);
+    if (!transfer.taskId || transfer.dateKey === dateKey) return;
+    event.preventDefault();
+    element.classList.add("is-drop-target");
+    event.dataTransfer.dropEffect = "move";
+  });
+  element.addEventListener("dragleave", (event) => {
+    if (!element.contains(event.relatedTarget)) {
+      element.classList.remove("is-drop-target");
+    }
+  });
+  element.addEventListener("drop", (event) => {
+    event.preventDefault();
+    element.classList.remove("is-drop-target");
+    const transfer = getDraggedTaskTransfer(event);
+    if (!transfer.taskId || transfer.dateKey === dateKey) return;
+    moveTaskToDate(transfer.taskId, transfer.dateKey, dateKey);
+  });
+}
+
+function attachTaskChipDrag(chip) {
+  chip.addEventListener("click", (event) => {
+    event.stopPropagation();
+    openDateTasks(chip.dataset.date);
+  });
+  chip.addEventListener("keydown", (event) => event.stopPropagation());
+  chip.addEventListener("pointerdown", (event) => {
+    startCalendarPointerDrag(event, chip);
+  });
+  chip.addEventListener("dragstart", (event) => {
+    draggedTaskId = chip.dataset.taskId;
+    draggedTaskDate = chip.dataset.date;
+    chip.classList.add("is-dragging");
+    event.stopPropagation();
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", chip.dataset.taskId);
+    event.dataTransfer.setData(
+      "application/x-rhythm-task",
+      JSON.stringify({ taskId: chip.dataset.taskId, dateKey: chip.dataset.date }),
+    );
+  });
+  chip.addEventListener("dragend", () => {
+    chip.classList.remove("is-dragging");
+    clearTaskDragState();
+  });
+}
+
+function getDraggedTaskTransfer(event) {
+  try {
+    const raw = event.dataTransfer?.getData("application/x-rhythm-task");
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return {
+        taskId: String(parsed.taskId || ""),
+        dateKey: normalizeDateKey(parsed.dateKey || draggedTaskDate || activeDate, ""),
+      };
+    }
+  } catch {
+    // Fall back to the plain text payload below.
+  }
+
+  return {
+    taskId: event.dataTransfer?.getData("text/plain") || draggedTaskId || "",
+    dateKey: normalizeDateKey(draggedTaskDate || activeDate, ""),
+  };
+}
+
+function clearTaskDragState() {
+  draggedTaskId = null;
+  draggedTaskDate = "";
+  document.querySelectorAll(".task-item.is-drop-target, .calendar-drop-zone.is-drop-target").forEach((item) => {
+    item.classList.remove("is-drop-target");
+  });
+}
+
+function startCalendarPointerDrag(event, chip) {
+  if (event.button !== 0 || !chip.dataset.taskId || !chip.dataset.date) return;
+  pointerDragTask = {
+    taskId: chip.dataset.taskId,
+    dateKey: chip.dataset.date,
+    startX: event.clientX,
+    startY: event.clientY,
+    dragging: false,
+    chip,
+  };
+}
+
+function handleCalendarPointerMove(event) {
+  if (!pointerDragTask) return;
+  const distance = Math.hypot(event.clientX - pointerDragTask.startX, event.clientY - pointerDragTask.startY);
+  if (!pointerDragTask.dragging && distance < 8) return;
+
+  pointerDragTask.dragging = true;
+  pointerDragTask.chip.classList.add("is-dragging");
+  document.querySelectorAll(".calendar-drop-zone.is-drop-target").forEach((item) => item.classList.remove("is-drop-target"));
+
+  const target = document.elementFromPoint(event.clientX, event.clientY)?.closest(".calendar-drop-zone");
+  if (target?.dataset.date && target.dataset.date !== pointerDragTask.dateKey) {
+    target.classList.add("is-drop-target");
+  }
+}
+
+function finishCalendarPointerDrag(event) {
+  if (!pointerDragTask) return;
+  const drag = pointerDragTask;
+  const target = document.elementFromPoint(event.clientX, event.clientY)?.closest(".calendar-drop-zone");
+  cancelCalendarPointerDrag();
+
+  if (!drag.dragging || !target?.dataset.date || target.dataset.date === drag.dateKey) return;
+  moveTaskToDate(drag.taskId, drag.dateKey, target.dataset.date);
+}
+
+function cancelCalendarPointerDrag() {
+  if (pointerDragTask?.chip) pointerDragTask.chip.classList.remove("is-dragging");
+  pointerDragTask = null;
+  document.querySelectorAll(".calendar-drop-zone.is-drop-target").forEach((item) => item.classList.remove("is-drop-target"));
+}
+
+function postponeTask(task, sourceDateKey, targetDateKey, options = {}) {
+  const targetDate = normalizeDateKey(targetDateKey, "");
+  if (!targetDate) {
+    showToast("Не удалось перенести задачу");
+    return;
+  }
+  const undo = options.undo || createUndoSnapshot();
+  window.RhythmTaskMoves.postponeTask({
+    state,
+    task,
+    sourceDateKey,
+    targetDateKey: targetDate,
+    options,
+    helpers: {
+      cleanTimeValue,
+      createId,
+      taskScheduledOn,
+      toDateKey,
+    },
+  });
+
+  activeDate = targetDate;
+  saveState();
+  resetTaskForm();
+  render();
+  showToast(`Задача перенесена на ${formatLongDate(targetDate)}`, { undo });
 }
 
 function renderHabits() {
@@ -527,9 +798,11 @@ function createHabitNode(habit) {
     label.textContent = done ? "Выполнено" : "Не отмечено";
 
     button.addEventListener("click", () => {
+      const undo = createUndoSnapshot();
       habit.logs[activeDate] = !done;
       saveState();
       render();
+      showToast(done ? "Отметка снята" : "Привычка отмечена", { undo });
     });
 
     row.append(button, label);
@@ -538,9 +811,11 @@ function createHabitNode(habit) {
 
   node.querySelector(".edit-habit").addEventListener("click", () => fillHabitForm(habit));
   node.querySelector(".delete-habit").addEventListener("click", () => {
+    const undo = createUndoSnapshot();
     state.habits = state.habits.filter((item) => item.id !== habit.id);
     saveState();
     render();
+    showToast("Привычка удалена", { undo });
   });
 
   return node;
@@ -582,7 +857,141 @@ function renderOverview() {
   els.weeklyHabitMetric.textContent = `${habitMetric}%`;
   els.weeklyTaskText.textContent = `${taskDone} из ${taskTotal} задач за неделю`;
   els.weeklyHabitText.textContent = `${habitDone} из ${habitTotal} отметок привычек`;
+  renderWeekBoard(week);
+  renderMonthCalendar();
   renderHeatmap();
+}
+
+function renderWeekBoard(week) {
+  els.weekBoardLabel.textContent = `${formatShortDate(week[0])} — ${formatShortDate(week[6])}`;
+  els.weekBoardGrid.replaceChildren();
+
+  week.forEach((dateKey) => {
+    const tasks = getOrderedTasksForDate(dateKey);
+    const openTasks = tasks.filter((task) => !isTaskDone(task, dateKey));
+    const doneCount = tasks.length - openTasks.length;
+    const column = document.createElement("article");
+
+    column.className = "week-board-day calendar-drop-zone";
+    column.dataset.date = dateKey;
+    column.tabIndex = 0;
+    column.setAttribute("role", "button");
+    column.setAttribute("aria-label", `${formatLongDate(dateKey)}: ${openTasks.length} открыто, ${doneCount} готово`);
+    column.classList.toggle("is-active", dateKey === activeDate);
+    column.classList.toggle("is-today", dateKey === toDateKey(new Date()));
+    column.innerHTML = `
+      <div class="week-board-header">
+        <span>${formatWeekday(dateKey)}</span>
+        <strong>${parseDate(dateKey).getDate()}</strong>
+      </div>
+      <div class="week-board-count">${doneCount}/${tasks.length} выполнено</div>
+      <div class="week-board-list">
+        ${
+          tasks.length
+            ? tasks
+                .map((task) => {
+                  const done = isTaskDone(task, dateKey);
+                  const category = getCategory(task.categoryId);
+                  return `
+                    <span class="week-task-chip month-task-chip${done ? " is-done" : ""}" draggable="true" data-task-id="${escapeHtml(task.id)}" data-date="${dateKey}">
+                      <span>${escapeHtml(task.title)}</span>
+                      <small>${escapeHtml(category?.name || priorityLabels[task.priority] || "Задача")}</small>
+                    </span>
+                  `;
+                })
+                .join("")
+            : `<span class="week-board-empty">Нет задач</span>`
+        }
+      </div>
+    `;
+
+    column.addEventListener("click", () => openDateTasks(dateKey));
+    column.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      openDateTasks(dateKey);
+    });
+    attachTaskDropZone(column, dateKey);
+    column.querySelectorAll(".month-task-chip").forEach((chip) => attachTaskChipDrag(chip));
+    els.weekBoardGrid.appendChild(column);
+  });
+}
+
+function renderMonthCalendar() {
+  const monthDate = parseDate(activeDate);
+  const currentMonth = monthDate.getMonth();
+  const dates = getMonthCalendarDates(activeDate);
+
+  els.monthLabel.textContent = formatMonthLabel(activeDate);
+  els.monthGrid.replaceChildren();
+
+  dates.forEach((dateKey) => {
+    const date = parseDate(dateKey);
+    const tasks = getOrderedTasksForDate(dateKey);
+    const openTasks = tasks.filter((task) => !isTaskDone(task, dateKey));
+    const doneCount = tasks.length - openTasks.length;
+    const habitCount = habitsForDate(dateKey).length;
+    const visibleTasks = openTasks.slice(0, 3);
+    const hiddenTasks = openTasks.slice(3);
+    const hiddenCount = hiddenTasks.length;
+    const dayCell = document.createElement("div");
+    const details = [];
+
+    if (openTasks.length) details.push(`${openTasks.length} открыто`);
+    if (doneCount) details.push(`${doneCount} готово`);
+    if (habitCount) details.push(`${habitCount} привычек`);
+
+    dayCell.className = "month-day calendar-drop-zone";
+    dayCell.dataset.date = dateKey;
+    dayCell.tabIndex = 0;
+    dayCell.setAttribute("role", "button");
+    dayCell.setAttribute(
+      "aria-label",
+      `${formatLongDate(dateKey)}: ${details.join(", ") || "нет задач"}`,
+    );
+    dayCell.classList.toggle("is-outside", date.getMonth() !== currentMonth);
+    dayCell.classList.toggle("is-active", dateKey === activeDate);
+    dayCell.classList.toggle("is-today", dateKey === toDateKey(new Date()));
+    dayCell.innerHTML = `
+      <span class="month-day-head">
+        <strong>${date.getDate()}</strong>
+        ${tasks.length ? `<span>${doneCount}/${tasks.length}</span>` : ""}
+      </span>
+      <div class="month-day-items">
+        ${visibleTasks
+          .map((task) => `<span class="month-task-chip" draggable="true" data-task-id="${escapeHtml(task.id)}" data-date="${dateKey}">${escapeHtml(task.title)}</span>`)
+          .join("")}
+        ${
+          hiddenCount > 0
+            ? `<button class="month-day-more" type="button">+${hiddenCount}</button>
+              <div class="month-day-hidden">
+                ${hiddenTasks
+                  .map((task) => `<span class="month-task-chip" draggable="true" data-task-id="${escapeHtml(task.id)}" data-date="${dateKey}">${escapeHtml(task.title)}</span>`)
+                  .join("")}
+              </div>`
+            : ""
+        }
+      </div>
+    `;
+    dayCell.addEventListener("click", () => openDateTasks(dateKey));
+    dayCell.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      openDateTasks(dateKey);
+    });
+    attachTaskDropZone(dayCell, dateKey);
+    dayCell.querySelectorAll(".month-task-chip").forEach((chip) => attachTaskChipDrag(chip));
+    const moreButton = dayCell.querySelector(".month-day-more");
+    if (moreButton) {
+      moreButton.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const expanded = dayCell.classList.toggle("is-expanded");
+        moreButton.textContent = expanded ? "Скрыть" : `+${hiddenCount}`;
+      });
+    }
+
+    els.monthGrid.appendChild(dayCell);
+  });
 }
 
 function renderHeatmap() {
@@ -638,10 +1047,11 @@ function createArchiveNode(entry) {
   `;
 
   node.querySelector(".restore-task").addEventListener("click", () => {
+    const undo = createUndoSnapshot();
     entry.task.completed[entry.dateKey] = false;
     saveState();
     render();
-    showToast("Задача возвращена в план");
+    showToast("Задача возвращена в план", { undo });
   });
 
   return node;
@@ -722,6 +1132,7 @@ function renderCategories() {
 
 function saveTaskFromForm(event) {
   event.preventDefault();
+  const undo = createUndoSnapshot();
   const id = els.taskId.value || createId();
   const existing = state.tasks.find((task) => task.id === id);
   const task = {
@@ -749,6 +1160,42 @@ function saveTaskFromForm(event) {
   saveState();
   resetTaskForm();
   render();
+  showToast(existing ? "Задача обновлена" : "Задача создана", { undo });
+}
+
+function saveQuickTask(event) {
+  event.preventDefault();
+  const undo = createUndoSnapshot();
+  const parsed = parseQuickTaskInput(els.quickTaskInput.value);
+  if (!parsed.title) {
+    showToast("Напиши название задачи");
+    els.quickTaskInput.focus();
+    return;
+  }
+
+  const task = {
+    id: createId(),
+    title: parsed.title,
+    date: parsed.date,
+    time: parsed.time,
+    categoryId: parsed.categoryId,
+    priority: parsed.priority,
+    repeat: "none",
+    reminderOffset: parsed.time ? "15" : "none",
+    completed: {},
+    excludedDates: {},
+    notified: {},
+    createdAt: new Date().toISOString(),
+  };
+
+  state.tasks.push(task);
+  activeDate = task.date;
+  activeView = "tasks";
+  els.quickTaskInput.value = "";
+  saveState();
+  resetTaskForm();
+  render();
+  showToast(`Добавлено: ${task.title}`, { undo });
 }
 
 function fillTaskForm(task) {
@@ -780,6 +1227,7 @@ function resetTaskForm() {
 
 function saveHabitFromForm(event) {
   event.preventDefault();
+  const undo = createUndoSnapshot();
   const id = els.habitId.value || createId();
   const existing = state.habits.find((habit) => habit.id === id);
   const type = els.habitType.value;
@@ -804,6 +1252,7 @@ function saveHabitFromForm(event) {
   saveState();
   resetHabitForm();
   render();
+  showToast(existing ? "Привычка обновлена" : "Привычка создана", { undo });
 }
 
 function fillHabitForm(habit) {
@@ -834,6 +1283,7 @@ function saveCategoryFromForm(event) {
     showToast("Такая категория уже есть");
     return;
   }
+  const undo = createUndoSnapshot();
 
   state.categories.push({
     id: createId(),
@@ -845,10 +1295,11 @@ function saveCategoryFromForm(event) {
   els.categoryColor.value = "#00a78e";
   saveState();
   renderCategories();
-  showToast("Категория создана");
+  showToast("Категория создана", { undo });
 }
 
 function deleteCategory(categoryId) {
+  const undo = createUndoSnapshot();
   const hasTasks = state.tasks.some((task) => task.categoryId === categoryId);
   state.categories = state.categories.filter((category) => category.id !== categoryId);
   if (hasTasks) {
@@ -861,6 +1312,7 @@ function deleteCategory(categoryId) {
   saveState();
   saveUiState();
   render();
+  showToast("Категория удалена", { undo });
 }
 
 function exportData() {
@@ -887,15 +1339,16 @@ async function importData() {
   const file = els.importFile.files?.[0];
   if (!file) return;
 
+  const undo = createUndoSnapshot();
   try {
     const text = await file.text();
     const parsed = JSON.parse(text);
     const importedState = normalizeState(parsed.state || parsed);
+    createImportSafetyBackup(undo);
     replaceState(importedState);
-    saveState();
-    createBackup({ silent: true });
+    saveState({ skipBackup: true });
     render();
-    showToast("Данные импортированы");
+    showToast("Данные импортированы. Предыдущие данные сохранены", { undo });
   } catch {
     showToast("Не удалось импортировать JSON");
   } finally {
@@ -968,6 +1421,37 @@ function excludedTasksForDate(dateKey) {
   return state.tasks
     .filter((task) => task.repeat !== "none" && taskScheduledOn(task, dateKey) && isTaskExcluded(task, dateKey))
     .sort(sortTasks);
+}
+
+function overdueTaskEntries(now = new Date()) {
+  const todayKey = toDateKey(now);
+  const start = new Date(now);
+  start.setDate(now.getDate() - 60);
+  const entries = [];
+
+  state.tasks.forEach((task) => {
+    if (task.repeat === "none") {
+      addOverdueEntry(entries, task, task.date, now);
+      return;
+    }
+
+    for (let cursor = new Date(start); cursor <= now; cursor.setDate(cursor.getDate() + 1)) {
+      const dateKey = toDateKey(cursor);
+      if (dateKey > todayKey) continue;
+      if (!taskScheduledOn(task, dateKey) || isTaskExcluded(task, dateKey)) continue;
+      addOverdueEntry(entries, task, dateKey, now);
+    }
+  });
+
+  return entries
+    .sort((a, b) => a.dueAt - b.dueAt || a.task.title.localeCompare(b.task.title, "ru"))
+    .slice(0, 20);
+}
+
+function addOverdueEntry(entries, task, dateKey, now) {
+  const dueAt = getTaskDeadlineDate(task, dateKey);
+  if (dueAt >= now || isTaskDone(task, dateKey)) return;
+  entries.push({ task, dateKey, dueAt });
 }
 
 function habitsForDate(dateKey) {
@@ -1257,6 +1741,19 @@ function getDueDate(task, dateKey) {
   return date;
 }
 
+function getTaskDeadlineDate(task, dateKey) {
+  const date = parseDate(dateKey);
+  const time = cleanTimeValue(task.time);
+  if (!time) {
+    date.setHours(23, 59, 59, 999);
+    return date;
+  }
+
+  const [hours, minutes] = time.split(":").map(Number);
+  date.setHours(hours, minutes, 0, 0);
+  return date;
+}
+
 function getReminderDate(task, dateKey) {
   if (!task.time || task.reminderOffset === "none") return null;
   const offset = Number(task.reminderOffset || 0);
@@ -1273,6 +1770,29 @@ function shiftDate(days) {
   activeDate = toDateKey(date);
   resetTaskForm();
   render();
+}
+
+function goToday() {
+  activeDate = toDateKey(new Date());
+  resetTaskForm();
+  render();
+}
+
+function shiftMonth(months) {
+  const date = parseDate(activeDate);
+  const targetDay = date.getDate();
+  const target = new Date(date.getFullYear(), date.getMonth() + months, 1);
+  const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+  target.setDate(Math.min(targetDay, lastDay));
+  activeDate = toDateKey(target);
+  resetTaskForm();
+  render();
+}
+
+function addDays(dateKey, days) {
+  const date = parseDate(dateKey);
+  date.setDate(date.getDate() + days);
+  return toDateKey(date);
 }
 
 function loadStoredState() {
@@ -1316,6 +1836,39 @@ function cleanTimeValue(value) {
   if (!Number.isInteger(hours) || !Number.isInteger(minutes)) return "";
   if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return "";
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+function parseQuickTaskInput(value) {
+  return window.RhythmQuickInput.parseQuickTaskInput(value, {
+    activeDate,
+    cleanText,
+    getOrCreateCategory,
+    normalizeDateKey,
+    toDateKey,
+    toTimeValue,
+  });
+}
+
+function getOrCreateCategory(value) {
+  const name = normalizeQuickCategoryName(value);
+  if (!name) return "";
+  const existing = state.categories.find((category) => category.name.toLowerCase() === name.toLowerCase());
+  if (existing) return existing.id;
+
+  const category = {
+    id: createId(),
+    name,
+    color: randomCategoryColor(),
+    createdAt: new Date().toISOString(),
+  };
+  state.categories.push(category);
+  return category.id;
+}
+
+function normalizeQuickCategoryName(value) {
+  const name = cleanText(String(value || "").replaceAll("_", " "));
+  if (!name) return "";
+  return name.charAt(0).toLocaleUpperCase("ru-RU") + name.slice(1);
 }
 
 function normalizeReminderOffset(value, hasTime = true) {
@@ -1418,10 +1971,12 @@ function replaceState(nextState) {
   state = normalizeState(nextState);
 }
 
-function saveState() {
+function saveState(options = {}) {
   state.schemaVersion = SCHEMA_VERSION;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  createBackup({ silent: true, throttle: true });
+  if (!options.skipBackup) {
+    createBackup({ silent: true, throttle: true });
+  }
   syncDesktopReminders();
 }
 
@@ -1443,6 +1998,25 @@ function createBackup({ payload = null, silent = false, throttle = false } = {})
     if (!silent) showToast("Локальный бэкап обновлен");
   } catch {
     if (!silent) showToast("Не удалось создать бэкап");
+  }
+}
+
+function createImportSafetyBackup(snapshot) {
+  if (!snapshot?.state) return;
+
+  try {
+    localStorage.setItem(
+      IMPORT_SAFETY_BACKUP_KEY,
+      JSON.stringify({
+        app: "Ритм дня",
+        schemaVersion: SCHEMA_VERSION,
+        reason: "before-import",
+        exportedAt: new Date().toISOString(),
+        state: JSON.parse(snapshot.state),
+      }),
+    );
+  } catch {
+    // The undo snapshot in the toast still protects the current session.
   }
 }
 
@@ -1615,6 +2189,19 @@ function getWeekDates(dateKey) {
   });
 }
 
+function getMonthCalendarDates(dateKey) {
+  const date = parseDate(dateKey);
+  const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
+  const offset = (firstDay.getDay() + 6) % 7;
+  firstDay.setDate(firstDay.getDate() - offset);
+
+  return Array.from({ length: 42 }, (_, index) => {
+    const item = new Date(firstDay);
+    item.setDate(firstDay.getDate() + index);
+    return toDateKey(item);
+  });
+}
+
 function parseDate(dateKey) {
   const [year, month, day] = normalizeDateKey(dateKey).split("-").map(Number);
   return new Date(year, month - 1, day);
@@ -1688,6 +2275,11 @@ function toDateKey(date) {
   return `${year}-${month}-${day}`;
 }
 
+function toTimeValue(date) {
+  const safeDate = date instanceof Date && Number.isFinite(date.getTime()) ? date : new Date();
+  return `${String(safeDate.getHours()).padStart(2, "0")}:${String(safeDate.getMinutes()).padStart(2, "0")}`;
+}
+
 function formatLongDate(dateKey) {
   return new Intl.DateTimeFormat("ru-RU", {
     weekday: "long",
@@ -1700,6 +2292,20 @@ function formatWeekday(dateKey) {
   return new Intl.DateTimeFormat("ru-RU", {
     weekday: "short",
     day: "numeric",
+  }).format(parseDate(dateKey));
+}
+
+function formatShortDate(dateKey) {
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "numeric",
+    month: "short",
+  }).format(parseDate(dateKey));
+}
+
+function formatMonthLabel(dateKey) {
+  return new Intl.DateTimeFormat("ru-RU", {
+    month: "long",
+    year: "numeric",
   }).format(parseDate(dateKey));
 }
 
@@ -1742,9 +2348,29 @@ function escapeHtml(value) {
     .replaceAll('"', "&quot;");
 }
 
-function showToast(message) {
-  els.toast.textContent = message;
-  els.toast.classList.add("is-visible");
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => els.toast.classList.remove("is-visible"), 2600);
+function createUndoSnapshot() {
+  return {
+    activeDate,
+    activeView,
+    state: JSON.stringify(state),
+  };
+}
+
+function restoreUndoSnapshot(snapshot) {
+  if (!snapshot?.state) return;
+  try {
+    replaceState(JSON.parse(snapshot.state));
+    activeDate = normalizeDateKey(snapshot.activeDate, toDateKey(new Date()));
+    activeView = snapshot.activeView || "tasks";
+    saveState();
+    resetTaskForm();
+    render();
+    showToast("Действие отменено");
+  } catch {
+    showToast("Не удалось отменить действие");
+  }
+}
+
+function showToast(message, options = {}) {
+  toastController.showToast(message, options);
 }

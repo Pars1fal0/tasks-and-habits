@@ -446,6 +446,10 @@ p {
   box-shadow: 0 0 0 4px rgba(49, 208, 170, 0.12);
 }
 
+.today-button {
+  min-height: 38px;
+}
+
 .icon-button {
   display: grid;
   width: 36px;
@@ -631,6 +635,33 @@ p {
   min-width: 0;
 }
 
+.quick-task-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  margin: -2px 0 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(135deg, rgba(49, 208, 170, 0.08), transparent 58%),
+    var(--surface);
+  padding: 12px;
+}
+
+.quick-task-input {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.quick-task-input input {
+  width: 100%;
+  min-width: 0;
+}
+
 .sort-control {
   display: flex;
   align-items: center;
@@ -797,6 +828,7 @@ p {
 .main-panel,
 .form-panel,
 .metric-panel,
+.month-panel,
 .week-panel {
   padding: 18px;
 }
@@ -850,6 +882,7 @@ p {
 }
 
 .task-list,
+.overdue-list,
 .habit-list,
 .archive-list {
   display: grid;
@@ -857,6 +890,7 @@ p {
 }
 
 .task-item,
+.overdue-item,
 .habit-item,
 .archive-item {
   position: relative;
@@ -873,11 +907,78 @@ p {
 }
 
 .task-item:hover,
+.overdue-item:hover,
 .habit-item:hover,
 .archive-item:hover {
   transform: translateY(-2px);
   border-color: var(--line-strong);
   box-shadow: var(--shadow-lift);
+}
+
+.overdue-panel {
+  display: none;
+  margin-bottom: 14px;
+  border: 1px solid rgba(255, 122, 89, 0.28);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(135deg, rgba(255, 122, 89, 0.12), transparent 54%),
+    rgba(255, 255, 255, 0.035);
+  padding: 14px;
+}
+
+.overdue-panel.is-visible {
+  display: grid;
+  gap: 12px;
+}
+
+.overdue-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.overdue-heading p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.overdue-item {
+  display: grid;
+  grid-template-columns: 5px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  overflow: hidden;
+  padding: 12px 12px 12px 0;
+}
+
+.overdue-item::before {
+  align-self: stretch;
+  width: 5px;
+  min-height: 48px;
+  border-radius: 0 999px 999px 0;
+  background: linear-gradient(180deg, var(--coral), var(--danger));
+  content: "";
+}
+
+.overdue-item h3 {
+  overflow-wrap: anywhere;
+}
+
+.overdue-item p {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.overdue-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .task-item {
@@ -1025,6 +1126,36 @@ p {
 
 .task-meta-chip.is-empty {
   border-style: dashed;
+}
+
+.postpone-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.postpone-actions .compact-button {
+  min-height: 32px;
+  padding-inline: 10px;
+  font-size: 12px;
+}
+
+.postpone-date-input {
+  width: 132px;
+  min-height: 32px;
+  border-radius: var(--radius);
+  font-size: 12px;
+  padding-inline: 9px;
+}
+
+.postpone-date-input:not(.is-visible) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .task-category-chip {
@@ -1331,6 +1462,304 @@ p {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 14px;
+  min-width: 0;
+}
+
+.month-panel {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.week-board-panel {
+  grid-column: 1 / -1;
+  min-width: 0;
+  overflow: hidden;
+  padding: 18px;
+}
+
+.week-board-grid {
+  display: grid;
+  width: 100%;
+  max-width: 100%;
+  grid-template-columns: repeat(7, minmax(132px, 1fr));
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.week-board-day {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 220px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-elevated);
+  padding: 10px;
+  cursor: pointer;
+  transition:
+    transform 170ms var(--ease),
+    border-color 170ms var(--ease),
+    background 170ms var(--ease),
+    box-shadow 170ms var(--ease);
+}
+
+.week-board-day:hover {
+  transform: translateY(-2px);
+  border-color: rgba(49, 208, 170, 0.45);
+}
+
+.week-board-day.is-active {
+  border-color: rgba(49, 208, 170, 0.78);
+  box-shadow: 0 0 0 3px rgba(49, 208, 170, 0.11);
+}
+
+.week-board-day.is-drop-target {
+  transform: translateY(-2px);
+  border-color: rgba(255, 209, 102, 0.82);
+  background:
+    linear-gradient(180deg, rgba(255, 209, 102, 0.12), transparent),
+    var(--surface-elevated);
+  box-shadow: 0 0 0 3px rgba(255, 209, 102, 0.14);
+}
+
+.week-board-day.is-today .week-board-header strong {
+  background: var(--teal);
+  color: #06110f;
+}
+
+.week-board-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 680;
+}
+
+.week-board-header strong {
+  display: grid;
+  min-width: 26px;
+  height: 26px;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--text-strong);
+  font-size: 13px;
+}
+
+.week-board-count {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 640;
+}
+
+.week-board-list {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.week-task-chip {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.055);
+  padding: 7px 8px;
+  color: var(--text-soft);
+}
+
+.week-task-chip span,
+.week-task-chip small {
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.week-task-chip span {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 680;
+}
+
+.week-task-chip small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 620;
+}
+
+.week-task-chip.is-done {
+  opacity: 0.58;
+}
+
+.week-task-chip.is-done span {
+  text-decoration: line-through;
+}
+
+.week-board-empty {
+  border: 1px dashed var(--line);
+  border-radius: 6px;
+  color: var(--muted);
+  padding: 10px;
+  text-align: center;
+  font-size: 12px;
+}
+
+.month-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.month-weekdays,
+.month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.month-weekdays {
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 680;
+  text-align: center;
+}
+
+.month-day {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  min-width: 0;
+  min-height: 116px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent),
+    var(--surface-elevated);
+  padding: 10px;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  user-select: none;
+  transition:
+    transform 170ms var(--ease),
+    border-color 170ms var(--ease),
+    background 170ms var(--ease);
+}
+
+.month-day:hover {
+  transform: translateY(-2px);
+  border-color: rgba(49, 208, 170, 0.45);
+  background:
+    linear-gradient(180deg, rgba(49, 208, 170, 0.08), transparent),
+    var(--surface-elevated);
+}
+
+.month-day.is-outside {
+  opacity: 0.52;
+}
+
+.month-day.is-active {
+  border-color: rgba(49, 208, 170, 0.78);
+  box-shadow: 0 0 0 3px rgba(49, 208, 170, 0.11);
+}
+
+.month-day.is-drop-target {
+  transform: translateY(-2px);
+  border-color: rgba(255, 209, 102, 0.82);
+  background:
+    linear-gradient(180deg, rgba(255, 209, 102, 0.12), transparent),
+    var(--surface-elevated);
+  box-shadow: 0 0 0 3px rgba(255, 209, 102, 0.14);
+}
+
+.month-day.is-today .month-day-head strong {
+  background: var(--teal);
+  color: #06110f;
+}
+
+.month-day-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.month-day-head strong {
+  display: grid;
+  min-width: 26px;
+  height: 26px;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--text-strong);
+  font-size: 14px;
+  line-height: 1;
+}
+
+.month-day-head span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 680;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.month-day-items {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.month-day-items span {
+  overflow: hidden;
+  min-width: 0;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.055);
+  padding: 3px 6px;
+  color: var(--text-soft);
+  font-size: 12px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.month-day-hidden {
+  display: none;
+  gap: 4px;
+}
+
+.month-day.is-expanded .month-day-hidden {
+  display: grid;
+}
+
+.month-task-chip {
+  cursor: grab;
+  touch-action: none;
+}
+
+.month-task-chip:active {
+  cursor: grabbing;
+}
+
+.month-task-chip.is-dragging {
+  opacity: 0.55;
+  outline: 2px solid rgba(49, 208, 170, 0.32);
+}
+
+.month-day-items .month-day-more {
+  width: fit-content;
+  min-height: 25px;
+  border: 0;
+  border-radius: 5px;
+  background: rgba(49, 208, 170, 0.1);
+  color: var(--teal);
+  font-weight: 700;
+  padding: 3px 6px;
 }
 
 .heatmap-panel {
@@ -1419,6 +1848,9 @@ p {
 
 .toast {
   position: fixed;
+  display: flex;
+  align-items: center;
+  gap: 12px;
   right: 22px;
   bottom: 22px;
   z-index: 30;
@@ -1439,7 +1871,26 @@ p {
 
 .toast.is-visible {
   opacity: 1;
+  pointer-events: auto;
   transform: translateY(0);
+}
+
+.toast span {
+  min-width: 0;
+}
+
+.toast button {
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 6px;
+  background: rgba(49, 208, 170, 0.16);
+  color: var(--teal);
+  font-weight: 760;
+  padding: 7px 9px;
+}
+
+.toast button:hover {
+  background: rgba(49, 208, 170, 0.24);
 }
 
 .week-panel {
@@ -1735,6 +2186,39 @@ p {
     grid-template-columns: 1fr;
   }
 
+  .month-weekdays,
+  .month-grid {
+    gap: 5px;
+  }
+
+  .week-board-grid {
+    grid-template-columns: repeat(7, minmax(136px, 1fr));
+  }
+
+  .week-board-day {
+    min-height: 180px;
+  }
+
+  .month-day {
+    min-height: 82px;
+    padding: 7px;
+  }
+
+  .month-day-head strong {
+    min-width: 23px;
+    height: 23px;
+    font-size: 12px;
+  }
+
+  .month-day-head span,
+  .month-day-items span {
+    font-size: 11px;
+  }
+
+  .month-day:not(.is-expanded) > .month-day-items > .month-task-chip:nth-of-type(n + 2) {
+    display: none;
+  }
+
   .focus-progress span {
     font-size: 34px;
   }
@@ -1742,6 +2226,14 @@ p {
   .date-control {
     justify-content: space-between;
     width: 100%;
+  }
+
+  .today-button {
+    flex: 1 1 100%;
+  }
+
+  .quick-task-form {
+    grid-template-columns: 1fr;
   }
 
   .filter-group,
@@ -1765,6 +2257,16 @@ p {
   .archive-item {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .overdue-item {
+    grid-template-columns: 5px minmax(0, 1fr);
+  }
+
+  .overdue-actions {
+    grid-column: 2;
+    justify-content: end;
+    flex-wrap: wrap;
   }
 
   .search-control,
