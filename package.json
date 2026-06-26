@@ -7,6 +7,7 @@
   "scripts": {
     "desktop": "electron .",
     "desktop:smoke": "electron . --smoke-test",
+    "test": "node tests/run-tests.cjs",
     "build:win": "electron-builder --win portable nsis",
     "pack:win": "electron-builder --win portable"
   },
@@ -24,6 +25,7 @@
       "manifest.webmanifest",
       "quick-input.js",
       "recurrence.js",
+      "storage.js",
       "styles.css",
       "task-moves.js",
       "toast.js",

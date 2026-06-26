@@ -1,18 +1,19 @@
-const STORAGE_KEY = "rhythm-day-state-v1";
-const UI_STATE_KEY = "rhythm-day-ui-v1";
-const BACKUP_KEY = "rhythm-day-backup-v1";
-const IMPORT_SAFETY_BACKUP_KEY = "rhythm-day-import-safety-backup-v1";
 const SCHEMA_VERSION = 5;
 const BACKUP_INTERVAL_MS = 5 * 60 * 1000;
 const VALID_PRIORITIES = ["high", "medium", "low"];
 const VALID_HABIT_REPEATS = ["daily", "every2days", "every3days", "weekdays", "weekends", "weekly", "custom"];
 const VALID_REMINDER_OFFSETS = ["none", "0", "5", "15", "30", "60", "1440"];
 
-let state = normalizeState(loadStoredState());
+const storage = window.RhythmStorage.createLocalStorageAdapter({
+  appName: "Ритм дня",
+  schemaVersion: SCHEMA_VERSION,
+});
+
+let state = normalizeState(storage.loadState());
 let activeDate = toDateKey(new Date());
 let activeView = "tasks";
 let taskFilter = "all";
-const initialUiState = loadUiState();
+const initialUiState = storage.loadUiState();
 let taskCategoryFilter = initialUiState.taskCategoryFilter || "all";
 let taskSearchQuery = initialUiState.taskSearchQuery || "";
 let archiveCategoryFilter = initialUiState.archiveCategoryFilter || "all";
@@ -20,7 +21,6 @@ let archiveSearchQuery = initialUiState.archiveSearchQuery || "";
 let draggedTaskId = null;
 let draggedTaskDate = "";
 let pointerDragTask = null;
-let lastBackupAt = 0;
 
 const els = {
   activeDate: document.querySelector("#activeDate"),
@@ -1973,32 +1973,13 @@ function addDays(dateKey, days) {
   return toDateKey(date);
 }
 
-function loadStoredState() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY));
-  } catch {
-    return null;
-  }
-}
-
-function loadUiState() {
-  try {
-    return JSON.parse(localStorage.getItem(UI_STATE_KEY)) || {};
-  } catch {
-    return {};
-  }
-}
-
 function saveUiState() {
-  localStorage.setItem(
-    UI_STATE_KEY,
-    JSON.stringify({
-      archiveCategoryFilter,
-      archiveSearchQuery,
-      taskCategoryFilter,
-      taskSearchQuery,
-    }),
-  );
+  storage.saveUiState({
+    archiveCategoryFilter,
+    archiveSearchQuery,
+    taskCategoryFilter,
+    taskSearchQuery,
+  });
 }
 
 function cleanSearchQuery(value) {
@@ -2153,52 +2134,32 @@ function replaceState(nextState) {
 }
 
 function saveState(options = {}) {
-  state.schemaVersion = SCHEMA_VERSION;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  if (!options.skipBackup) {
-    createBackup({ silent: true, throttle: true });
-  }
+  state = storage.saveState(state, {
+    schemaVersion: SCHEMA_VERSION,
+    skipBackup: options.skipBackup,
+  });
+  if (!options.skipBackup) updateBackupStatus();
   syncDesktopReminders();
 }
 
 function createBackup({ payload = null, silent = false, throttle = false } = {}) {
-  const now = Date.now();
-  if (throttle && now - lastBackupAt < 60000) return;
-
-  const backup = payload || {
-    app: "Ритм дня",
-    schemaVersion: SCHEMA_VERSION,
-    exportedAt: new Date(now).toISOString(),
+  const result = storage.createBackup({
+    payload,
     state,
-  };
+    throttle,
+  });
 
-  try {
-    localStorage.setItem(BACKUP_KEY, JSON.stringify(backup));
-    lastBackupAt = now;
+  if (result.ok) {
     updateBackupStatus();
     if (!silent) showToast("Локальный бэкап обновлен");
-  } catch {
-    if (!silent) showToast("Не удалось создать бэкап");
+    return;
   }
+
+  if (!silent && result.reason !== "throttled") showToast("Не удалось создать бэкап");
 }
 
 function createImportSafetyBackup(snapshot) {
-  if (!snapshot?.state) return;
-
-  try {
-    localStorage.setItem(
-      IMPORT_SAFETY_BACKUP_KEY,
-      JSON.stringify({
-        app: "Ритм дня",
-        schemaVersion: SCHEMA_VERSION,
-        reason: "before-import",
-        exportedAt: new Date().toISOString(),
-        state: JSON.parse(snapshot.state),
-      }),
-    );
-  } catch {
-    // The undo snapshot in the toast still protects the current session.
-  }
+  storage.createImportSafetyBackup(snapshot, { schemaVersion: SCHEMA_VERSION });
 }
 
 function restoreBackup() {
@@ -2219,13 +2180,7 @@ function restoreBackup() {
 }
 
 function loadBackup() {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(BACKUP_KEY));
-    if (!parsed || typeof parsed !== "object") return null;
-    return parsed;
-  } catch {
-    return null;
-  }
+  return storage.loadBackup();
 }
 
 function updateBackupStatus() {

@@ -33,6 +33,7 @@
 - `app.js` — главный координатор состояния, рендера и событий.
 - `quick-input.js` — парсер быстрого ввода.
 - `recurrence.js` — правила обычных и настраиваемых повторов.
+- `storage.js` — чтение, запись, UI-состояние и локальные бэкапы.
 - `task-moves.js` — перенос обычных и повторяющихся задач между датами.
 - `toast.js` — toast и кнопка undo.
 - `sw.js` — service worker для PWA-кеша.
@@ -64,6 +65,12 @@ npm run desktop
 
 ```powershell
 npm run desktop:smoke
+```
+
+Запустить быстрые unit-тесты бизнес-логики:
+
+```powershell
+npm test
 ```
 
 Собрать Windows-версию:

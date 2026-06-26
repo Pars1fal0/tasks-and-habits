@@ -1,4 +1,4 @@
-(function () {
+(function (global) {
   const repeatLabels = {
     none: "Без повтора",
     daily: "Каждый день",
@@ -112,7 +112,7 @@
     return new Date(year, month - 1, day);
   }
 
-  window.RhythmRecurrence = {
+  const api = {
     repeatLabels,
     customRepeatLabel,
     normalizeCustomRepeat,
@@ -120,4 +120,7 @@
     repeatLabel,
     taskScheduledOn,
   };
-})();
+
+  global.RhythmRecurrence = api;
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
+})(typeof window !== "undefined" ? window : globalThis);

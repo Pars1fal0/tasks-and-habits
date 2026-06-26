@@ -204,7 +204,13 @@ function createWindow() {
           hasQuickInput: Boolean(document.querySelector("#quickTaskInput")),
           hasCategories: document.querySelectorAll(".category-item").length >= 1,
           hasJsonActions: Boolean(document.querySelector("#exportButton")) && Boolean(document.querySelector("#importFile")),
-          modulesLoaded: Boolean(window.RhythmQuickInput && window.RhythmRecurrence && window.RhythmTaskMoves && window.RhythmToast),
+          modulesLoaded: Boolean(
+            window.RhythmQuickInput &&
+              window.RhythmRecurrence &&
+              window.RhythmStorage &&
+              window.RhythmTaskMoves &&
+              window.RhythmToast,
+          ),
           desktopBridge: Boolean(window.rhythmDesktop?.syncReminders),
           taskCreated: Boolean(taskCard),
           quickTaskCreated,

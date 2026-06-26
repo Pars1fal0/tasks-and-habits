@@ -1,4 +1,4 @@
-(function () {
+(function (global) {
   const TIME_WORDS = {
     утром: "09:00",
     утро: "09:00",
@@ -242,5 +242,7 @@ function extractQuickCategory(text, parsed, context) {
     return `${safeDate.getFullYear()}-${String(safeDate.getMonth() + 1).padStart(2, "0")}-${String(safeDate.getDate()).padStart(2, "0")}`;
   }
 
-  window.RhythmQuickInput = { parseQuickTaskInput };
-})();
+  const api = { parseQuickTaskInput };
+  global.RhythmQuickInput = api;
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
+})(typeof window !== "undefined" ? window : globalThis);
