@@ -56,6 +56,7 @@
       date: context.activeDate || fallbackDateKey(new Date()),
       time: "",
       categoryId: "",
+      categoryName: "",
       priority: "medium",
     };
 
@@ -94,12 +95,13 @@
     });
   }
 
-  function extractQuickCategory(text, parsed, context) {
-    return text.replace(/(^|\s)#([\p{L}\d_-]+)/u, (_match, prefix, value) => {
+function extractQuickCategory(text, parsed, context) {
+  return text.replace(/(^|\s)#([\p{L}\d_-]+)/u, (_match, prefix, value) => {
+      parsed.categoryName = context.normalizeCategoryName?.(value) || defaultCleanText(String(value || "").replaceAll("_", " "));
       parsed.categoryId = context.getOrCreateCategory?.(value) || "";
       return prefix;
     });
-  }
+}
 
   function extractRelativeDateTime(text, parsed, context) {
     return text.replace(

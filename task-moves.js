@@ -41,6 +41,7 @@
       categoryId: task.categoryId,
       priority: task.priority,
       repeat: "none",
+      customRepeat: {},
       reminderOffset: task.reminderOffset,
       completed: {},
       excludedDates: {},

@@ -5,8 +5,7 @@ const IMPORT_SAFETY_BACKUP_KEY = "rhythm-day-import-safety-backup-v1";
 const SCHEMA_VERSION = 5;
 const BACKUP_INTERVAL_MS = 5 * 60 * 1000;
 const VALID_PRIORITIES = ["high", "medium", "low"];
-const VALID_REPEATS = ["none", "daily", "every2days", "every3days", "weekdays", "weekends", "weekly", "monthly", "yearly"];
-const VALID_HABIT_REPEATS = ["daily", "every2days", "every3days", "weekdays", "weekends", "weekly"];
+const VALID_HABIT_REPEATS = ["daily", "every2days", "every3days", "weekdays", "weekends", "weekly", "custom"];
 const VALID_REMINDER_OFFSETS = ["none", "0", "5", "15", "30", "60", "1440"];
 
 let state = normalizeState(loadStoredState());
@@ -49,6 +48,10 @@ const els = {
   habitForm: document.querySelector("#habitForm"),
   habitFormPanel: document.querySelector("#habitFormPanel"),
   habitGoal: document.querySelector("#habitGoal"),
+  habitCustomRepeatInterval: document.querySelector("#habitCustomRepeatInterval"),
+  habitCustomRepeatMonthDay: document.querySelector("#habitCustomRepeatMonthDay"),
+  habitCustomRepeatPanel: document.querySelector("#habitCustomRepeatPanel"),
+  habitCustomRepeatSummary: document.querySelector("#habitCustomRepeatSummary"),
   habitId: document.querySelector("#habitId"),
   habitList: document.querySelector("#habitList"),
   habitRepeat: document.querySelector("#habitRepeat"),
@@ -73,8 +76,13 @@ const els = {
   pageTitle: document.querySelector("#pageTitle"),
   prevDay: document.querySelector("#prevDay"),
   prevMonth: document.querySelector("#prevMonth"),
+  customRepeatInterval: document.querySelector("#customRepeatInterval"),
+  customRepeatMonthDay: document.querySelector("#customRepeatMonthDay"),
+  customRepeatPanel: document.querySelector("#customRepeatPanel"),
+  customRepeatSummary: document.querySelector("#customRepeatSummary"),
   quickTaskForm: document.querySelector("#quickTaskForm"),
   quickTaskInput: document.querySelector("#quickTaskInput"),
+  quickTaskPreview: document.querySelector("#quickTaskPreview"),
   resetHabitForm: document.querySelector("#resetHabitForm"),
   resetTaskForm: document.querySelector("#resetTaskForm"),
   restoreBackupButton: document.querySelector("#restoreBackupButton"),
@@ -129,17 +137,7 @@ const priorityLabels = {
   low: "Низкий",
 };
 
-const repeatLabels = {
-  none: "Без повтора",
-  daily: "Каждый день",
-  every2days: "Каждые 2 дня",
-  every3days: "Каждые 3 дня",
-  weekdays: "Будни",
-  weekends: "Выходные",
-  weekly: "Еженедельно",
-  monthly: "Ежемесячно",
-  yearly: "Ежегодно",
-};
+const repeatLabels = window.RhythmRecurrence.repeatLabels;
 
 seedIfEmpty();
 init();
@@ -226,6 +224,22 @@ function bindEvents() {
   els.resetTaskForm.addEventListener("click", resetTaskForm);
   els.taskForm.addEventListener("submit", saveTaskFromForm);
   els.quickTaskForm.addEventListener("submit", saveQuickTask);
+  els.quickTaskInput.addEventListener("input", updateQuickTaskPreview);
+  els.taskRepeat.addEventListener("change", syncCustomRepeatPanel);
+  document.querySelectorAll("[data-repeat-mode]").forEach((button) => {
+    button.addEventListener("click", () => setCustomRepeatMode(button.dataset.repeatMode));
+  });
+  document.querySelectorAll("[data-weekday]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const activeButtons = document.querySelectorAll("[data-weekday].is-active");
+      if (button.classList.contains("is-active") && activeButtons.length <= 1) return;
+      button.classList.toggle("is-active");
+      updateCustomRepeatSummary();
+    });
+  });
+  [els.customRepeatMonthDay, els.customRepeatInterval].forEach((input) => {
+    input.addEventListener("input", updateCustomRepeatSummary);
+  });
   els.taskTime.addEventListener("input", syncTaskTimePresets);
   document.querySelectorAll("[data-time-preset]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -244,6 +258,21 @@ function bindEvents() {
   });
   els.resetHabitForm.addEventListener("click", resetHabitForm);
   els.habitForm.addEventListener("submit", saveHabitFromForm);
+  els.habitRepeat.addEventListener("change", syncHabitCustomRepeatPanel);
+  document.querySelectorAll("[data-habit-repeat-mode]").forEach((button) => {
+    button.addEventListener("click", () => setHabitCustomRepeatMode(button.dataset.habitRepeatMode));
+  });
+  document.querySelectorAll("[data-habit-weekday]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const activeButtons = document.querySelectorAll("[data-habit-weekday].is-active");
+      if (button.classList.contains("is-active") && activeButtons.length <= 1) return;
+      button.classList.toggle("is-active");
+      updateHabitCustomRepeatSummary();
+    });
+  });
+  [els.habitCustomRepeatMonthDay, els.habitCustomRepeatInterval].forEach((input) => {
+    input.addEventListener("input", updateHabitCustomRepeatSummary);
+  });
 
   els.categoryForm.addEventListener("submit", saveCategoryFromForm);
   els.notifyButton.addEventListener("click", requestNotifications);
@@ -495,7 +524,7 @@ function renderOverdueTasks() {
       category?.name || "Без категории",
       priorityLabels[entry.task.priority] || "Средний",
     ];
-    if (entry.task.repeat !== "none") details.push(repeatLabels[entry.task.repeat]);
+    if (entry.task.repeat !== "none") details.push(formatTaskRepeat(entry.task));
 
     node.innerHTML = `
       <div>
@@ -539,11 +568,11 @@ function renderExcludedTasks() {
   excludedTasks.forEach((task) => {
     const node = document.createElement("article");
     node.className = "excluded-item";
-    const details = taskDetails(task).filter((detail) => detail !== repeatLabels[task.repeat]);
+    const details = taskDetails(task).filter((detail) => detail !== formatTaskRepeat(task));
     node.innerHTML = `
       <div>
         <h3>${escapeHtml(task.title)}</h3>
-        <p>${escapeHtml(repeatLabels[task.repeat] || "Повтор")} · ${escapeHtml(details.join(" · ") || "Без категории")}</p>
+        <p>${escapeHtml(formatTaskRepeat(task) || "Повтор")} · ${escapeHtml(details.join(" · ") || "Без категории")}</p>
       </div>
       <button class="ghost-button compact-button restore-excluded" type="button">Вернуть в день</button>
     `;
@@ -759,7 +788,7 @@ function createHabitNode(habit) {
   const control = node.querySelector(".habit-control");
 
   title.textContent = habit.title;
-  streak.textContent = `Серия: ${habitStreak(habit, activeDate)} дн.`;
+  streak.textContent = habitSubtitle(habit);
 
   if (habit.type === "number") {
     const current = Number(habit.logs[activeDate] || 0);
@@ -779,7 +808,7 @@ function createHabitNode(habit) {
       saveState();
       renderDailyPulse();
       renderOverview();
-      node.querySelector(".habit-streak").textContent = `Серия: ${habitStreak(habit, activeDate)} дн.`;
+      node.querySelector(".habit-streak").textContent = habitSubtitle(habit);
       const nextPercent = Math.min(100, Math.round((Number(habit.logs[activeDate]) / goal) * 100));
       control.querySelector(".progress-fill").style.width = `${nextPercent}%`;
       control.querySelector("span").textContent = `${habit.logs[activeDate]} / ${goal} ${habit.unit || ""}`;
@@ -819,6 +848,11 @@ function createHabitNode(habit) {
   });
 
   return node;
+}
+
+function habitSubtitle(habit) {
+  const repeat = formatHabitRepeat(habit);
+  return `Серия: ${habitStreak(habit, activeDate)} дн. · ${repeat}`;
 }
 
 function renderOverview() {
@@ -1143,6 +1177,7 @@ function saveTaskFromForm(event) {
     categoryId: els.taskCategoryId.value,
     priority: els.taskPriority.value,
     repeat: els.taskRepeat.value,
+    customRepeat: els.taskRepeat.value === "custom" ? getCustomRepeatFromForm() : {},
     reminderOffset: els.taskReminder.value,
     completed: existing?.completed || {},
     excludedDates: existing?.excludedDates || {},
@@ -1181,6 +1216,7 @@ function saveQuickTask(event) {
     categoryId: parsed.categoryId,
     priority: parsed.priority,
     repeat: "none",
+    customRepeat: {},
     reminderOffset: parsed.time ? "15" : "none",
     completed: {},
     excludedDates: {},
@@ -1192,10 +1228,163 @@ function saveQuickTask(event) {
   activeDate = task.date;
   activeView = "tasks";
   els.quickTaskInput.value = "";
+  updateQuickTaskPreview();
   saveState();
   resetTaskForm();
   render();
   showToast(`Добавлено: ${task.title}`, { undo });
+}
+
+function updateQuickTaskPreview() {
+  const rawValue = cleanText(els.quickTaskInput.value);
+  if (!rawValue) {
+    els.quickTaskPreview.hidden = true;
+    els.quickTaskPreview.replaceChildren();
+    return;
+  }
+
+  const parsed = parseQuickTaskPreview(rawValue);
+  const category = parsed.categoryId ? getCategory(parsed.categoryId)?.name : parsed.categoryName;
+  const details = [
+    formatLongDate(parsed.date),
+    parsed.time ? `до ${parsed.time}` : "без времени",
+    category || "без категории",
+    priorityLabels[parsed.priority],
+  ];
+
+  els.quickTaskPreview.hidden = false;
+  els.quickTaskPreview.innerHTML = `
+    <div>
+      <span>Будет создано</span>
+      <strong>${escapeHtml(parsed.title || "Задача без названия")}</strong>
+    </div>
+    <div class="quick-preview-chips">
+      ${details.map((detail) => `<span>${escapeHtml(detail)}</span>`).join("")}
+    </div>
+  `;
+}
+
+function parseQuickTaskPreview(value) {
+  return window.RhythmQuickInput.parseQuickTaskInput(value, {
+    activeDate,
+    cleanText,
+    getOrCreateCategory: (categoryValue) => {
+      const name = normalizeQuickCategoryName(categoryValue);
+      return state.categories.find((category) => category.name.toLowerCase() === name.toLowerCase())?.id || "";
+    },
+    normalizeCategoryName: normalizeQuickCategoryName,
+    normalizeDateKey,
+    toDateKey,
+    toTimeValue,
+  });
+}
+
+function getCustomRepeatFromForm() {
+  const activeMode = document.querySelector("[data-repeat-mode].is-active")?.dataset.repeatMode || "weekdays";
+  if (activeMode === "monthDay") {
+    return window.RhythmRecurrence.normalizeCustomRepeat({
+      type: "monthDay",
+      day: Number(els.customRepeatMonthDay.value || 15),
+    });
+  }
+  if (activeMode === "interval") {
+    return window.RhythmRecurrence.normalizeCustomRepeat({
+      type: "interval",
+      every: Number(els.customRepeatInterval.value || 5),
+    });
+  }
+
+  return window.RhythmRecurrence.normalizeCustomRepeat({
+    type: "weekdays",
+    weekdays: [...document.querySelectorAll("[data-weekday].is-active")].map((button) => Number(button.dataset.weekday)),
+  });
+}
+
+function setCustomRepeatForm(value = {}) {
+  const custom = window.RhythmRecurrence.normalizeCustomRepeat(value);
+  setCustomRepeatMode(custom.type);
+  const activeWeekdays = custom.weekdays || [1, 3, 5];
+  document.querySelectorAll("[data-weekday]").forEach((button) => {
+    button.classList.toggle("is-active", activeWeekdays.includes(Number(button.dataset.weekday)));
+  });
+  els.customRepeatMonthDay.value = custom.type === "monthDay" ? custom.day : 15;
+  els.customRepeatInterval.value = custom.type === "interval" ? custom.every : 5;
+  updateCustomRepeatSummary();
+}
+
+function syncCustomRepeatPanel() {
+  const isCustom = els.taskRepeat.value === "custom";
+  els.customRepeatPanel.hidden = !isCustom;
+  if (isCustom) updateCustomRepeatSummary();
+}
+
+function setCustomRepeatMode(mode = "weekdays") {
+  document.querySelectorAll("[data-repeat-mode]").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.repeatMode === mode);
+  });
+  document.querySelectorAll("[data-repeat-panel]").forEach((panel) => {
+    panel.hidden = panel.dataset.repeatPanel !== mode;
+  });
+  updateCustomRepeatSummary();
+}
+
+function updateCustomRepeatSummary() {
+  els.customRepeatSummary.textContent = window.RhythmRecurrence.customRepeatLabel(getCustomRepeatFromForm());
+}
+
+function getHabitCustomRepeatFromForm() {
+  const activeMode = document.querySelector("[data-habit-repeat-mode].is-active")?.dataset.habitRepeatMode || "weekdays";
+  if (activeMode === "monthDay") {
+    return window.RhythmRecurrence.normalizeCustomRepeat({
+      type: "monthDay",
+      day: Number(els.habitCustomRepeatMonthDay.value || 15),
+    });
+  }
+  if (activeMode === "interval") {
+    return window.RhythmRecurrence.normalizeCustomRepeat({
+      type: "interval",
+      every: Number(els.habitCustomRepeatInterval.value || 5),
+    });
+  }
+
+  return window.RhythmRecurrence.normalizeCustomRepeat({
+    type: "weekdays",
+    weekdays: [...document.querySelectorAll("[data-habit-weekday].is-active")].map((button) =>
+      Number(button.dataset.habitWeekday),
+    ),
+  });
+}
+
+function setHabitCustomRepeatForm(value = {}) {
+  const custom = window.RhythmRecurrence.normalizeCustomRepeat(value);
+  setHabitCustomRepeatMode(custom.type);
+  const activeWeekdays = custom.weekdays || [1, 3, 5];
+  document.querySelectorAll("[data-habit-weekday]").forEach((button) => {
+    button.classList.toggle("is-active", activeWeekdays.includes(Number(button.dataset.habitWeekday)));
+  });
+  els.habitCustomRepeatMonthDay.value = custom.type === "monthDay" ? custom.day : 15;
+  els.habitCustomRepeatInterval.value = custom.type === "interval" ? custom.every : 5;
+  updateHabitCustomRepeatSummary();
+}
+
+function syncHabitCustomRepeatPanel() {
+  const isCustom = els.habitRepeat.value === "custom";
+  els.habitCustomRepeatPanel.hidden = !isCustom;
+  if (isCustom) updateHabitCustomRepeatSummary();
+}
+
+function setHabitCustomRepeatMode(mode = "weekdays") {
+  document.querySelectorAll("[data-habit-repeat-mode]").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.habitRepeatMode === mode);
+  });
+  document.querySelectorAll("[data-habit-repeat-panel]").forEach((panel) => {
+    panel.hidden = panel.dataset.habitRepeatPanel !== mode;
+  });
+  updateHabitCustomRepeatSummary();
+}
+
+function updateHabitCustomRepeatSummary() {
+  els.habitCustomRepeatSummary.textContent = window.RhythmRecurrence.customRepeatLabel(getHabitCustomRepeatFromForm());
 }
 
 function fillTaskForm(task) {
@@ -1207,7 +1396,9 @@ function fillTaskForm(task) {
   els.taskCategoryId.value = task.categoryId || "";
   els.taskPriority.value = task.priority || "medium";
   els.taskRepeat.value = task.repeat || "none";
+  setCustomRepeatForm(task.customRepeat);
   els.taskReminder.value = task.reminderOffset ?? (task.time ? "15" : "none");
+  syncCustomRepeatPanel();
   syncTaskTimePresets();
   els.taskTitle.focus();
 }
@@ -1221,6 +1412,8 @@ function resetTaskForm() {
   els.taskCategoryId.value = "";
   els.taskPriority.value = "medium";
   els.taskRepeat.value = "none";
+  setCustomRepeatForm();
+  syncCustomRepeatPanel();
   els.taskReminder.value = "15";
   syncTaskTimePresets();
 }
@@ -1236,6 +1429,7 @@ function saveHabitFromForm(event) {
     title: cleanText(els.habitTitle.value),
     type,
     repeat: normalizeHabitRepeat(els.habitRepeat.value),
+    customRepeat: els.habitRepeat.value === "custom" ? getHabitCustomRepeatFromForm() : {},
     startDate: existing?.startDate || activeDate,
     unit: cleanText(els.habitUnit.value),
     goal: type === "number" ? Math.max(1, Number(els.habitGoal.value || 1)) : 1,
@@ -1261,6 +1455,8 @@ function fillHabitForm(habit) {
   els.habitTitle.value = habit.title;
   els.habitType.value = habit.type;
   els.habitRepeat.value = normalizeHabitRepeat(habit.repeat);
+  setHabitCustomRepeatForm(habit.customRepeat);
+  syncHabitCustomRepeatPanel();
   els.habitUnit.value = habit.unit || "";
   els.habitGoal.value = habit.goal || "";
   els.habitTitle.focus();
@@ -1272,6 +1468,8 @@ function resetHabitForm() {
   els.habitId.value = "";
   els.habitType.value = "check";
   els.habitRepeat.value = "daily";
+  setHabitCustomRepeatForm();
+  syncHabitCustomRepeatPanel();
 }
 
 function saveCategoryFromForm(event) {
@@ -1388,29 +1586,7 @@ function taskOccursOn(task, dateKey) {
 }
 
 function taskScheduledOn(task, dateKey) {
-  if (task.repeat === "none") return task.date === dateKey;
-  const date = parseDate(dateKey);
-  const start = parseDate(task.date);
-  if (date < start) return false;
-
-  const diff = Math.floor((date - start) / 86400000);
-  if (task.repeat === "daily") return true;
-  if (task.repeat === "every2days") return diff % 2 === 0;
-  if (task.repeat === "every3days") return diff % 3 === 0;
-  if (task.repeat === "weekdays") {
-    const day = date.getDay();
-    return day !== 0 && day !== 6;
-  }
-  if (task.repeat === "weekends") {
-    const day = date.getDay();
-    return day === 0 || day === 6;
-  }
-  if (task.repeat === "weekly") return date.getDay() === start.getDay();
-  if (task.repeat === "monthly") return date.getDate() === start.getDate();
-  if (task.repeat === "yearly") {
-    return date.getDate() === start.getDate() && date.getMonth() === start.getMonth();
-  }
-  return false;
+  return window.RhythmRecurrence.taskScheduledOn(task, dateKey);
 }
 
 function isTaskExcluded(task, dateKey) {
@@ -1460,23 +1636,14 @@ function habitsForDate(dateKey) {
 
 function habitOccursOn(habit, dateKey) {
   const repeat = normalizeHabitRepeat(habit.repeat);
-  const date = parseDate(dateKey);
-  const start = parseDate(habit.startDate || activeDate);
-  if (date < start) return false;
-
-  const diff = Math.floor((date - start) / 86400000);
-  if (repeat === "daily") return true;
-  if (repeat === "every2days") return diff % 2 === 0;
-  if (repeat === "every3days") return diff % 3 === 0;
-  if (repeat === "weekdays") {
-    const day = date.getDay();
-    return day !== 0 && day !== 6;
-  }
-  if (repeat === "weekends") {
-    const day = date.getDay();
-    return day === 0 || day === 6;
-  }
-  return date.getDay() === start.getDay();
+  return window.RhythmRecurrence.taskScheduledOn(
+    {
+      date: habit.startDate || activeDate,
+      repeat: repeat === "weekly" ? "weekly" : repeat,
+      customRepeat: habit.customRepeat,
+    },
+    dateKey,
+  );
 }
 
 function isTaskDone(task, dateKey) {
@@ -1530,7 +1697,7 @@ function taskDetails(task) {
   const category = getCategory(task.categoryId);
   if (task.time) details.push(`до ${task.time}`);
   if (category) details.push(category.name);
-  if (task.repeat !== "none") details.push(repeatLabels[task.repeat]);
+  if (task.repeat !== "none") details.push(formatTaskRepeat(task));
   if (task.time && task.reminderOffset !== "none") details.push(reminderLabel(task.reminderOffset));
   return details;
 }
@@ -1548,7 +1715,7 @@ function taskMatchesSearch(task, query, dateKey = "") {
     task.title,
     category?.name,
     priorityLabels[task.priority],
-    repeatLabels[task.repeat],
+    formatTaskRepeat(task),
     task.time,
     dateKey,
     dateKey ? formatLongDate(dateKey) : "",
@@ -1582,7 +1749,7 @@ function taskMetaMarkup(task) {
   }
 
   if (task.time) chips.push(`<span class="task-meta-chip">до ${escapeHtml(task.time)}</span>`);
-  if (task.repeat !== "none") chips.push(`<span class="task-meta-chip">${escapeHtml(repeatLabels[task.repeat])}</span>`);
+  if (task.repeat !== "none") chips.push(`<span class="task-meta-chip">${escapeHtml(formatTaskRepeat(task))}</span>`);
   if (task.time && task.reminderOffset !== "none") {
     chips.push(`<span class="task-meta-chip">${escapeHtml(reminderLabel(task.reminderOffset))}</span>`);
   }
@@ -1598,8 +1765,19 @@ function timeValue(value) {
   return cleanTimeValue(value) || "99:99";
 }
 
+function formatTaskRepeat(task) {
+  return window.RhythmRecurrence.repeatLabel(task);
+}
+
 function normalizeHabitRepeat(value) {
   return VALID_HABIT_REPEATS.includes(value) ? value : "daily";
+}
+
+function formatHabitRepeat(habit) {
+  return window.RhythmRecurrence.repeatLabel({
+    repeat: normalizeHabitRepeat(habit.repeat),
+    customRepeat: habit.customRepeat,
+  });
 }
 
 function reminderLabel(value) {
@@ -1843,6 +2021,7 @@ function parseQuickTaskInput(value) {
     activeDate,
     cleanText,
     getOrCreateCategory,
+    normalizeCategoryName: normalizeQuickCategoryName,
     normalizeDateKey,
     toDateKey,
     toTimeValue,
@@ -1936,7 +2115,8 @@ function normalizeState(raw) {
           time,
           categoryId,
           priority: VALID_PRIORITIES.includes(task.priority) ? task.priority : "medium",
-          repeat: VALID_REPEATS.includes(task.repeat) ? task.repeat : "none",
+          repeat: window.RhythmRecurrence.normalizeRepeat(task.repeat),
+          customRepeat: window.RhythmRecurrence.normalizeCustomRepeat(task.customRepeat),
           reminderOffset: normalizeReminderOffset(task.reminderOffset, Boolean(time)),
           completed: normalizeTaskFlags(task.completed),
           excludedDates: normalizeTaskFlags(task.excludedDates),
@@ -1954,6 +2134,7 @@ function normalizeState(raw) {
           title: cleanText(habit.title) || "Привычка",
           type,
           repeat: normalizeHabitRepeat(habit.repeat),
+          customRepeat: window.RhythmRecurrence.normalizeCustomRepeat(habit.customRepeat),
           startDate: normalizeDateKey(habit.startDate, toDateKey(new Date(habit.createdAt || Date.now()))),
           unit: cleanText(habit.unit),
           goal: Math.max(1, Number(habit.goal || 1)),

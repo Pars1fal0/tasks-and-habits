@@ -182,6 +182,7 @@
               <input id="quickTaskInput" type="text" autocomplete="off" placeholder="Позвонить врачу завтра 10:00 #здоровье !high">
             </label>
             <button class="primary-button compact-button" type="submit">Добавить</button>
+            <div class="quick-task-preview" id="quickTaskPreview" hidden></div>
           </form>
 
           <div class="split-layout">
@@ -293,8 +294,45 @@
                       <option value="weekly">Каждую неделю</option>
                       <option value="monthly">Каждый месяц</option>
                       <option value="yearly">Каждый год</option>
+                      <option value="custom">Настроить...</option>
                     </select>
                   </label>
+                  <div class="repeat-designer" id="customRepeatPanel" hidden>
+                    <div class="repeat-designer-head">
+                      <span>Настроенный повтор</span>
+                      <strong id="customRepeatSummary">По дням: ПН, СР, ПТ</strong>
+                    </div>
+                    <div class="repeat-mode-tabs" aria-label="Тип настроенного повтора">
+                      <button class="repeat-mode-tab is-active" type="button" data-repeat-mode="weekdays">Дни недели</button>
+                      <button class="repeat-mode-tab" type="button" data-repeat-mode="monthDay">День месяца</button>
+                      <button class="repeat-mode-tab" type="button" data-repeat-mode="interval">Интервал</button>
+                    </div>
+                    <div class="repeat-mode-panel" data-repeat-panel="weekdays">
+                      <div class="weekday-picker" aria-label="Дни недели для повтора">
+                        <button type="button" data-weekday="1" class="is-active">ПН</button>
+                        <button type="button" data-weekday="2">ВТ</button>
+                        <button type="button" data-weekday="3" class="is-active">СР</button>
+                        <button type="button" data-weekday="4">ЧТ</button>
+                        <button type="button" data-weekday="5" class="is-active">ПТ</button>
+                        <button type="button" data-weekday="6">СБ</button>
+                        <button type="button" data-weekday="0">ВС</button>
+                      </div>
+                    </div>
+                    <div class="repeat-mode-panel" data-repeat-panel="monthDay" hidden>
+                      <label class="inline-number-field">
+                        Каждое
+                        <input id="customRepeatMonthDay" type="number" min="1" max="31" value="15">
+                        число месяца
+                      </label>
+                    </div>
+                    <div class="repeat-mode-panel" data-repeat-panel="interval" hidden>
+                      <label class="inline-number-field">
+                        Каждые
+                        <input id="customRepeatInterval" type="number" min="1" max="365" value="5">
+                        дней
+                      </label>
+                    </div>
+                  </div>
                   <div class="form-actions">
                     <button class="primary-button" type="submit">Сохранить</button>
                     <button class="ghost-button" id="resetTaskForm" type="button">Очистить</button>
@@ -372,8 +410,45 @@
                         <option value="weekdays">По будням</option>
                         <option value="weekends">По выходным</option>
                         <option value="weekly">Раз в неделю</option>
+                        <option value="custom">Настроить...</option>
                       </select>
                     </label>
+                  </div>
+                  <div class="repeat-designer" id="habitCustomRepeatPanel" hidden>
+                    <div class="repeat-designer-head">
+                      <span>Настроенный повтор</span>
+                      <strong id="habitCustomRepeatSummary">По дням: ПН, СР, ПТ</strong>
+                    </div>
+                    <div class="repeat-mode-tabs" aria-label="Тип настроенного повтора привычки">
+                      <button class="repeat-mode-tab is-active" type="button" data-habit-repeat-mode="weekdays">Дни недели</button>
+                      <button class="repeat-mode-tab" type="button" data-habit-repeat-mode="monthDay">День месяца</button>
+                      <button class="repeat-mode-tab" type="button" data-habit-repeat-mode="interval">Интервал</button>
+                    </div>
+                    <div class="repeat-mode-panel" data-habit-repeat-panel="weekdays">
+                      <div class="weekday-picker" aria-label="Дни недели для повтора привычки">
+                        <button type="button" data-habit-weekday="1" class="is-active">ПН</button>
+                        <button type="button" data-habit-weekday="2">ВТ</button>
+                        <button type="button" data-habit-weekday="3" class="is-active">СР</button>
+                        <button type="button" data-habit-weekday="4">ЧТ</button>
+                        <button type="button" data-habit-weekday="5" class="is-active">ПТ</button>
+                        <button type="button" data-habit-weekday="6">СБ</button>
+                        <button type="button" data-habit-weekday="0">ВС</button>
+                      </div>
+                    </div>
+                    <div class="repeat-mode-panel" data-habit-repeat-panel="monthDay" hidden>
+                      <label class="inline-number-field">
+                        Каждое
+                        <input id="habitCustomRepeatMonthDay" type="number" min="1" max="31" value="15">
+                        число месяца
+                      </label>
+                    </div>
+                    <div class="repeat-mode-panel" data-habit-repeat-panel="interval" hidden>
+                      <label class="inline-number-field">
+                        Каждые
+                        <input id="habitCustomRepeatInterval" type="number" min="1" max="365" value="5">
+                        дней
+                      </label>
+                    </div>
                   </div>
                   <div class="form-grid">
                     <label>
@@ -563,6 +638,7 @@
     </template>
 
     <script src="quick-input.js?v=1" defer></script>
+    <script src="recurrence.js?v=1" defer></script>
     <script src="task-moves.js?v=1" defer></script>
     <script src="toast.js?v=1" defer></script>
     <script src="app.js?v=10" defer></script>

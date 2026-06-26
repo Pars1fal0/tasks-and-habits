@@ -109,6 +109,11 @@ function createWindow() {
 
         click('[data-view="tasks"]');
         document.querySelector("#quickTaskInput").value = "Smoke Quick завтра 10:00 #SmokeQuick !high";
+        document.querySelector("#quickTaskInput").dispatchEvent(new Event("input", { bubbles: true }));
+        const quickPreviewVisible =
+          !document.querySelector("#quickTaskPreview")?.hidden &&
+          document.querySelector("#quickTaskPreview")?.textContent.includes("Smoke Quick") &&
+          document.querySelector("#quickTaskPreview")?.textContent.includes("10:00");
         submit(document.querySelector("#quickTaskForm"));
         const quickTaskCard = [...document.querySelectorAll(".task-item")].find((item) => item.querySelector("h3")?.textContent === "Smoke Quick");
         const quickTaskCreated =
@@ -129,6 +134,31 @@ function createWindow() {
           [...document.querySelectorAll(".week-task-chip span")].some((item) => item.textContent === "Smoke Quick");
         const relativeQuick = parseQuickTaskInput("Smoke Relative через 2 часа #SmokeQuick !low");
         const phraseQuick = parseQuickTaskInput("Smoke Next в следующий понедельник вечером #SmokeQuick !high");
+        const customRepeatTask = {
+          title: "Smoke Custom Repeat",
+          date: "2026-06-22",
+          repeat: "custom",
+          customRepeat: { type: "weekdays", weekdays: [1, 3, 5] },
+        };
+        const customRepeatWorks =
+          taskScheduledOn(customRepeatTask, "2026-06-24") &&
+          taskScheduledOn(customRepeatTask, "2026-06-26") &&
+          !taskScheduledOn(customRepeatTask, "2026-06-27") &&
+          window.RhythmRecurrence.repeatLabel(customRepeatTask).includes("ПН");
+        const customHabit = {
+          title: "Smoke Custom Habit",
+          type: "check",
+          repeat: "custom",
+          startDate: "2026-06-22",
+          customRepeat: { type: "weekdays", weekdays: [1, 3, 5] },
+          logs: {},
+        };
+        state.habits.push(customHabit);
+        const customHabitRepeatWorks =
+          habitOccursOn(customHabit, "2026-06-24") &&
+          habitOccursOn(customHabit, "2026-06-26") &&
+          !habitOccursOn(customHabit, "2026-06-27") &&
+          formatHabitRepeat(customHabit).includes("ПН");
 
         click('[data-view="tasks"]');
         document.querySelector("#quickTaskInput").value = "Smoke Undo 2026-07-12 #SmokeQuick";
@@ -174,12 +204,15 @@ function createWindow() {
           hasQuickInput: Boolean(document.querySelector("#quickTaskInput")),
           hasCategories: document.querySelectorAll(".category-item").length >= 1,
           hasJsonActions: Boolean(document.querySelector("#exportButton")) && Boolean(document.querySelector("#importFile")),
-          modulesLoaded: Boolean(window.RhythmQuickInput && window.RhythmTaskMoves && window.RhythmToast),
+          modulesLoaded: Boolean(window.RhythmQuickInput && window.RhythmRecurrence && window.RhythmTaskMoves && window.RhythmToast),
           desktopBridge: Boolean(window.rhythmDesktop?.syncReminders),
           taskCreated: Boolean(taskCard),
           quickTaskCreated,
+          quickPreviewVisible,
           smartQuickRelative: relativeQuick.title === "Smoke Relative" && Boolean(relativeQuick.time) && relativeQuick.priority === "low",
           smartQuickPhrase: phraseQuick.title === "Smoke Next" && phraseQuick.time === "18:00" && phraseQuick.priority === "high",
+          customRepeatWorks,
+          customHabitRepeatWorks,
           hasUndoButton,
           undoTaskCreated,
           undoRestored,

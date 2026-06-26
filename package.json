@@ -23,6 +23,7 @@
       "index.html",
       "manifest.webmanifest",
       "quick-input.js",
+      "recurrence.js",
       "styles.css",
       "task-moves.js",
       "toast.js",
