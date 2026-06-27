@@ -60,6 +60,7 @@ const els = {
   focusMeta: document.querySelector("#focusMeta"),
   focusPercent: document.querySelector("#focusPercent"),
   focusTitle: document.querySelector("#focusTitle"),
+  fileBackupStatus: document.querySelector("#fileBackupStatus"),
   habitDoneMetric: document.querySelector("#habitDoneMetric"),
   habitEmpty: document.querySelector("#habitEmpty"),
   habitForm: document.querySelector("#habitForm"),
@@ -86,6 +87,7 @@ const els = {
   nextMonth: document.querySelector("#nextMonth"),
   notifyButton: document.querySelector("#notifyButton"),
   openHabitForm: document.querySelector("#openHabitForm"),
+  openBackupFolderButton: document.querySelector("#openBackupFolderButton"),
   openTaskForm: document.querySelector("#openTaskForm"),
   overdueCounter: document.querySelector("#overdueCounter"),
   overdueList: document.querySelector("#overdueList"),
@@ -217,6 +219,99 @@ const habitsView = window.RhythmHabitsView.createHabitsView({
   showToast,
 });
 
+const calendarView = window.RhythmCalendarView.createCalendarView({
+  els,
+  attachTaskChipDrag,
+  attachTaskDropZone,
+  escapeHtml,
+  formatLongDate,
+  formatMonthLabel,
+  formatShortDate,
+  formatWeekday,
+  getActiveDate: () => activeDate,
+  getCategory,
+  getMonthCalendarDates,
+  getOrderedTasksForDate,
+  getWeekDates,
+  habitsForDate,
+  heatAlpha,
+  isTaskDone,
+  openDateTasks,
+  parseDate,
+  priorityLabels,
+  statsForDate,
+  toDateKey,
+});
+
+const archiveView = window.RhythmArchiveView.createArchiveView({
+  els,
+  archiveEntries,
+  archiveEntryMatchesSearch,
+  createUndoSnapshot,
+  escapeHtml,
+  formatLongDate,
+  getArchiveCategoryFilter: () => archiveCategoryFilter,
+  getArchiveSearchQuery: () => archiveSearchQuery,
+  getCategory,
+  matchesCategoryFilter,
+  priorityLabels,
+  render,
+  saveState,
+  showToast,
+});
+
+const taskFormController = window.RhythmTaskForm.createTaskForm({
+  els,
+  cleanText,
+  cleanTimeValue,
+  createId,
+  createUndoSnapshot,
+  findTask: (id) => state.tasks.find((task) => task.id === id),
+  getActiveDate: () => activeDate,
+  getCustomRepeatFromForm,
+  render,
+  saveState,
+  setActiveDate: (dateKey) => {
+    activeDate = dateKey;
+  },
+  setCustomRepeatForm,
+  showToast,
+  syncCustomRepeatPanel,
+  syncTaskTimePresets,
+  upsertTask: (task) => {
+    const existing = state.tasks.find((item) => item.id === task.id);
+    if (existing) {
+      Object.assign(existing, task);
+    } else {
+      state.tasks.push(task);
+    }
+  },
+});
+
+const habitFormController = window.RhythmHabitForm.createHabitForm({
+  els,
+  cleanText,
+  createId,
+  createUndoSnapshot,
+  findHabit: (id) => state.habits.find((habit) => habit.id === id),
+  getActiveDate: () => activeDate,
+  getHabitCustomRepeatFromForm,
+  normalizeHabitRepeat,
+  render,
+  saveState,
+  setHabitCustomRepeatForm,
+  showToast,
+  syncHabitCustomRepeatPanel,
+  upsertHabit: (habit) => {
+    const existing = state.habits.find((item) => item.id === habit.id);
+    if (existing) {
+      Object.assign(existing, habit);
+    } else {
+      state.habits.push(habit);
+    }
+  },
+});
+
 seedIfEmpty();
 init();
 
@@ -230,6 +325,7 @@ function init() {
   registerServiceWorker();
   updateNotificationButton();
   updateBackupStatus();
+  updateFileBackupStatus();
   render();
   syncDesktopReminders();
   syncDesktopBackup();
@@ -358,6 +454,7 @@ function bindEvents() {
   els.notifyButton.addEventListener("click", requestNotifications);
   els.exportButton.addEventListener("click", exportData);
   els.restoreBackupButton.addEventListener("click", restoreBackup);
+  els.openBackupFolderButton.addEventListener("click", openBackupFolder);
   els.importButton.addEventListener("click", () => els.importFile.click());
   els.importFile.addEventListener("change", importData);
   els.archiveSearch.addEventListener("input", () => {
@@ -680,6 +777,7 @@ function habitSubtitle(habit) {
 }
 
 function renderOverview() {
+  return calendarView.renderOverview();
   const week = getWeekDates(activeDate);
   let taskDone = 0;
   let taskTotal = 0;
@@ -721,6 +819,7 @@ function renderOverview() {
 }
 
 function renderWeekBoard(week) {
+  return calendarView.renderWeekBoard(week);
   els.weekBoardLabel.textContent = `${formatShortDate(week[0])} — ${formatShortDate(week[6])}`;
   els.weekBoardGrid.replaceChildren();
 
@@ -776,6 +875,7 @@ function renderWeekBoard(week) {
 }
 
 function renderMonthCalendar() {
+  return calendarView.renderMonthCalendar();
   const monthDate = parseDate(activeDate);
   const currentMonth = monthDate.getMonth();
   const dates = getMonthCalendarDates(activeDate);
@@ -853,6 +953,7 @@ function renderMonthCalendar() {
 }
 
 function renderHeatmap() {
+  return calendarView.renderHeatmap();
   const end = parseDate(activeDate);
   const start = new Date(end);
   start.setDate(end.getDate() - 69);
@@ -875,6 +976,7 @@ function renderHeatmap() {
 }
 
 function renderArchive() {
+  return archiveView.renderArchive();
   const allEntries = archiveEntries();
   const entries = allEntries.filter((entry) => {
     return matchesCategoryFilter(entry.task, archiveCategoryFilter) && archiveEntryMatchesSearch(entry, archiveSearchQuery);
@@ -888,6 +990,7 @@ function renderArchive() {
 }
 
 function createArchiveNode(entry) {
+  return archiveView.createArchiveNode(entry);
   const node = document.createElement("article");
   node.className = "archive-item";
 
@@ -989,37 +1092,7 @@ function renderCategories() {
 }
 
 function saveTaskFromForm(event) {
-  event.preventDefault();
-  const undo = createUndoSnapshot();
-  const id = els.taskId.value || createId();
-  const existing = state.tasks.find((task) => task.id === id);
-  const task = {
-    id,
-    title: cleanText(els.taskTitle.value),
-    date: els.taskDate.value || activeDate,
-    time: cleanTimeValue(els.taskTime.value),
-    categoryId: els.taskCategoryId.value,
-    priority: els.taskPriority.value,
-    repeat: els.taskRepeat.value,
-    customRepeat: els.taskRepeat.value === "custom" ? getCustomRepeatFromForm() : {},
-    reminderOffset: els.taskReminder.value,
-    completed: existing?.completed || {},
-    excludedDates: existing?.excludedDates || {},
-    notified: existing?.notified || {},
-    createdAt: existing?.createdAt || new Date().toISOString(),
-  };
-
-  if (existing) {
-    Object.assign(existing, task);
-  } else {
-    state.tasks.push(task);
-  }
-
-  activeDate = task.date;
-  saveState();
-  resetTaskForm();
-  render();
-  showToast(existing ? "Задача обновлена" : "Задача создана", { undo });
+  taskFormController.saveTaskFromForm(event);
 }
 
 function saveQuickTask(event) {
@@ -1212,88 +1285,23 @@ function updateHabitCustomRepeatSummary() {
 }
 
 function fillTaskForm(task) {
-  els.taskFormPanel.classList.remove("is-collapsed");
-  els.taskId.value = task.id;
-  els.taskTitle.value = task.title;
-  els.taskDate.value = task.date;
-  els.taskTime.value = cleanTimeValue(task.time);
-  els.taskCategoryId.value = task.categoryId || "";
-  els.taskPriority.value = task.priority || "medium";
-  els.taskRepeat.value = task.repeat || "none";
-  setCustomRepeatForm(task.customRepeat);
-  els.taskReminder.value = task.reminderOffset ?? (task.time ? "15" : "none");
-  syncCustomRepeatPanel();
-  syncTaskTimePresets();
-  els.taskTitle.focus();
+  taskFormController.fillTaskForm(task);
 }
 
 function resetTaskForm() {
-  els.taskFormPanel.classList.remove("is-collapsed");
-  els.taskForm.reset();
-  els.taskId.value = "";
-  els.taskDate.value = activeDate;
-  els.taskTime.value = "";
-  els.taskCategoryId.value = "";
-  els.taskPriority.value = "medium";
-  els.taskRepeat.value = "none";
-  setCustomRepeatForm();
-  syncCustomRepeatPanel();
-  els.taskReminder.value = "15";
-  syncTaskTimePresets();
+  taskFormController.resetTaskForm();
 }
 
 function saveHabitFromForm(event) {
-  event.preventDefault();
-  const undo = createUndoSnapshot();
-  const id = els.habitId.value || createId();
-  const existing = state.habits.find((habit) => habit.id === id);
-  const type = els.habitType.value;
-  const habit = {
-    id,
-    title: cleanText(els.habitTitle.value),
-    type,
-    repeat: normalizeHabitRepeat(els.habitRepeat.value),
-    customRepeat: els.habitRepeat.value === "custom" ? getHabitCustomRepeatFromForm() : {},
-    startDate: existing?.startDate || activeDate,
-    unit: cleanText(els.habitUnit.value),
-    goal: type === "number" ? Math.max(1, Number(els.habitGoal.value || 1)) : 1,
-    logs: existing?.logs || {},
-    createdAt: existing?.createdAt || new Date().toISOString(),
-  };
-
-  if (existing) {
-    Object.assign(existing, habit);
-  } else {
-    state.habits.push(habit);
-  }
-
-  saveState();
-  resetHabitForm();
-  render();
-  showToast(existing ? "Привычка обновлена" : "Привычка создана", { undo });
+  habitFormController.saveHabitFromForm(event);
 }
 
 function fillHabitForm(habit) {
-  els.habitFormPanel.classList.remove("is-collapsed");
-  els.habitId.value = habit.id;
-  els.habitTitle.value = habit.title;
-  els.habitType.value = habit.type;
-  els.habitRepeat.value = normalizeHabitRepeat(habit.repeat);
-  setHabitCustomRepeatForm(habit.customRepeat);
-  syncHabitCustomRepeatPanel();
-  els.habitUnit.value = habit.unit || "";
-  els.habitGoal.value = habit.goal || "";
-  els.habitTitle.focus();
+  habitFormController.fillHabitForm(habit);
 }
 
 function resetHabitForm() {
-  els.habitFormPanel.classList.remove("is-collapsed");
-  els.habitForm.reset();
-  els.habitId.value = "";
-  els.habitType.value = "check";
-  els.habitRepeat.value = "daily";
-  setHabitCustomRepeatForm();
-  syncHabitCustomRepeatPanel();
+  habitFormController.resetHabitForm();
 }
 
 function saveCategoryFromForm(event) {
@@ -1730,7 +1738,36 @@ function syncDesktopBackup() {
   window.rhythmDesktop.writeFileBackup({
     schemaVersion: SCHEMA_VERSION,
     state,
-  }).catch(() => {});
+  })
+    .then(() => updateFileBackupStatus())
+    .catch(() => {
+      if (els.fileBackupStatus) {
+        els.fileBackupStatus.hidden = false;
+        els.fileBackupStatus.textContent = "Файловый бэкап: ошибка записи";
+      }
+    });
+}
+
+async function updateFileBackupStatus() {
+  if (!window.rhythmDesktop?.getFileBackupInfo || !els.fileBackupStatus || !els.openBackupFolderButton) return;
+  els.fileBackupStatus.hidden = false;
+  els.openBackupFolderButton.hidden = false;
+  try {
+    const info = await window.rhythmDesktop.getFileBackupInfo();
+    if (info?.latest?.mtimeMs) {
+      els.fileBackupStatus.textContent = `Файловый бэкап: ${formatBackupDate(info.latest.mtimeMs)}`;
+    } else {
+      els.fileBackupStatus.textContent = "Файловый бэкап: папка готова";
+    }
+  } catch {
+    els.fileBackupStatus.textContent = "Файловый бэкап: недоступен";
+  }
+}
+
+async function openBackupFolder() {
+  if (!window.rhythmDesktop?.openBackupFolder) return;
+  const result = await window.rhythmDesktop.openBackupFolder();
+  showToast(result?.ok ? "Папка бэкапов открыта" : "Не удалось открыть папку бэкапов");
 }
 
 function candidateReminderDates(task, now) {

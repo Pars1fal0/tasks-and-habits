@@ -87,6 +87,8 @@
             Восстановить
           </button>
           <div class="storage-note" id="backupStatus">Бэкап еще не создан</div>
+          <button class="ghost-button compact-button" id="openBackupFolderButton" type="button" hidden>Папка бэкапов</button>
+          <div class="storage-note" id="fileBackupStatus" hidden>Файловый бэкап недоступен</div>
           <input id="importFile" type="file" accept="application/json,.json" hidden>
         </div>
 
@@ -641,7 +643,11 @@
     <script src="recurrence.js?v=1" defer></script>
     <script src="state-normalizer.js?v=1" defer></script>
     <script src="storage.js?v=1" defer></script>
+    <script src="archive-view.js?v=1" defer></script>
+    <script src="calendar-view.js?v=1" defer></script>
+    <script src="habit-form.js?v=1" defer></script>
     <script src="habits-view.js?v=1" defer></script>
+    <script src="task-form.js?v=1" defer></script>
     <script src="tasks-view.js?v=1" defer></script>
     <script src="task-moves.js?v=1" defer></script>
     <script src="toast.js?v=1" defer></script>

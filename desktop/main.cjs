@@ -203,6 +203,11 @@ function createWindow() {
           state,
         });
         const fileBackupWorks = fileBackupResult.ok || fileBackupResult.reason === "throttled";
+        const fileBackupInfo = await window.rhythmDesktop.getFileBackupInfo();
+        const fileBackupUiVisible =
+          Boolean(document.querySelector("#openBackupFolderButton")) &&
+          !document.querySelector("#fileBackupStatus")?.hidden &&
+          document.querySelector("#fileBackupStatus")?.textContent.includes("Файловый бэкап");
 
         return {
           title: document.title,
@@ -218,10 +223,14 @@ function createWindow() {
           hasJsonActions: Boolean(document.querySelector("#exportButton")) && Boolean(document.querySelector("#importFile")),
           modulesLoaded: Boolean(
             window.RhythmQuickInput &&
+              window.RhythmArchiveView &&
+              window.RhythmCalendarView &&
+              window.RhythmHabitForm &&
               window.RhythmHabitsView &&
               window.RhythmRecurrence &&
               window.RhythmStateNormalizer &&
               window.RhythmStorage &&
+              window.RhythmTaskForm &&
               window.RhythmTasksView &&
               window.RhythmTaskMoves &&
               window.RhythmToast,
@@ -240,6 +249,8 @@ function createWindow() {
           importSafetyBackupCreated,
           importBackupPreserved,
           fileBackupWorks,
+          fileBackupInfoWorks: Boolean(fileBackupInfo?.path),
+          fileBackupUiVisible,
           calendarDragMove,
           dndOrderChanged,
           archived,
@@ -391,6 +402,17 @@ function registerIpc() {
   ipcMain.handle("backups:write-file", async (_event, payload) => {
     return writeFileBackup(payload);
   });
+
+  ipcMain.handle("backups:info", async () => {
+    return getFileBackupInfo();
+  });
+
+  ipcMain.handle("backups:open-folder", async () => {
+    const backupDir = getFileBackupDir();
+    await fs.promises.mkdir(backupDir, { recursive: true });
+    const error = await shell.openPath(backupDir);
+    return { ok: !error, path: backupDir, error };
+  });
 }
 
 async function writeFileBackup(payload) {
@@ -410,7 +432,7 @@ async function writeFileBackup(payload) {
     state: payload.state,
   };
 
-  const backupDir = path.join(app.getPath("documents"), "Ритм дня", "backups");
+  const backupDir = getFileBackupDir();
   const fileName = `ritm-dnya-${new Date(now).toISOString().replace(/[:.]/g, "-")}.json`;
   const filePath = path.join(backupDir, fileName);
 
@@ -420,6 +442,30 @@ async function writeFileBackup(payload) {
   await pruneFileBackups(backupDir);
 
   return { ok: true, path: filePath };
+}
+
+function getFileBackupDir() {
+  return path.join(app.getPath("documents"), "Ритм дня", "backups");
+}
+
+async function getFileBackupInfo() {
+  const backupDir = getFileBackupDir();
+  try {
+    const entries = await fs.promises.readdir(backupDir, { withFileTypes: true });
+    const backups = await Promise.all(
+      entries
+        .filter((entry) => entry.isFile() && /^ritm-dnya-.*\.json$/i.test(entry.name))
+        .map(async (entry) => {
+          const filePath = path.join(backupDir, entry.name);
+          const stat = await fs.promises.stat(filePath);
+          return { name: entry.name, path: filePath, mtimeMs: stat.mtimeMs };
+        }),
+    );
+    const latest = backups.sort((a, b) => b.mtimeMs - a.mtimeMs)[0] || null;
+    return { ok: true, path: backupDir, latest };
+  } catch {
+    return { ok: true, path: backupDir, latest: null };
+  }
 }
 
 async function pruneFileBackups(backupDir) {

@@ -10,4 +10,10 @@ contextBridge.exposeInMainWorld("rhythmDesktop", {
   writeFileBackup(payload) {
     return ipcRenderer.invoke("backups:write-file", payload);
   },
+  getFileBackupInfo() {
+    return ipcRenderer.invoke("backups:info");
+  },
+  openBackupFolder() {
+    return ipcRenderer.invoke("backups:open-folder");
+  },
 });
