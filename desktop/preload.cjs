@@ -7,4 +7,7 @@ contextBridge.exposeInMainWorld("rhythmDesktop", {
   showTestNotification() {
     return ipcRenderer.invoke("reminders:test");
   },
+  writeFileBackup(payload) {
+    return ipcRenderer.invoke("backups:write-file", payload);
+  },
 });

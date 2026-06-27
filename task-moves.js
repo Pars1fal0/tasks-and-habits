@@ -1,4 +1,4 @@
-(function () {
+(function (global) {
   function postponeTask({ state, task, sourceDateKey, targetDateKey, options = {}, helpers = {} }) {
     const shouldClearTime = shouldClearTimeForToday(task, targetDateKey, options, helpers);
 
@@ -61,11 +61,14 @@
     state.taskOrder[dateKey] = state.taskOrder[dateKey].filter((id) => id !== taskId);
   }
 
-  window.RhythmTaskMoves = {
+  const api = {
     moveRecurringOccurrence,
     moveSingleTask,
     postponeTask,
     removeTaskFromOrder,
     shouldClearTimeForToday,
   };
-})();
+
+  global.RhythmTaskMoves = api;
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
+})(typeof window !== "undefined" ? window : globalThis);

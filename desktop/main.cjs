@@ -11,14 +11,21 @@ let tray = null;
 let isQuitting = false;
 let backgroundNoticeShown = false;
 let reminderSnapshot = [];
+let lastFileBackupAt = 0;
 const sentReminders = new Set();
+const FILE_BACKUP_INTERVAL_MS = 10 * 60 * 1000;
+const MAX_FILE_BACKUPS = 20;
 
 if (isSmokeTest) {
   app.disableHardwareAcceleration();
   app.commandLine.appendSwitch("disable-gpu");
   app.commandLine.appendSwitch("disable-gpu-compositing");
   app.commandLine.appendSwitch("in-process-gpu");
-  app.setPath("userData", fs.mkdtempSync(path.join(os.tmpdir(), "rhythm-day-smoke-")));
+  const smokeRoot = fs.mkdtempSync(path.join(os.tmpdir(), "rhythm-day-smoke-"));
+  const smokeDocuments = path.join(smokeRoot, "documents");
+  fs.mkdirSync(smokeDocuments, { recursive: true });
+  app.setPath("userData", path.join(smokeRoot, "userData"));
+  app.setPath("documents", smokeDocuments);
 }
 
 app.setAppUserModelId("local.rhythm-day.tracker");
@@ -60,7 +67,7 @@ function createWindow() {
     if (!isSmokeTest) return;
 
     const result = await mainWindow.webContents.executeJavaScript(
-      `(() => {
+      `(async () => {
         const submit = (form) => form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
         const click = (selector) => document.querySelector(selector)?.click();
         const categoryName = "Smoke Category";
@@ -191,6 +198,11 @@ function createWindow() {
         replaceState(JSON.parse(importUndo.state));
         saveState({ skipBackup: true });
         render();
+        const fileBackupResult = await window.rhythmDesktop.writeFileBackup({
+          schemaVersion: 5,
+          state,
+        });
+        const fileBackupWorks = fileBackupResult.ok || fileBackupResult.reason === "throttled";
 
         return {
           title: document.title,
@@ -206,12 +218,15 @@ function createWindow() {
           hasJsonActions: Boolean(document.querySelector("#exportButton")) && Boolean(document.querySelector("#importFile")),
           modulesLoaded: Boolean(
             window.RhythmQuickInput &&
+              window.RhythmHabitsView &&
               window.RhythmRecurrence &&
+              window.RhythmStateNormalizer &&
               window.RhythmStorage &&
+              window.RhythmTasksView &&
               window.RhythmTaskMoves &&
               window.RhythmToast,
           ),
-          desktopBridge: Boolean(window.rhythmDesktop?.syncReminders),
+          desktopBridge: Boolean(window.rhythmDesktop?.syncReminders && window.rhythmDesktop?.writeFileBackup),
           taskCreated: Boolean(taskCard),
           quickTaskCreated,
           quickPreviewVisible,
@@ -224,6 +239,7 @@ function createWindow() {
           undoRestored,
           importSafetyBackupCreated,
           importBackupPreserved,
+          fileBackupWorks,
           calendarDragMove,
           dndOrderChanged,
           archived,
@@ -371,6 +387,59 @@ function registerIpc() {
     });
     return true;
   });
+
+  ipcMain.handle("backups:write-file", async (_event, payload) => {
+    return writeFileBackup(payload);
+  });
+}
+
+async function writeFileBackup(payload) {
+  const now = Date.now();
+  if (now - lastFileBackupAt < FILE_BACKUP_INTERVAL_MS) {
+    return { ok: false, reason: "throttled" };
+  }
+
+  if (!payload?.state || typeof payload.state !== "object") {
+    return { ok: false, reason: "invalid-payload" };
+  }
+
+  const backup = {
+    app: "Ритм дня",
+    schemaVersion: payload.schemaVersion || 1,
+    exportedAt: new Date(now).toISOString(),
+    state: payload.state,
+  };
+
+  const backupDir = path.join(app.getPath("documents"), "Ритм дня", "backups");
+  const fileName = `ritm-dnya-${new Date(now).toISOString().replace(/[:.]/g, "-")}.json`;
+  const filePath = path.join(backupDir, fileName);
+
+  await fs.promises.mkdir(backupDir, { recursive: true });
+  await fs.promises.writeFile(filePath, JSON.stringify(backup, null, 2), "utf8");
+  lastFileBackupAt = now;
+  await pruneFileBackups(backupDir);
+
+  return { ok: true, path: filePath };
+}
+
+async function pruneFileBackups(backupDir) {
+  const entries = await fs.promises.readdir(backupDir, { withFileTypes: true });
+  const backups = await Promise.all(
+    entries
+      .filter((entry) => entry.isFile() && /^ritm-dnya-.*\.json$/i.test(entry.name))
+      .map(async (entry) => {
+        const filePath = path.join(backupDir, entry.name);
+        const stat = await fs.promises.stat(filePath);
+        return { filePath, mtimeMs: stat.mtimeMs };
+      }),
+  );
+
+  backups
+    .sort((a, b) => b.mtimeMs - a.mtimeMs)
+    .slice(MAX_FILE_BACKUPS)
+    .forEach((backup) => {
+      fs.promises.unlink(backup.filePath).catch(() => {});
+    });
 }
 
 function checkReminders() {

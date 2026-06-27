@@ -1,12 +1,15 @@
 const CACHE_PREFIX = "rhythm-day-";
-const CACHE_NAME = `${CACHE_PREFIX}app-v15`;
+const CACHE_NAME = `${CACHE_PREFIX}app-v16`;
 const APP_SHELL = [
   "./",
   "index.html",
   "styles.css",
   "quick-input.js",
   "recurrence.js",
+  "state-normalizer.js",
   "storage.js",
+  "habits-view.js",
+  "tasks-view.js",
   "task-moves.js",
   "toast.js",
   "app.js",

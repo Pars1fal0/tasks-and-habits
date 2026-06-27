@@ -8,6 +8,23 @@ const storage = window.RhythmStorage.createLocalStorageAdapter({
   appName: "Ритм дня",
   schemaVersion: SCHEMA_VERSION,
 });
+const stateNormalizer = window.RhythmStateNormalizer.createStateNormalizer({
+  schemaVersion: SCHEMA_VERSION,
+  validPriorities: VALID_PRIORITIES,
+  cleanText,
+  cleanTimeValue,
+  createId,
+  normalizeDateKey,
+  normalizeHabitLogs,
+  normalizeHabitRepeat,
+  normalizeReminderOffset,
+  normalizeTaskFlags,
+  normalizeTaskOrder,
+  randomCategoryColor,
+  recurrence: window.RhythmRecurrence,
+  sanitizeColor,
+  toDateKey,
+});
 
 let state = normalizeState(storage.loadState());
 let activeDate = toDateKey(new Date());
@@ -139,6 +156,67 @@ const priorityLabels = {
 
 const repeatLabels = window.RhythmRecurrence.repeatLabels;
 
+const tasksView = window.RhythmTasksView.createTasksView({
+  els,
+  priorityLabels,
+  addDays,
+  clearTaskDragState,
+  createUndoSnapshot,
+  deleteTask,
+  escapeHtml,
+  excludeTaskDate,
+  excludedTasksForDate,
+  fillTaskForm,
+  formatLongDate,
+  formatTaskRepeat,
+  getActiveDate: () => activeDate,
+  getCategory,
+  getOrderedTasksForDate,
+  getTaskCategoryFilter: () => taskCategoryFilter,
+  getTaskFilter: () => taskFilter,
+  getTaskSearchQuery: () => taskSearchQuery,
+  isTaskDone,
+  matchesCategoryFilter,
+  openDate: (dateKey) => {
+    activeDate = dateKey;
+    resetTaskForm();
+    render();
+  },
+  overdueTaskEntries,
+  postponeTask,
+  render,
+  reorderTask,
+  restoreTaskDate,
+  saveState,
+  setDraggedTask: (taskId, dateKey) => {
+    draggedTaskId = taskId;
+    draggedTaskDate = dateKey;
+  },
+  showToast,
+  taskDetails,
+  taskMatchesSearch,
+  taskMetaMarkup,
+  toDateKey,
+});
+
+const habitsView = window.RhythmHabitsView.createHabitsView({
+  els,
+  createUndoSnapshot,
+  deleteHabit,
+  escapeHtml,
+  fillHabitForm,
+  formatHabitRepeat,
+  getActiveDate: () => activeDate,
+  getState: () => state,
+  habitStreak,
+  habitsForDate,
+  render,
+  renderDailyPulse,
+  renderOverview,
+  saveState,
+  showToast,
+});
+
 seedIfEmpty();
 init();
 
@@ -154,9 +232,11 @@ function init() {
   updateBackupStatus();
   render();
   syncDesktopReminders();
+  syncDesktopBackup();
   setInterval(checkDueNotifications, 30000);
   setInterval(syncDesktopReminders, 60000);
   setInterval(() => createBackup({ silent: true }), BACKUP_INTERVAL_MS);
+  setInterval(syncDesktopBackup, BACKUP_INTERVAL_MS);
 }
 
 function bindEvents() {
@@ -373,216 +453,19 @@ function renderDailyPulse() {
 }
 
 function renderTasks() {
-  const tasks = getOrderedTasksForDate(activeDate);
-  const visibleTasks = tasks.filter((task) => {
-    const done = isTaskDone(task, activeDate);
-    const matchesCategory = matchesCategoryFilter(task, taskCategoryFilter);
-    if (!matchesCategory) return false;
-    if (!taskMatchesSearch(task, taskSearchQuery, activeDate)) return false;
-    if (taskFilter === "open") return !done;
-    if (taskFilter === "done") return done;
-    return true;
-  });
-
-  renderOverdueTasks();
-  els.taskList.replaceChildren();
-  visibleTasks.forEach((task) => els.taskList.appendChild(createTaskNode(task)));
-
-  const doneCount = tasks.filter((task) => isTaskDone(task, activeDate)).length;
-  const percent = tasks.length ? Math.round((doneCount / tasks.length) * 100) : 0;
-  const hasActiveFilters = taskFilter !== "all" || taskCategoryFilter !== "all" || taskSearchQuery;
-
-  els.taskEmpty.textContent = tasks.length
-    ? "По текущим фильтрам задач нет."
-    : "На выбранный день задач нет.";
-  els.taskEmpty.classList.toggle("is-visible", visibleTasks.length === 0);
-  els.taskCounter.textContent = hasActiveFilters
-    ? `${visibleTasks.length} из ${tasks.length} найдено · ${doneCount} выполнено`
-    : `${doneCount} из ${tasks.length} выполнено`;
-  els.taskProgress.textContent = `${percent}%`;
-  els.taskProgressRing.style.setProperty("--progress", `${percent * 3.6}deg`);
-  renderExcludedTasks();
+  tasksView.renderTasks();
 }
 
 function createTaskNode(task) {
-  const node = els.taskTemplate.content.firstElementChild.cloneNode(true);
-  const done = isTaskDone(task, activeDate);
-  const category = getCategory(task.categoryId);
-  const title = node.querySelector("h3");
-  const check = node.querySelector(".check-button");
-  const meta = node.querySelector(".task-meta");
-  const postponeDateInput = node.querySelector(".postpone-date-input");
-  const priority = node.querySelector(".priority-pill");
-
-  node.dataset.taskId = task.id;
-  if (category) {
-    node.classList.add("has-category");
-    node.style.setProperty("--category-color", category.color);
-  } else {
-    node.classList.remove("has-category");
-    node.style.removeProperty("--category-color");
-  }
-  node.classList.toggle("is-done", done);
-  node.classList.add(`priority-${task.priority || "medium"}-task`);
-  title.textContent = task.title;
-  check.classList.toggle("is-checked", done);
-  priority.textContent = priorityLabels[task.priority] || "Средний";
-  priority.classList.add(`priority-${task.priority || "medium"}`);
-  meta.innerHTML = taskMetaMarkup(task);
-
-  node.addEventListener("dragstart", (event) => {
-    draggedTaskId = task.id;
-    draggedTaskDate = activeDate;
-    node.classList.add("is-dragging");
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", task.id);
-    event.dataTransfer.setData("application/x-rhythm-task", JSON.stringify({ taskId: task.id, dateKey: activeDate }));
-  });
-  node.addEventListener("dragend", () => {
-    clearTaskDragState();
-    node.classList.remove("is-dragging");
-  });
-  node.addEventListener("dragover", (event) => {
-    event.preventDefault();
-    if (draggedTaskId && draggedTaskId !== task.id) {
-      node.classList.add("is-drop-target");
-    }
-  });
-  node.addEventListener("dragleave", () => node.classList.remove("is-drop-target"));
-  node.addEventListener("drop", (event) => {
-    event.preventDefault();
-    const sourceId = draggedTaskId || event.dataTransfer.getData("text/plain");
-    if (sourceId && sourceId !== task.id) {
-      const undo = createUndoSnapshot();
-      reorderTask(activeDate, sourceId, task.id);
-      saveState();
-      render();
-      showToast("Порядок задач изменен", { undo });
-    }
-  });
-
-  check.addEventListener("click", () => {
-    const undo = createUndoSnapshot();
-    task.completed[activeDate] = !done;
-    saveState();
-    render();
-    showToast(done ? "Задача снова активна" : "Задача выполнена", { undo });
-  });
-
-  node.querySelector(".edit-task").addEventListener("click", () => fillTaskForm(task));
-  node.querySelector(".postpone-tomorrow").addEventListener("click", () => {
-    postponeTask(task, activeDate, addDays(activeDate, 1));
-  });
-  node.querySelector(".postpone-week").addEventListener("click", () => {
-    postponeTask(task, activeDate, addDays(activeDate, 7));
-  });
-  node.querySelector(".postpone-date").addEventListener("click", () => {
-    postponeDateInput.value = addDays(activeDate, 1);
-    postponeDateInput.classList.add("is-visible");
-    if (postponeDateInput.showPicker) {
-      postponeDateInput.showPicker();
-    } else {
-      postponeDateInput.focus();
-    }
-  });
-  postponeDateInput.addEventListener("change", () => {
-    if (!postponeDateInput.value) return;
-    postponeTask(task, activeDate, postponeDateInput.value);
-  });
-  const excludeButton = node.querySelector(".exclude-task");
-  excludeButton.hidden = task.repeat === "none";
-  excludeButton.addEventListener("click", () => excludeTaskDate(task, activeDate));
-  node.querySelector(".delete-task").addEventListener("click", () => {
-    const undo = createUndoSnapshot();
-    state.tasks = state.tasks.filter((item) => item.id !== task.id);
-    Object.keys(state.taskOrder).forEach((dateKey) => {
-      state.taskOrder[dateKey] = state.taskOrder[dateKey].filter((id) => id !== task.id);
-    });
-    saveState();
-    render();
-    showToast("Задача удалена", { undo });
-  });
-
-  return node;
+  return tasksView.createTaskNode(task);
 }
 
 function renderOverdueTasks() {
-  const overdueEntries = overdueTaskEntries();
-  els.overdueList.replaceChildren();
-  els.overduePanel.classList.toggle("is-visible", overdueEntries.length > 0);
-  els.overdueCounter.textContent = overdueEntries.length
-    ? `${overdueEntries.length} невыполнено`
-    : "";
-
-  overdueEntries.forEach((entry) => {
-    const node = document.createElement("article");
-    node.className = "overdue-item";
-    const category = getCategory(entry.task.categoryId);
-    const details = [
-      formatLongDate(entry.dateKey),
-      entry.task.time ? `до ${entry.task.time}` : "до конца дня",
-      category?.name || "Без категории",
-      priorityLabels[entry.task.priority] || "Средний",
-    ];
-    if (entry.task.repeat !== "none") details.push(formatTaskRepeat(entry.task));
-
-    node.innerHTML = `
-      <div>
-        <h3>${escapeHtml(entry.task.title)}</h3>
-        <p>${details.map((detail) => `<span>${escapeHtml(detail)}</span>`).join(" · ")}</p>
-      </div>
-      <div class="overdue-actions">
-        <button class="ghost-button compact-button overdue-go" type="button">К дню</button>
-        <button class="ghost-button compact-button overdue-today" type="button">Сегодня</button>
-        <button class="primary-button compact-button overdue-done" type="button">Готово</button>
-      </div>
-    `;
-
-    node.querySelector(".overdue-go").addEventListener("click", () => {
-      activeDate = entry.dateKey;
-      resetTaskForm();
-      render();
-    });
-
-    node.querySelector(".overdue-today").addEventListener("click", () => {
-      postponeTask(entry.task, entry.dateKey, toDateKey(new Date()), { clearPastTimeToday: true });
-    });
-
-    node.querySelector(".overdue-done").addEventListener("click", () => {
-      const undo = createUndoSnapshot();
-      entry.task.completed[entry.dateKey] = true;
-      saveState();
-      render();
-      showToast("Просроченная задача закрыта", { undo });
-    });
-
-    els.overdueList.appendChild(node);
-  });
+  tasksView.renderOverdueTasks();
 }
 
 function renderExcludedTasks() {
-  const excludedTasks = excludedTasksForDate(activeDate);
-  els.excludedList.replaceChildren();
-  els.excludedPanel.classList.toggle("is-visible", excludedTasks.length > 0);
-
-  excludedTasks.forEach((task) => {
-    const node = document.createElement("article");
-    node.className = "excluded-item";
-    const details = taskDetails(task).filter((detail) => detail !== formatTaskRepeat(task));
-    node.innerHTML = `
-      <div>
-        <h3>${escapeHtml(task.title)}</h3>
-        <p>${escapeHtml(formatTaskRepeat(task) || "Повтор")} · ${escapeHtml(details.join(" · ") || "Без категории")}</p>
-      </div>
-      <button class="ghost-button compact-button restore-excluded" type="button">Вернуть в день</button>
-    `;
-
-    node.querySelector(".restore-excluded").addEventListener("click", () => {
-      restoreTaskDate(task, activeDate);
-    });
-
-    els.excludedList.appendChild(node);
-  });
+  tasksView.renderExcludedTasks();
 }
 
 function excludeTaskDate(task, dateKey) {
@@ -608,6 +491,17 @@ function restoreTaskDate(task, dateKey) {
   saveState();
   render();
   showToast("Повтор возвращен в план", { undo });
+}
+
+function deleteTask(taskId) {
+  state.tasks = state.tasks.filter((item) => item.id !== taskId);
+  Object.keys(state.taskOrder).forEach((dateKey) => {
+    state.taskOrder[dateKey] = state.taskOrder[dateKey].filter((id) => id !== taskId);
+  });
+}
+
+function deleteHabit(habitId) {
+  state.habits = state.habits.filter((item) => item.id !== habitId);
 }
 
 function openDateTasks(dateKey) {
@@ -774,85 +668,15 @@ function postponeTask(task, sourceDateKey, targetDateKey, options = {}) {
 }
 
 function renderHabits() {
-  const habits = habitsForDate(activeDate);
-  els.habitList.replaceChildren();
-  habits.forEach((habit) => els.habitList.appendChild(createHabitNode(habit)));
-  els.habitEmpty.textContent = state.habits.length ? "На выбранный день привычек по расписанию нет." : "Добавь первую привычку.";
-  els.habitEmpty.classList.toggle("is-visible", habits.length === 0);
+  habitsView.renderHabits();
 }
 
 function createHabitNode(habit) {
-  const node = els.habitTemplate.content.firstElementChild.cloneNode(true);
-  const title = node.querySelector("h3");
-  const streak = node.querySelector(".habit-streak");
-  const control = node.querySelector(".habit-control");
-
-  title.textContent = habit.title;
-  streak.textContent = habitSubtitle(habit);
-
-  if (habit.type === "number") {
-    const current = Number(habit.logs[activeDate] || 0);
-    const goal = Number(habit.goal || 1);
-    const percent = Math.min(100, Math.round((current / goal) * 100));
-
-    control.innerHTML = `
-      <div class="habit-number-row">
-        <input type="number" min="0" step="1" value="${current}" aria-label="${escapeHtml(habit.title)}">
-        <span>${current} / ${goal} ${escapeHtml(habit.unit || "")}</span>
-      </div>
-      <div class="progress-track" aria-hidden="true"><div class="progress-fill" style="width: ${percent}%"></div></div>
-    `;
-
-    control.querySelector("input").addEventListener("input", (event) => {
-      habit.logs[activeDate] = Math.max(0, Number(event.target.value || 0));
-      saveState();
-      renderDailyPulse();
-      renderOverview();
-      node.querySelector(".habit-streak").textContent = habitSubtitle(habit);
-      const nextPercent = Math.min(100, Math.round((Number(habit.logs[activeDate]) / goal) * 100));
-      control.querySelector(".progress-fill").style.width = `${nextPercent}%`;
-      control.querySelector("span").textContent = `${habit.logs[activeDate]} / ${goal} ${habit.unit || ""}`;
-    });
-  } else {
-    const done = habit.logs[activeDate] === true;
-    const row = document.createElement("div");
-    row.className = "habit-check-row";
-
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = `check-button${done ? " is-checked" : ""}`;
-    button.setAttribute("aria-label", `Отметить ${habit.title}`);
-
-    const label = document.createElement("span");
-    label.textContent = done ? "Выполнено" : "Не отмечено";
-
-    button.addEventListener("click", () => {
-      const undo = createUndoSnapshot();
-      habit.logs[activeDate] = !done;
-      saveState();
-      render();
-      showToast(done ? "Отметка снята" : "Привычка отмечена", { undo });
-    });
-
-    row.append(button, label);
-    control.append(row);
-  }
-
-  node.querySelector(".edit-habit").addEventListener("click", () => fillHabitForm(habit));
-  node.querySelector(".delete-habit").addEventListener("click", () => {
-    const undo = createUndoSnapshot();
-    state.habits = state.habits.filter((item) => item.id !== habit.id);
-    saveState();
-    render();
-    showToast("Привычка удалена", { undo });
-  });
-
-  return node;
+  return habitsView.createHabitNode(habit);
 }
 
 function habitSubtitle(habit) {
-  const repeat = formatHabitRepeat(habit);
-  return `Серия: ${habitStreak(habit, activeDate)} дн. · ${repeat}`;
+  return habitsView.habitSubtitle(habit);
 }
 
 function renderOverview() {
@@ -1901,6 +1725,14 @@ function syncDesktopReminders() {
   window.rhythmDesktop.syncReminders({ generatedAt: now.toISOString(), reminders });
 }
 
+function syncDesktopBackup() {
+  if (!window.rhythmDesktop?.writeFileBackup) return;
+  window.rhythmDesktop.writeFileBackup({
+    schemaVersion: SCHEMA_VERSION,
+    state,
+  }).catch(() => {});
+}
+
 function candidateReminderDates(task, now) {
   const dates = [];
   for (let offset = -1; offset <= 1; offset += 1) {
@@ -2046,87 +1878,7 @@ function syncTaskTimePresets() {
 }
 
 function normalizeState(raw) {
-  const normalized = {
-    schemaVersion: SCHEMA_VERSION,
-    tasks: [],
-    habits: [],
-    categories: [],
-    taskOrder: {},
-  };
-
-  if (!raw || typeof raw !== "object") return normalized;
-
-  normalized.categories = Array.isArray(raw.categories)
-    ? raw.categories.map((category) => ({
-        id: category.id || createId(),
-        name: cleanText(category.name) || "Категория",
-        color: sanitizeColor(category.color) || randomCategoryColor(),
-        createdAt: category.createdAt || new Date().toISOString(),
-      }))
-    : [];
-
-  const ensureCategory = (name) => {
-    const categoryName = cleanText(name);
-    if (!categoryName) return "";
-    const existing = normalized.categories.find(
-      (category) => category.name.toLowerCase() === categoryName.toLowerCase(),
-    );
-    if (existing) return existing.id;
-    const category = {
-      id: createId(),
-      name: categoryName,
-      color: randomCategoryColor(),
-      createdAt: new Date().toISOString(),
-    };
-    normalized.categories.push(category);
-    return category.id;
-  };
-
-  normalized.tasks = Array.isArray(raw.tasks)
-    ? raw.tasks.map((task) => {
-        const time = cleanTimeValue(task.time);
-        const categoryId = normalized.categories.some((category) => category.id === task.categoryId)
-          ? task.categoryId
-          : ensureCategory(task.category);
-
-        return {
-          id: task.id || createId(),
-          title: cleanText(task.title) || "Задача",
-          date: normalizeDateKey(task.date),
-          time,
-          categoryId,
-          priority: VALID_PRIORITIES.includes(task.priority) ? task.priority : "medium",
-          repeat: window.RhythmRecurrence.normalizeRepeat(task.repeat),
-          customRepeat: window.RhythmRecurrence.normalizeCustomRepeat(task.customRepeat),
-          reminderOffset: normalizeReminderOffset(task.reminderOffset, Boolean(time)),
-          completed: normalizeTaskFlags(task.completed),
-          excludedDates: normalizeTaskFlags(task.excludedDates),
-          notified: normalizeTaskFlags(task.notified),
-          createdAt: task.createdAt || new Date().toISOString(),
-        };
-      })
-    : [];
-
-  normalized.habits = Array.isArray(raw.habits)
-    ? raw.habits.map((habit) => {
-        const type = habit.type === "number" ? "number" : "check";
-        return {
-          id: habit.id || createId(),
-          title: cleanText(habit.title) || "Привычка",
-          type,
-          repeat: normalizeHabitRepeat(habit.repeat),
-          customRepeat: window.RhythmRecurrence.normalizeCustomRepeat(habit.customRepeat),
-          startDate: normalizeDateKey(habit.startDate, toDateKey(new Date(habit.createdAt || Date.now()))),
-          unit: cleanText(habit.unit),
-          goal: Math.max(1, Number(habit.goal || 1)),
-          logs: normalizeHabitLogs(habit.logs, type),
-          createdAt: habit.createdAt || new Date().toISOString(),
-        };
-      })
-    : [];
-
-  normalized.taskOrder = normalizeTaskOrder(raw.taskOrder);
-  return normalized;
+  return stateNormalizer.normalizeState(raw);
 }
 
 function replaceState(nextState) {
@@ -2140,6 +1892,7 @@ function saveState(options = {}) {
   });
   if (!options.skipBackup) updateBackupStatus();
   syncDesktopReminders();
+  if (!options.skipBackup) syncDesktopBackup();
 }
 
 function createBackup({ payload = null, silent = false, throttle = false } = {}) {
