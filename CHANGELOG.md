@@ -7,6 +7,8 @@
 - Extracted calendar rendering into `calendar-view.js`.
 - Extracted archive rendering into `archive-view.js`.
 - Extracted task and habit form handling into `task-form.js` and `habit-form.js`.
+- Extracted categories, notifications, and import/export backup logic into separate modules.
+- Removed unreachable legacy render code from `app.js`.
 - Added `state-normalizer.js` for import/save normalization.
 - Added unit tests for quick input, recurrence rules, storage, task moves, and state normalization.
 - Added Electron file backups to `Documents/Ритм дня/backups`.

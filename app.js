@@ -312,6 +312,56 @@ const habitFormController = window.RhythmHabitForm.createHabitForm({
   },
 });
 
+const categoriesController = window.RhythmCategories.createCategories({
+  els,
+  cleanText,
+  createId,
+  createUndoSnapshot,
+  escapeHtml,
+  getArchiveCategoryFilter: () => archiveCategoryFilter,
+  getState: () => state,
+  getTaskCategoryFilter: () => taskCategoryFilter,
+  render,
+  saveState,
+  saveUiState,
+  setArchiveCategoryFilter: (value) => {
+    archiveCategoryFilter = value;
+  },
+  setTaskCategoryFilter: (value) => {
+    taskCategoryFilter = value;
+  },
+  showToast,
+});
+
+const importExportController = window.RhythmImportExport.createImportExport({
+  els,
+  createUndoSnapshot,
+  getState: () => state,
+  normalizeState,
+  render,
+  replaceState,
+  saveState,
+  schemaVersion: SCHEMA_VERSION,
+  showToast,
+  storage,
+  toDateKey,
+});
+
+const notificationsController = window.RhythmNotifications.createNotifications({
+  els,
+  cleanTimeValue,
+  getCategory,
+  getState: () => state,
+  icon,
+  isTaskDone,
+  parseDate,
+  saveState,
+  showToast,
+  taskOccursOn,
+  tasksForDate,
+  toDateKey,
+});
+
 seedIfEmpty();
 init();
 
@@ -778,317 +828,30 @@ function habitSubtitle(habit) {
 
 function renderOverview() {
   return calendarView.renderOverview();
-  const week = getWeekDates(activeDate);
-  let taskDone = 0;
-  let taskTotal = 0;
-  let habitDone = 0;
-  let habitTotal = 0;
-
-  els.weekStrip.replaceChildren();
-
-  week.forEach((dateKey) => {
-    const stats = statsForDate(dateKey);
-    taskDone += stats.taskDone;
-    taskTotal += stats.taskTotal;
-    habitDone += stats.habitDone;
-    habitTotal += stats.habitTotal;
-
-    const dayCell = document.createElement("article");
-    dayCell.className = "day-cell";
-    dayCell.innerHTML = `
-      <span class="day-name">${formatWeekday(dateKey)}</span>
-      <strong class="day-score">${Math.round((stats.taskPercent + stats.habitPercent) / 2)}%</strong>
-      <div class="day-bars">
-        <div class="mini-bar"><span style="width: ${stats.taskPercent}%"></span></div>
-        <div class="mini-bar habit"><span style="width: ${stats.habitPercent}%"></span></div>
-      </div>
-    `;
-    els.weekStrip.appendChild(dayCell);
-  });
-
-  const taskMetric = taskTotal ? Math.round((taskDone / taskTotal) * 100) : 0;
-  const habitMetric = habitTotal ? Math.round((habitDone / habitTotal) * 100) : 0;
-
-  els.weeklyTaskMetric.textContent = `${taskMetric}%`;
-  els.weeklyHabitMetric.textContent = `${habitMetric}%`;
-  els.weeklyTaskText.textContent = `${taskDone} из ${taskTotal} задач за неделю`;
-  els.weeklyHabitText.textContent = `${habitDone} из ${habitTotal} отметок привычек`;
-  renderWeekBoard(week);
-  renderMonthCalendar();
-  renderHeatmap();
 }
 
 function renderWeekBoard(week) {
   return calendarView.renderWeekBoard(week);
-  els.weekBoardLabel.textContent = `${formatShortDate(week[0])} — ${formatShortDate(week[6])}`;
-  els.weekBoardGrid.replaceChildren();
-
-  week.forEach((dateKey) => {
-    const tasks = getOrderedTasksForDate(dateKey);
-    const openTasks = tasks.filter((task) => !isTaskDone(task, dateKey));
-    const doneCount = tasks.length - openTasks.length;
-    const column = document.createElement("article");
-
-    column.className = "week-board-day calendar-drop-zone";
-    column.dataset.date = dateKey;
-    column.tabIndex = 0;
-    column.setAttribute("role", "button");
-    column.setAttribute("aria-label", `${formatLongDate(dateKey)}: ${openTasks.length} открыто, ${doneCount} готово`);
-    column.classList.toggle("is-active", dateKey === activeDate);
-    column.classList.toggle("is-today", dateKey === toDateKey(new Date()));
-    column.innerHTML = `
-      <div class="week-board-header">
-        <span>${formatWeekday(dateKey)}</span>
-        <strong>${parseDate(dateKey).getDate()}</strong>
-      </div>
-      <div class="week-board-count">${doneCount}/${tasks.length} выполнено</div>
-      <div class="week-board-list">
-        ${
-          tasks.length
-            ? tasks
-                .map((task) => {
-                  const done = isTaskDone(task, dateKey);
-                  const category = getCategory(task.categoryId);
-                  return `
-                    <span class="week-task-chip month-task-chip${done ? " is-done" : ""}" draggable="true" data-task-id="${escapeHtml(task.id)}" data-date="${dateKey}">
-                      <span>${escapeHtml(task.title)}</span>
-                      <small>${escapeHtml(category?.name || priorityLabels[task.priority] || "Задача")}</small>
-                    </span>
-                  `;
-                })
-                .join("")
-            : `<span class="week-board-empty">Нет задач</span>`
-        }
-      </div>
-    `;
-
-    column.addEventListener("click", () => openDateTasks(dateKey));
-    column.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter" && event.key !== " ") return;
-      event.preventDefault();
-      openDateTasks(dateKey);
-    });
-    attachTaskDropZone(column, dateKey);
-    column.querySelectorAll(".month-task-chip").forEach((chip) => attachTaskChipDrag(chip));
-    els.weekBoardGrid.appendChild(column);
-  });
 }
 
 function renderMonthCalendar() {
   return calendarView.renderMonthCalendar();
-  const monthDate = parseDate(activeDate);
-  const currentMonth = monthDate.getMonth();
-  const dates = getMonthCalendarDates(activeDate);
-
-  els.monthLabel.textContent = formatMonthLabel(activeDate);
-  els.monthGrid.replaceChildren();
-
-  dates.forEach((dateKey) => {
-    const date = parseDate(dateKey);
-    const tasks = getOrderedTasksForDate(dateKey);
-    const openTasks = tasks.filter((task) => !isTaskDone(task, dateKey));
-    const doneCount = tasks.length - openTasks.length;
-    const habitCount = habitsForDate(dateKey).length;
-    const visibleTasks = openTasks.slice(0, 3);
-    const hiddenTasks = openTasks.slice(3);
-    const hiddenCount = hiddenTasks.length;
-    const dayCell = document.createElement("div");
-    const details = [];
-
-    if (openTasks.length) details.push(`${openTasks.length} открыто`);
-    if (doneCount) details.push(`${doneCount} готово`);
-    if (habitCount) details.push(`${habitCount} привычек`);
-
-    dayCell.className = "month-day calendar-drop-zone";
-    dayCell.dataset.date = dateKey;
-    dayCell.tabIndex = 0;
-    dayCell.setAttribute("role", "button");
-    dayCell.setAttribute(
-      "aria-label",
-      `${formatLongDate(dateKey)}: ${details.join(", ") || "нет задач"}`,
-    );
-    dayCell.classList.toggle("is-outside", date.getMonth() !== currentMonth);
-    dayCell.classList.toggle("is-active", dateKey === activeDate);
-    dayCell.classList.toggle("is-today", dateKey === toDateKey(new Date()));
-    dayCell.innerHTML = `
-      <span class="month-day-head">
-        <strong>${date.getDate()}</strong>
-        ${tasks.length ? `<span>${doneCount}/${tasks.length}</span>` : ""}
-      </span>
-      <div class="month-day-items">
-        ${visibleTasks
-          .map((task) => `<span class="month-task-chip" draggable="true" data-task-id="${escapeHtml(task.id)}" data-date="${dateKey}">${escapeHtml(task.title)}</span>`)
-          .join("")}
-        ${
-          hiddenCount > 0
-            ? `<button class="month-day-more" type="button">+${hiddenCount}</button>
-              <div class="month-day-hidden">
-                ${hiddenTasks
-                  .map((task) => `<span class="month-task-chip" draggable="true" data-task-id="${escapeHtml(task.id)}" data-date="${dateKey}">${escapeHtml(task.title)}</span>`)
-                  .join("")}
-              </div>`
-            : ""
-        }
-      </div>
-    `;
-    dayCell.addEventListener("click", () => openDateTasks(dateKey));
-    dayCell.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter" && event.key !== " ") return;
-      event.preventDefault();
-      openDateTasks(dateKey);
-    });
-    attachTaskDropZone(dayCell, dateKey);
-    dayCell.querySelectorAll(".month-task-chip").forEach((chip) => attachTaskChipDrag(chip));
-    const moreButton = dayCell.querySelector(".month-day-more");
-    if (moreButton) {
-      moreButton.addEventListener("click", (event) => {
-        event.stopPropagation();
-        const expanded = dayCell.classList.toggle("is-expanded");
-        moreButton.textContent = expanded ? "Скрыть" : `+${hiddenCount}`;
-      });
-    }
-
-    els.monthGrid.appendChild(dayCell);
-  });
 }
 
 function renderHeatmap() {
   return calendarView.renderHeatmap();
-  const end = parseDate(activeDate);
-  const start = new Date(end);
-  start.setDate(end.getDate() - 69);
-  els.heatmapGrid.replaceChildren();
-
-  for (let i = 0; i < 70; i += 1) {
-    const current = new Date(start);
-    current.setDate(start.getDate() + i);
-    const dateKey = toDateKey(current);
-    const stats = statsForDate(dateKey);
-    const cell = document.createElement("div");
-    cell.className = "heatmap-cell";
-    cell.style.setProperty("--task-alpha", heatAlpha(stats.taskPercent));
-    cell.style.setProperty("--habit-alpha", heatAlpha(stats.habitPercent));
-    cell.title = `${formatLongDate(dateKey)}: задачи ${stats.taskPercent}%, привычки ${stats.habitPercent}%`;
-    cell.setAttribute("aria-label", cell.title);
-    if (dateKey === activeDate) cell.classList.add("is-current");
-    els.heatmapGrid.appendChild(cell);
-  }
 }
 
 function renderArchive() {
   return archiveView.renderArchive();
-  const allEntries = archiveEntries();
-  const entries = allEntries.filter((entry) => {
-    return matchesCategoryFilter(entry.task, archiveCategoryFilter) && archiveEntryMatchesSearch(entry, archiveSearchQuery);
-  });
-  els.archiveList.replaceChildren();
-  entries.forEach((entry) => els.archiveList.appendChild(createArchiveNode(entry)));
-  els.archiveEmpty.textContent = allEntries.length
-    ? "По текущим фильтрам записей нет."
-    : "Завершенных задач пока нет.";
-  els.archiveEmpty.classList.toggle("is-visible", entries.length === 0);
 }
 
 function createArchiveNode(entry) {
   return archiveView.createArchiveNode(entry);
-  const node = document.createElement("article");
-  node.className = "archive-item";
-
-  const category = getCategory(entry.task.categoryId);
-  const categoryHtml = category
-    ? `<span class="category-dot" style="--category-color: ${escapeHtml(category.color)}"></span>${escapeHtml(category.name)}`
-    : "Без категории";
-
-  node.innerHTML = `
-    <div>
-      <h3>${escapeHtml(entry.task.title)}</h3>
-      <p>${formatLongDate(entry.dateKey)} · ${categoryHtml} · ${priorityLabels[entry.task.priority] || "Средний"}</p>
-    </div>
-    <button class="ghost-button restore-task" type="button">Вернуть</button>
-  `;
-
-  node.querySelector(".restore-task").addEventListener("click", () => {
-    const undo = createUndoSnapshot();
-    entry.task.completed[entry.dateKey] = false;
-    saveState();
-    render();
-    showToast("Задача возвращена в план", { undo });
-  });
-
-  return node;
 }
 
 function renderCategories() {
-  els.taskCategoryId.replaceChildren();
-  els.taskCategoryFilter.replaceChildren();
-  els.archiveCategoryFilter.replaceChildren();
-
-  const emptyOption = document.createElement("option");
-  emptyOption.value = "";
-  emptyOption.textContent = "Без категории";
-  els.taskCategoryId.appendChild(emptyOption);
-
-  const allOption = document.createElement("option");
-  allOption.value = "all";
-  allOption.textContent = "Все категории";
-  els.taskCategoryFilter.appendChild(allOption);
-
-  const archiveAllOption = allOption.cloneNode(true);
-  els.archiveCategoryFilter.appendChild(archiveAllOption);
-
-  const uncategorizedOption = document.createElement("option");
-  uncategorizedOption.value = "none";
-  uncategorizedOption.textContent = "Без категории";
-  els.taskCategoryFilter.appendChild(uncategorizedOption);
-
-  const archiveUncategorizedOption = uncategorizedOption.cloneNode(true);
-  els.archiveCategoryFilter.appendChild(archiveUncategorizedOption);
-
-  const categories = [...state.categories].sort((a, b) => a.name.localeCompare(b.name, "ru"));
-
-  categories.forEach((category) => {
-    const option = document.createElement("option");
-    option.value = category.id;
-    option.textContent = category.name;
-    els.taskCategoryId.appendChild(option);
-
-    const filterOption = document.createElement("option");
-    filterOption.value = category.id;
-    filterOption.textContent = category.name;
-    els.taskCategoryFilter.appendChild(filterOption);
-
-    const archiveFilterOption = filterOption.cloneNode(true);
-    els.archiveCategoryFilter.appendChild(archiveFilterOption);
-  });
-
-  const filterExists = taskCategoryFilter === "all" || taskCategoryFilter === "none" || categories.some((category) => category.id === taskCategoryFilter);
-  if (!filterExists) {
-    taskCategoryFilter = "all";
-    saveUiState();
-  }
-  const archiveFilterExists =
-    archiveCategoryFilter === "all" || archiveCategoryFilter === "none" || categories.some((category) => category.id === archiveCategoryFilter);
-  if (!archiveFilterExists) {
-    archiveCategoryFilter = "all";
-    saveUiState();
-  }
-  els.taskCategoryFilter.value = taskCategoryFilter;
-  els.archiveCategoryFilter.value = archiveCategoryFilter;
-
-  els.categoryList.replaceChildren();
-  categories.forEach((category) => {
-    const item = document.createElement("div");
-    item.className = "category-item";
-    item.innerHTML = `
-      <span class="category-dot" style="--category-color: ${escapeHtml(category.color)}"></span>
-      <span>${escapeHtml(category.name)}</span>
-      <button class="icon-button subtle" type="button" aria-label="Удалить категорию">
-        <svg class="ui-icon"><use href="#icon-trash"></use></svg>
-      </button>
-    `;
-    item.querySelector("button").addEventListener("click", () => deleteCategory(category.id));
-    els.categoryList.appendChild(item);
-  });
+  categoriesController.renderCategories();
 }
 
 function saveTaskFromForm(event) {
@@ -1305,85 +1068,19 @@ function resetHabitForm() {
 }
 
 function saveCategoryFromForm(event) {
-  event.preventDefault();
-  const name = cleanText(els.categoryName.value);
-  if (!name) return;
-  const existing = state.categories.find((category) => category.name.toLowerCase() === name.toLowerCase());
-  if (existing) {
-    showToast("Такая категория уже есть");
-    return;
-  }
-  const undo = createUndoSnapshot();
-
-  state.categories.push({
-    id: createId(),
-    name,
-    color: els.categoryColor.value || "#00a78e",
-    createdAt: new Date().toISOString(),
-  });
-  els.categoryForm.reset();
-  els.categoryColor.value = "#00a78e";
-  saveState();
-  renderCategories();
-  showToast("Категория создана", { undo });
+  categoriesController.saveCategoryFromForm(event);
 }
 
 function deleteCategory(categoryId) {
-  const undo = createUndoSnapshot();
-  const hasTasks = state.tasks.some((task) => task.categoryId === categoryId);
-  state.categories = state.categories.filter((category) => category.id !== categoryId);
-  if (hasTasks) {
-    state.tasks.forEach((task) => {
-      if (task.categoryId === categoryId) task.categoryId = "";
-    });
-  }
-  if (taskCategoryFilter === categoryId) taskCategoryFilter = "all";
-  if (archiveCategoryFilter === categoryId) archiveCategoryFilter = "all";
-  saveState();
-  saveUiState();
-  render();
-  showToast("Категория удалена", { undo });
+  categoriesController.deleteCategory(categoryId);
 }
 
 function exportData() {
-  const payload = {
-    app: "Ритм дня",
-    schemaVersion: SCHEMA_VERSION,
-    exportedAt: new Date().toISOString(),
-    state,
-  };
-  createBackup({ payload, silent: true });
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `ritm-dnya-${toDateKey(new Date())}.json`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-  showToast("Экспорт готов");
+  importExportController.exportData();
 }
 
 async function importData() {
-  const file = els.importFile.files?.[0];
-  if (!file) return;
-
-  const undo = createUndoSnapshot();
-  try {
-    const text = await file.text();
-    const parsed = JSON.parse(text);
-    const importedState = normalizeState(parsed.state || parsed);
-    createImportSafetyBackup(undo);
-    replaceState(importedState);
-    saveState({ skipBackup: true });
-    render();
-    showToast("Данные импортированы. Предыдущие данные сохранены", { undo });
-  } catch {
-    showToast("Не удалось импортировать JSON");
-  } finally {
-    els.importFile.value = "";
-  }
+  return importExportController.importData();
 }
 
 function tasksForDate(dateKey) {
@@ -1656,159 +1353,47 @@ function getCategory(categoryId) {
 }
 
 function checkDueNotifications() {
-  if (!("Notification" in window) || Notification.permission !== "granted") return;
-  const now = new Date();
-
-  state.tasks.forEach((task) => {
-    const dates = candidateReminderDates(task, now);
-    dates.forEach((dateKey) => {
-      const reminderAt = getReminderDate(task, dateKey);
-      if (!reminderAt || reminderAt > now || isTaskDone(task, dateKey) || task.notified?.[dateKey]) return;
-      task.notified[dateKey] = true;
-      new Notification("Ритм дня", {
-        body: task.title,
-        tag: `${task.id}-${dateKey}`,
-      });
-      saveState();
-    });
-  });
+  notificationsController.checkDueNotifications();
 }
 
 async function requestNotifications() {
-  if (window.rhythmDesktop) {
-    await window.rhythmDesktop.showTestNotification();
-    updateNotificationButton("granted");
-    showToast("Фоновые напоминания активны");
-    return;
-  }
-
-  if (!("Notification" in window)) {
-    els.notifyButton.textContent = "Не поддерживаются";
-    return;
-  }
-
-  const permission = await Notification.requestPermission();
-  updateNotificationButton(permission);
+  return notificationsController.requestNotifications();
 }
 
 function updateNotificationButton(permission = "Notification" in window ? Notification.permission : "default") {
-  if (window.rhythmDesktop) {
-    els.notifyButton.innerHTML = `${icon("bell")}Фон включен`;
-    els.desktopStatus.textContent = "Закрытое окно останется в фоне";
-    return;
-  }
-  els.notifyButton.innerHTML =
-    permission === "granted" ? `${icon("bell")}Уведомления включены` : `${icon("bell")}Уведомления`;
+  notificationsController.updateNotificationButton(permission);
 }
 
 function syncDesktopReminders() {
-  if (!window.rhythmDesktop?.syncReminders) return;
-
-  const now = new Date();
-  const start = new Date(now);
-  start.setDate(now.getDate() - 1);
-  const reminders = [];
-
-  for (let i = 0; i < 62; i += 1) {
-    const current = new Date(start);
-    current.setDate(start.getDate() + i);
-    const dateKey = toDateKey(current);
-    tasksForDate(dateKey).forEach((task) => {
-      const reminderAt = getReminderDate(task, dateKey);
-      if (!reminderAt || isTaskDone(task, dateKey)) return;
-      const dueAt = getDueDate(task, dateKey);
-      reminders.push({
-        id: `${task.id}-${dateKey}`,
-        taskId: task.id,
-        title: task.title,
-        dateKey,
-        dueAt: dueAt.toISOString(),
-        reminderAt: reminderAt.toISOString(),
-        category: getCategory(task.categoryId)?.name || "",
-        priority: task.priority,
-      });
-    });
-  }
-
-  window.rhythmDesktop.syncReminders({ generatedAt: now.toISOString(), reminders });
+  notificationsController.syncDesktopReminders();
 }
 
 function syncDesktopBackup() {
-  if (!window.rhythmDesktop?.writeFileBackup) return;
-  window.rhythmDesktop.writeFileBackup({
-    schemaVersion: SCHEMA_VERSION,
-    state,
-  })
-    .then(() => updateFileBackupStatus())
-    .catch(() => {
-      if (els.fileBackupStatus) {
-        els.fileBackupStatus.hidden = false;
-        els.fileBackupStatus.textContent = "Файловый бэкап: ошибка записи";
-      }
-    });
+  importExportController.syncDesktopBackup();
 }
 
 async function updateFileBackupStatus() {
-  if (!window.rhythmDesktop?.getFileBackupInfo || !els.fileBackupStatus || !els.openBackupFolderButton) return;
-  els.fileBackupStatus.hidden = false;
-  els.openBackupFolderButton.hidden = false;
-  try {
-    const info = await window.rhythmDesktop.getFileBackupInfo();
-    if (info?.latest?.mtimeMs) {
-      els.fileBackupStatus.textContent = `Файловый бэкап: ${formatBackupDate(info.latest.mtimeMs)}`;
-    } else {
-      els.fileBackupStatus.textContent = "Файловый бэкап: папка готова";
-    }
-  } catch {
-    els.fileBackupStatus.textContent = "Файловый бэкап: недоступен";
-  }
+  return importExportController.updateFileBackupStatus();
 }
 
 async function openBackupFolder() {
-  if (!window.rhythmDesktop?.openBackupFolder) return;
-  const result = await window.rhythmDesktop.openBackupFolder();
-  showToast(result?.ok ? "Папка бэкапов открыта" : "Не удалось открыть папку бэкапов");
+  return importExportController.openBackupFolder();
 }
 
 function candidateReminderDates(task, now) {
-  const dates = [];
-  for (let offset = -1; offset <= 1; offset += 1) {
-    const date = new Date(now);
-    date.setDate(now.getDate() + offset);
-    const dateKey = toDateKey(date);
-    if (taskOccursOn(task, dateKey)) dates.push(dateKey);
-  }
-  return dates;
+  return notificationsController.candidateReminderDates(task, now);
 }
 
 function getDueDate(task, dateKey) {
-  const [hours, minutes] = (cleanTimeValue(task.time) || "09:00").split(":").map(Number);
-  const date = parseDate(dateKey);
-  date.setHours(hours || 0, minutes || 0, 0, 0);
-  return date;
+  return notificationsController.getDueDate(task, dateKey);
 }
 
 function getTaskDeadlineDate(task, dateKey) {
-  const date = parseDate(dateKey);
-  const time = cleanTimeValue(task.time);
-  if (!time) {
-    date.setHours(23, 59, 59, 999);
-    return date;
-  }
-
-  const [hours, minutes] = time.split(":").map(Number);
-  date.setHours(hours, minutes, 0, 0);
-  return date;
+  return notificationsController.getTaskDeadlineDate(task, dateKey);
 }
 
 function getReminderDate(task, dateKey) {
-  if (!task.time || task.reminderOffset === "none") return null;
-  const offset = Number(task.reminderOffset || 0);
-  if (!Number.isFinite(offset)) return null;
-  const due = getDueDate(task, dateKey);
-  const reminder = new Date(due);
-  reminder.setMinutes(due.getMinutes() - offset);
-  return reminder;
+  return notificationsController.getReminderDate(task, dateKey);
 }
 
 function shiftDate(days) {
@@ -1932,65 +1517,28 @@ function saveState(options = {}) {
   if (!options.skipBackup) syncDesktopBackup();
 }
 
-function createBackup({ payload = null, silent = false, throttle = false } = {}) {
-  const result = storage.createBackup({
-    payload,
-    state,
-    throttle,
-  });
-
-  if (result.ok) {
-    updateBackupStatus();
-    if (!silent) showToast("Локальный бэкап обновлен");
-    return;
-  }
-
-  if (!silent && result.reason !== "throttled") showToast("Не удалось создать бэкап");
+function createBackup(options = {}) {
+  return importExportController.createBackup(options);
 }
 
 function createImportSafetyBackup(snapshot) {
-  storage.createImportSafetyBackup(snapshot, { schemaVersion: SCHEMA_VERSION });
+  return importExportController.createImportSafetyBackup(snapshot);
 }
 
 function restoreBackup() {
-  const backup = loadBackup();
-  if (!backup) {
-    showToast("Локальный бэкап пока не найден");
-    return;
-  }
-
-  const backupDate = backup.exportedAt ? formatBackupDate(backup.exportedAt) : "без даты";
-  const confirmed = window.confirm(`Восстановить данные из локального бэкапа (${backupDate})? Текущий план будет заменен.`);
-  if (!confirmed) return;
-
-  replaceState(backup.state || backup);
-  saveState();
-  render();
-  showToast("Данные восстановлены из бэкапа");
+  return importExportController.restoreBackup();
 }
 
 function loadBackup() {
-  return storage.loadBackup();
+  return importExportController.loadBackup();
 }
 
 function updateBackupStatus() {
-  const backup = loadBackup();
-  if (!backup?.exportedAt) {
-    els.backupStatus.textContent = "Бэкап еще не создан";
-    return;
-  }
-  els.backupStatus.textContent = `Бэкап: ${formatBackupDate(backup.exportedAt)}`;
+  importExportController.updateBackupStatus();
 }
 
 function formatBackupDate(value) {
-  const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) return "без даты";
-  return new Intl.DateTimeFormat("ru-RU", {
-    day: "2-digit",
-    month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
+  return importExportController.formatBackupDate(value);
 }
 
 function seedIfEmpty() {

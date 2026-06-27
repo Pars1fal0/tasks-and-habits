@@ -225,8 +225,11 @@ function createWindow() {
             window.RhythmQuickInput &&
               window.RhythmArchiveView &&
               window.RhythmCalendarView &&
+              window.RhythmCategories &&
               window.RhythmHabitForm &&
               window.RhythmHabitsView &&
+              window.RhythmImportExport &&
+              window.RhythmNotifications &&
               window.RhythmRecurrence &&
               window.RhythmStateNormalizer &&
               window.RhythmStorage &&
