@@ -1,0 +1,112 @@
+const quickInput = require("../quick-input.js");
+const recurrence = require("../recurrence.js");
+const storageApi = require("../storage.js");
+const taskMoves = require("../task-moves.js");
+const stateNormalizerApi = require("../state-normalizer.js");
+
+function normalizeDateKey(value, fallback = "") {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ""));
+  if (!match) return fallback;
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  if (Number.isNaN(date.getTime())) return fallback;
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function parseDateKey(value) {
+  const normalized = normalizeDateKey(value, "");
+  const [year, month, day] = normalized.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function toDateKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function toTimeValue(date) {
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+function cleanText(value) {
+  return String(value ?? "").trim().replace(/\s+/g, " ");
+}
+
+function createMemoryStorage() {
+  const data = new Map();
+  return {
+    getItem: (key) => (data.has(key) ? data.get(key) : null),
+    setItem: (key, value) => data.set(key, String(value)),
+    removeItem: (key) => data.delete(key),
+  };
+}
+
+function createStateNormalizer() {
+  return stateNormalizerApi.createStateNormalizer({
+    schemaVersion: 5,
+    validPriorities: ["high", "medium", "low"],
+    cleanText,
+    cleanTimeValue: (value) => {
+      const match = /^(\d{1,2}):(\d{2})$/.exec(String(value || "").trim());
+      if (!match) return "";
+      const hours = Number(match[1]);
+      const minutes = Number(match[2]);
+      if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return "";
+      return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+    },
+    createId: (() => {
+      let index = 0;
+      return () => `id-${(index += 1)}`;
+    })(),
+    normalizeDateKey: (value, fallback = "2026-06-26") => normalizeDateKey(value, fallback),
+    normalizeHabitLogs: (value, type) => {
+      const logs = {};
+      Object.entries(value || {}).forEach(([dateKey, entry]) => {
+        const normalizedDate = normalizeDateKey(dateKey, "");
+        if (!normalizedDate) return;
+        logs[normalizedDate] = type === "number" ? Math.max(0, Number(entry || 0)) : entry === true;
+      });
+      return logs;
+    },
+    normalizeHabitRepeat: (value) =>
+      ["daily", "every2days", "every3days", "weekdays", "weekends", "weekly", "custom"].includes(value)
+        ? value
+        : "daily",
+    normalizeReminderOffset: (value, hasTime = true) => {
+      const offset = String(value ?? (hasTime ? "15" : "none"));
+      return ["none", "0", "5", "15", "30", "60", "1440"].includes(offset) ? offset : hasTime ? "15" : "none";
+    },
+    normalizeTaskFlags: (value) => {
+      const flags = {};
+      Object.entries(value || {}).forEach(([dateKey, entry]) => {
+        const normalizedDate = normalizeDateKey(dateKey, "");
+        if (normalizedDate && entry === true) flags[normalizedDate] = true;
+      });
+      return flags;
+    },
+    normalizeTaskOrder: (value) => {
+      const order = {};
+      Object.entries(value || {}).forEach(([dateKey, ids]) => {
+        const normalizedDate = normalizeDateKey(dateKey, "");
+        if (normalizedDate && Array.isArray(ids)) order[normalizedDate] = ids.map(String);
+      });
+      return order;
+    },
+    randomCategoryColor: () => "#00a78e",
+    recurrence,
+    sanitizeColor: (value) => (/^#[0-9a-f]{6}$/i.test(String(value || "")) ? value : ""),
+    toDateKey,
+  });
+}
+
+module.exports = {
+  cleanText,
+  createMemoryStorage,
+  createStateNormalizer,
+  normalizeDateKey,
+  parseDateKey,
+  quickInput,
+  recurrence,
+  storageApi,
+  taskMoves,
+  toDateKey,
+  toTimeValue,
+};

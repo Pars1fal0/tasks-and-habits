@@ -35,6 +35,7 @@ let taskCategoryFilter = initialUiState.taskCategoryFilter || "all";
 let taskSearchQuery = initialUiState.taskSearchQuery || "";
 let archiveCategoryFilter = initialUiState.archiveCategoryFilter || "all";
 let archiveSearchQuery = initialUiState.archiveSearchQuery || "";
+let themePreference = normalizeThemePreference(initialUiState.themePreference);
 let draggedTaskId = null;
 let draggedTaskDate = "";
 let pointerDragTask = null;
@@ -125,6 +126,7 @@ const els = {
   taskTemplate: document.querySelector("#taskTemplate"),
   taskTime: document.querySelector("#taskTime"),
   taskTitle: document.querySelector("#taskTitle"),
+  themePreference: document.querySelector("#themePreference"),
   todayButton: document.querySelector("#todayButton"),
   todayDoneMetric: document.querySelector("#todayDoneMetric"),
   todayLabel: document.querySelector("#todayLabel"),
@@ -134,6 +136,7 @@ const els = {
     archive: document.querySelector("#archiveView"),
     habits: document.querySelector("#habitsView"),
     overview: document.querySelector("#overviewView"),
+    settings: document.querySelector("#settingsView"),
     tasks: document.querySelector("#tasksView"),
   },
   weekBoardGrid: document.querySelector("#weekBoardGrid"),
@@ -369,6 +372,7 @@ function init() {
   els.activeDate.value = activeDate;
   els.taskSearch.value = taskSearchQuery;
   els.archiveSearch.value = archiveSearchQuery;
+  applyThemePreference();
   bindEvents();
   resetTaskForm();
   resetHabitForm();
@@ -507,6 +511,15 @@ function bindEvents() {
   els.openBackupFolderButton.addEventListener("click", openBackupFolder);
   els.importButton.addEventListener("click", () => els.importFile.click());
   els.importFile.addEventListener("change", importData);
+  els.themePreference?.addEventListener("change", () => {
+    themePreference = normalizeThemePreference(els.themePreference.value);
+    applyThemePreference();
+    saveUiState();
+    showToast("Тема обновлена");
+  });
+  window.matchMedia?.("(prefers-color-scheme: light)")?.addEventListener("change", () => {
+    if (themePreference === "system") applyThemePreference();
+  });
   els.archiveSearch.addEventListener("input", () => {
     archiveSearchQuery = cleanSearchQuery(els.archiveSearch.value);
     saveUiState();
@@ -537,6 +550,7 @@ function render() {
     archive: "Архив",
     habits: "Привычки",
     overview: "Обзор",
+    settings: "Настройки",
     tasks: "Задачи на день",
   }[activeView];
   document.body.dataset.view = activeView;
@@ -1433,7 +1447,20 @@ function saveUiState() {
     archiveSearchQuery,
     taskCategoryFilter,
     taskSearchQuery,
+    themePreference,
   });
+}
+
+function normalizeThemePreference(value) {
+  return ["dark", "light", "system"].includes(value) ? value : "dark";
+}
+
+function applyThemePreference() {
+  const prefersLight = window.matchMedia?.("(prefers-color-scheme: light)")?.matches;
+  const resolvedTheme = themePreference === "system" ? (prefersLight ? "light" : "dark") : themePreference;
+  document.documentElement.dataset.theme = resolvedTheme;
+  document.documentElement.dataset.themePreference = themePreference;
+  if (els.themePreference) els.themePreference.value = themePreference;
 }
 
 function cleanSearchQuery(value) {

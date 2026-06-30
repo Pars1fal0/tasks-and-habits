@@ -1,5 +1,7 @@
 (function (global) {
   function createCalendarView(ctx) {
+    const heatmapView = global.RhythmHeatmapView.createHeatmapView(ctx);
+
     function renderOverview() {
       const activeDate = ctx.getActiveDate();
       const week = ctx.getWeekDates(activeDate);
@@ -17,17 +19,7 @@
         habitDone += stats.habitDone;
         habitTotal += stats.habitTotal;
 
-        const dayCell = document.createElement("article");
-        dayCell.className = "day-cell";
-        dayCell.innerHTML = `
-          <span class="day-name">${ctx.formatWeekday(dateKey)}</span>
-          <strong class="day-score">${Math.round((stats.taskPercent + stats.habitPercent) / 2)}%</strong>
-          <div class="day-bars">
-            <div class="mini-bar"><span style="width: ${stats.taskPercent}%"></span></div>
-            <div class="mini-bar habit"><span style="width: ${stats.habitPercent}%"></span></div>
-          </div>
-        `;
-        ctx.els.weekStrip.appendChild(dayCell);
+        ctx.els.weekStrip.appendChild(createOverviewDayCell(dateKey, stats));
       });
 
       const taskMetric = taskTotal ? Math.round((taskDone / taskTotal) * 100) : 0;
@@ -40,6 +32,35 @@
       renderWeekBoard(week);
       renderMonthCalendar();
       renderHeatmap();
+    }
+
+    function createOverviewDayCell(dateKey, stats) {
+      const dayCell = document.createElement("article");
+      const dayName = document.createElement("span");
+      const score = document.createElement("strong");
+      const bars = document.createElement("div");
+
+      dayCell.className = "day-cell";
+      dayName.className = "day-name";
+      dayName.textContent = ctx.formatWeekday(dateKey);
+      score.className = "day-score";
+      score.textContent = `${Math.round((stats.taskPercent + stats.habitPercent) / 2)}%`;
+      bars.className = "day-bars";
+      bars.append(createMiniBar(stats.taskPercent), createMiniBar(stats.habitPercent, "habit"));
+      dayCell.append(dayName, score, bars);
+
+      return dayCell;
+    }
+
+    function createMiniBar(percent, type = "") {
+      const bar = document.createElement("div");
+      const fill = document.createElement("span");
+
+      bar.className = type ? `mini-bar ${type}` : "mini-bar";
+      fill.style.width = `${percent}%`;
+      bar.appendChild(fill);
+
+      return bar;
     }
 
     function renderWeekBoard(week) {
@@ -174,73 +195,7 @@
     }
 
     function renderHeatmap() {
-      const activeDate = ctx.getActiveDate();
-      const end = ctx.parseDate(activeDate);
-      const start = new Date(end);
-      const tooltipNode = getHeatmapTooltip();
-      start.setDate(end.getDate() - 364);
-      ctx.els.heatmapGrid.replaceChildren();
-
-      for (let i = 0; i < 365; i += 1) {
-        const current = new Date(start);
-        current.setDate(start.getDate() + i);
-        const dateKey = ctx.toDateKey(current);
-        const stats = ctx.statsForDate(dateKey);
-        const cell = document.createElement("div");
-        const tooltip = `${ctx.formatLongDate(dateKey)}: задачи ${stats.taskPercent}%, привычки ${stats.habitPercent}%`;
-        cell.className = "heatmap-cell";
-        cell.tabIndex = 0;
-        cell.dataset.date = dateKey;
-        cell.dataset.tooltip = tooltip;
-        cell.style.setProperty("--task-alpha", ctx.heatAlpha(stats.taskPercent));
-        cell.style.setProperty("--habit-alpha", ctx.heatAlpha(stats.habitPercent));
-        cell.title = tooltip;
-        cell.setAttribute("aria-label", tooltip);
-        if (dateKey === activeDate) cell.classList.add("is-current");
-        cell.addEventListener("pointerenter", () => showHeatmapTooltip(tooltipNode, cell, tooltip));
-        cell.addEventListener("pointermove", () => positionHeatmapTooltip(tooltipNode, cell));
-        cell.addEventListener("pointerleave", () => hideHeatmapTooltip(tooltipNode));
-        cell.addEventListener("mouseenter", () => showHeatmapTooltip(tooltipNode, cell, tooltip));
-        cell.addEventListener("mousemove", () => positionHeatmapTooltip(tooltipNode, cell));
-        cell.addEventListener("mouseleave", () => hideHeatmapTooltip(tooltipNode));
-        cell.addEventListener("click", () => showHeatmapTooltip(tooltipNode, cell, tooltip));
-        cell.addEventListener("focus", () => showHeatmapTooltip(tooltipNode, cell, tooltip));
-        cell.addEventListener("blur", () => hideHeatmapTooltip(tooltipNode));
-        ctx.els.heatmapGrid.appendChild(cell);
-      }
-    }
-
-    function getHeatmapTooltip() {
-      let tooltip = document.querySelector("[data-heatmap-tooltip]");
-      if (!tooltip) {
-        tooltip = document.createElement("div");
-        tooltip.className = "heatmap-tooltip";
-        tooltip.dataset.heatmapTooltip = "";
-        document.body.appendChild(tooltip);
-      }
-      return tooltip;
-    }
-
-    function showHeatmapTooltip(tooltip, cell, text) {
-      tooltip.textContent = text;
-      tooltip.classList.add("is-visible");
-      positionHeatmapTooltip(tooltip, cell);
-    }
-
-    function positionHeatmapTooltip(tooltip, cell) {
-      const rect = cell.getBoundingClientRect();
-      const tooltipRect = tooltip.getBoundingClientRect();
-      const viewportPadding = 10;
-      const desiredLeft = rect.left + rect.width / 2 - tooltipRect.width / 2;
-      const left = Math.min(Math.max(viewportPadding, desiredLeft), window.innerWidth - tooltipRect.width - viewportPadding);
-      const hasRoomAbove = rect.top > tooltipRect.height + 14;
-      const top = hasRoomAbove ? rect.top - tooltipRect.height - 8 : rect.bottom + 8;
-      tooltip.style.left = `${Math.round(left)}px`;
-      tooltip.style.top = `${Math.round(top)}px`;
-    }
-
-    function hideHeatmapTooltip(tooltip) {
-      tooltip.classList.remove("is-visible");
+      heatmapView.renderHeatmap();
     }
 
     return {

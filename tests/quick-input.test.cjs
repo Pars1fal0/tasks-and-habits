@@ -1,0 +1,43 @@
+const assert = require("node:assert/strict");
+const { cleanText, normalizeDateKey, quickInput, toDateKey, toTimeValue } = require("./test-utils.cjs");
+
+module.exports = [
+  {
+    name: "parses date, time word, category, and priority",
+    fn() {
+      const parsed = quickInput.parseQuickTaskInput("Позвонить врачу 2026-07-15 вечером #здоровье !high", {
+        activeDate: "2026-06-26",
+        cleanText,
+        getOrCreateCategory: () => "cat-health",
+        normalizeCategoryName: (value) => cleanText(value).replace(/^./, (char) => char.toLocaleUpperCase("ru-RU")),
+        normalizeDateKey,
+        toDateKey,
+        toTimeValue,
+      });
+
+      assert.equal(parsed.title, "Позвонить врачу");
+      assert.equal(parsed.date, "2026-07-15");
+      assert.equal(parsed.time, "18:00");
+      assert.equal(parsed.categoryId, "cat-health");
+      assert.equal(parsed.categoryName, "Здоровье");
+      assert.equal(parsed.priority, "high");
+    },
+  },
+  {
+    name: "parses relative time without losing the title",
+    fn() {
+      const parsed = quickInput.parseQuickTaskInput("Сдать отчет через 2 часа !low", {
+        activeDate: "2026-06-26",
+        cleanText,
+        normalizeDateKey,
+        toDateKey,
+        toTimeValue,
+      });
+
+      assert.equal(parsed.title, "Сдать отчет");
+      assert.match(parsed.date, /^\d{4}-\d{2}-\d{2}$/);
+      assert.match(parsed.time, /^\d{2}:\d{2}$/);
+      assert.equal(parsed.priority, "low");
+    },
+  },
+];

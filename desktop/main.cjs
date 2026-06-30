@@ -209,6 +209,34 @@ function createWindow() {
           !document.querySelector("#fileBackupStatus")?.hidden &&
           document.querySelector("#fileBackupStatus")?.textContent.includes("Файловый бэкап");
 
+        document.querySelector('[data-view="overview"]').click();
+        const heatmapGrid = document.querySelector("#heatmapGrid");
+        const firstHeatmapCell = document.querySelector(".heatmap-cell");
+        firstHeatmapCell.dispatchEvent(new Event("pointerenter"));
+        const heatmapTooltip = document.querySelector(".heatmap-tooltip.is-visible");
+        const heatmapHasLabels =
+          document.querySelectorAll(".heatmap-months span").length >= 12 &&
+          document.querySelectorAll(".heatmap-weekdays span").length === 7;
+        const heatmapFits = heatmapGrid.scrollWidth <= heatmapGrid.clientWidth + 1;
+        const heatmapTooltipSingle = document.querySelectorAll(".heatmap-tooltip.is-visible").length === 1;
+        const heatmapTooltipHasDate = /\\d{4}-\\d{2}-\\d{2}/.test(heatmapTooltip?.textContent || "");
+        const nativeHeatmapTitleAbsent = !firstHeatmapCell.hasAttribute("title");
+
+        document.querySelector('[data-view="settings"]').click();
+        const themeSelect = document.querySelector("#themePreference");
+        themeSelect.value = "light";
+        themeSelect.dispatchEvent(new Event("change", { bubbles: true }));
+        const switchedLight = document.documentElement.dataset.theme === "light";
+        themeSelect.value = "dark";
+        themeSelect.dispatchEvent(new Event("change", { bubbles: true }));
+        const switchedDark = document.documentElement.dataset.theme === "dark";
+        const themeSwitchWorks = switchedLight && switchedDark;
+
+        document.querySelector('[data-view="habits"]').click();
+        document.querySelector("#openHabitForm").click();
+        const habitFormRect = document.querySelector("#habitFormPanel").getBoundingClientRect();
+        const habitFormFits = habitFormRect.left >= 0 && habitFormRect.right <= window.innerWidth;
+
         return {
           title: document.title,
           hasTaskForm: Boolean(document.querySelector("#taskForm")),
@@ -217,6 +245,7 @@ function createWindow() {
           hasHeatmap:
             document.querySelectorAll(".heatmap-cell").length === 365 &&
             Boolean(document.querySelector(".heatmap-cell[data-tooltip]")),
+          hasSettings: Boolean(document.querySelector("#settingsView")) && Boolean(document.querySelector("#themePreference")),
           hasMonthCalendar: document.querySelectorAll(".month-day").length === 42,
           hasWeekBoard,
           hasTodayButton: Boolean(document.querySelector("#todayButton")),
@@ -230,6 +259,7 @@ function createWindow() {
               window.RhythmCategories &&
               window.RhythmHabitForm &&
               window.RhythmHabitsView &&
+              window.RhythmHeatmapView &&
               window.RhythmImportExport &&
               window.RhythmNotifications &&
               window.RhythmRecurrence &&
@@ -256,6 +286,13 @@ function createWindow() {
           fileBackupWorks,
           fileBackupInfoWorks: Boolean(fileBackupInfo?.path),
           fileBackupUiVisible,
+          heatmapFits,
+          heatmapHasLabels,
+          heatmapTooltipHasDate,
+          heatmapTooltipSingle,
+          habitFormFits,
+          nativeHeatmapTitleAbsent,
+          themeSwitchWorks,
           calendarDragMove,
           dndOrderChanged,
           archived,

@@ -157,27 +157,30 @@
         ];
         if (entry.task.repeat !== "none") details.push(ctx.formatTaskRepeat(entry.task));
 
-        node.innerHTML = `
-          <div>
-            <h3>${ctx.escapeHtml(entry.task.title)}</h3>
-            <p>${details.map((detail) => `<span>${ctx.escapeHtml(detail)}</span>`).join(" · ")}</p>
-          </div>
-          <div class="overdue-actions">
-            <button class="ghost-button compact-button overdue-go" type="button">К дню</button>
-            <button class="ghost-button compact-button overdue-today" type="button">Сегодня</button>
-            <button class="primary-button compact-button overdue-done" type="button">Готово</button>
-          </div>
-        `;
+        const content = document.createElement("div");
+        const title = document.createElement("h3");
+        const meta = document.createElement("p");
+        const actions = document.createElement("div");
+        const goButton = createButton("ghost-button compact-button overdue-go", "К дню");
+        const todayButton = createButton("ghost-button compact-button overdue-today", "Сегодня");
+        const doneButton = createButton("primary-button compact-button overdue-done", "Готово");
 
-        node.querySelector(".overdue-go").addEventListener("click", () => {
+        title.textContent = entry.task.title;
+        appendDetails(meta, details);
+        content.append(title, meta);
+        actions.className = "overdue-actions";
+        actions.append(goButton, todayButton, doneButton);
+        node.append(content, actions);
+
+        goButton.addEventListener("click", () => {
           ctx.openDate(entry.dateKey);
         });
 
-        node.querySelector(".overdue-today").addEventListener("click", () => {
+        todayButton.addEventListener("click", () => {
           ctx.postponeTask(entry.task, entry.dateKey, ctx.toDateKey(new Date()), { clearPastTimeToday: true });
         });
 
-        node.querySelector(".overdue-done").addEventListener("click", () => {
+        doneButton.addEventListener("click", () => {
           const undo = ctx.createUndoSnapshot();
           entry.task.completed[entry.dateKey] = true;
           ctx.saveState();
@@ -199,19 +202,38 @@
         const node = document.createElement("article");
         node.className = "excluded-item";
         const details = ctx.taskDetails(task).filter((detail) => detail !== ctx.formatTaskRepeat(task));
-        node.innerHTML = `
-          <div>
-            <h3>${ctx.escapeHtml(task.title)}</h3>
-            <p>${ctx.escapeHtml(ctx.formatTaskRepeat(task) || "Повтор")} · ${ctx.escapeHtml(details.join(" · ") || "Без категории")}</p>
-          </div>
-          <button class="ghost-button compact-button restore-excluded" type="button">Вернуть в день</button>
-        `;
+        const content = document.createElement("div");
+        const title = document.createElement("h3");
+        const meta = document.createElement("p");
+        const restoreButton = createButton("ghost-button compact-button restore-excluded", "Вернуть в день");
 
-        node.querySelector(".restore-excluded").addEventListener("click", () => {
+        title.textContent = task.title;
+        appendDetails(meta, [ctx.formatTaskRepeat(task) || "Повтор", details.join(" · ") || "Без категории"]);
+        content.append(title, meta);
+        node.append(content, restoreButton);
+
+        restoreButton.addEventListener("click", () => {
           ctx.restoreTaskDate(task, activeDate);
         });
 
         ctx.els.excludedList.appendChild(node);
+      });
+    }
+
+    function createButton(className, label) {
+      const button = document.createElement("button");
+      button.className = className;
+      button.type = "button";
+      button.textContent = label;
+      return button;
+    }
+
+    function appendDetails(node, details) {
+      details.forEach((detail, index) => {
+        if (index > 0) node.append(document.createTextNode(" · "));
+        const part = document.createElement("span");
+        part.textContent = detail;
+        node.appendChild(part);
       });
     }
 

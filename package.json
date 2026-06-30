@@ -25,6 +25,7 @@
       "CHANGELOG.md",
       "desktop/**/*",
       "habit-form.js",
+      "heatmap-view.js",
       "icon.svg",
       "index.html",
       "import-export.js",
