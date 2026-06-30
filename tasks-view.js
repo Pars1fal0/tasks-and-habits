@@ -151,7 +151,7 @@
         const category = ctx.getCategory(entry.task.categoryId);
         const details = [
           ctx.formatLongDate(entry.dateKey),
-          entry.task.time ? `до ${entry.task.time}` : "до конца дня",
+          entry.task.time ? `до ${ctx.formatTime(entry.task.time)}` : "до конца дня",
           category?.name || "Без категории",
           ctx.priorityLabels[entry.task.priority] || "Средний",
         ];

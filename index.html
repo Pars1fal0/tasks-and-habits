@@ -52,6 +52,10 @@
             <svg class="ui-icon"><use href="#icon-tasks"></use></svg>
             <span>Задачи</span>
           </button>
+          <button class="nav-tab" data-view="timeline" type="button">
+            <svg class="ui-icon"><use href="#icon-clock"></use></svg>
+            <span>Таймлайн</span>
+          </button>
           <button class="nav-tab" data-view="habits" type="button">
             <svg class="ui-icon"><use href="#icon-habit"></use></svg>
             <span>Привычки</span>
@@ -367,6 +371,31 @@
           </div>
         </section>
 
+        <section class="view" id="timelineView" aria-labelledby="timelineHeading">
+          <div class="toolbar">
+            <div>
+              <h2 id="timelineHeading">Таймлайн дня</h2>
+              <p class="muted">Задачи с временем разложены по часам выбранного дня.</p>
+            </div>
+            <span class="task-counter" id="timelineSummary">0 по времени · 0 без времени</span>
+          </div>
+
+          <section class="panel timeline-panel">
+            <div class="timeline-grid" id="timelineGrid"></div>
+            <div class="empty-state" id="timelineEmpty">На выбранный день задач пока нет.</div>
+          </section>
+
+          <section class="panel timeline-unscheduled-panel">
+            <div class="panel-heading compact">
+              <div>
+                <span class="metric-label">Без времени</span>
+                <h2>Задачи без точного часа</h2>
+              </div>
+            </div>
+            <div class="timeline-unscheduled-list" id="timelineUnscheduledList"></div>
+          </section>
+        </section>
+
         <section class="view" id="habitsView" aria-labelledby="habitsHeading">
           <div class="toolbar">
             <div>
@@ -523,7 +552,7 @@
                   </button>
                 </div>
               </div>
-              <div class="month-weekdays" aria-hidden="true">
+              <div class="month-weekdays" id="monthWeekdays" aria-hidden="true">
                 <span>Пн</span>
                 <span>Вт</span>
                 <span>Ср</span>
@@ -612,6 +641,36 @@
                   <option value="system">Как в системе</option>
                 </select>
               </label>
+              <label class="settings-row">
+                <span>
+                  <strong>Плотность</strong>
+                  <small>Компактный режим делает списки, панели и формы плотнее.</small>
+                </span>
+                <select id="densityPreference" aria-label="Плотность интерфейса">
+                  <option value="comfortable">Обычная</option>
+                  <option value="compact">Компактная</option>
+                </select>
+              </label>
+              <label class="settings-row">
+                <span>
+                  <strong>Формат времени</strong>
+                  <small>Меняет отображение времени в карточках и таймлайне.</small>
+                </span>
+                <select id="timeFormat" aria-label="Формат времени">
+                  <option value="24">24 часа</option>
+                  <option value="12">12 часов</option>
+                </select>
+              </label>
+              <label class="settings-row">
+                <span>
+                  <strong>Первый день недели</strong>
+                  <small>Влияет на недельную доску, месяц и подписи календаря.</small>
+                </span>
+                <select id="firstDayOfWeek" aria-label="Первый день недели">
+                  <option value="monday">Понедельник</option>
+                  <option value="sunday">Воскресенье</option>
+                </select>
+              </label>
             </section>
             <section class="panel settings-panel" aria-labelledby="dataSettingsHeading">
               <div class="panel-heading compact">
@@ -620,7 +679,46 @@
                   <h2 id="dataSettingsHeading">Бэкапы и экспорт</h2>
                 </div>
               </div>
-              <p class="muted">Экспорт, импорт, восстановление и файловые бэкапы доступны в боковой панели.</p>
+              <label class="settings-row">
+                <span>
+                  <strong>Плановый бэкап</strong>
+                  <small>Создает локальный и файловый бэкап по расписанию, если приложение открыто.</small>
+                </span>
+                <select id="backupSchedule" aria-label="Расписание авто-бэкапа">
+                  <option value="0">Выключен</option>
+                  <option value="5">Каждые 5 минут</option>
+                  <option value="15">Каждые 15 минут</option>
+                  <option value="30">Каждые 30 минут</option>
+                  <option value="60">Каждый час</option>
+                </select>
+              </label>
+              <div class="settings-actions">
+                <button class="ghost-button compact-button" id="settingsExportButton" type="button">Экспорт JSON</button>
+                <button class="ghost-button compact-button" id="settingsRestoreBackupButton" type="button">Восстановить</button>
+                <button class="ghost-button compact-button" id="settingsOpenBackupFolderButton" type="button">Папка бэкапов</button>
+              </div>
+            </section>
+            <section class="panel settings-panel" aria-labelledby="notificationsSettingsHeading">
+              <div class="panel-heading compact">
+                <div>
+                  <span class="metric-label">Система</span>
+                  <h2 id="notificationsSettingsHeading">Уведомления</h2>
+                </div>
+              </div>
+              <label class="settings-row">
+                <span>
+                  <strong>Напоминания</strong>
+                  <small>Пауза отключает браузерные и фоновые напоминания без удаления времени в задачах.</small>
+                </span>
+                <select id="notificationSetting" aria-label="Настройка уведомлений">
+                  <option value="on">Включены</option>
+                  <option value="off">На паузе</option>
+                </select>
+              </label>
+              <button class="ghost-button compact-button icon-text-button" id="settingsNotifyButton" type="button">
+                <svg class="ui-icon"><use href="#icon-bell"></use></svg>
+                Проверить уведомления
+              </button>
             </section>
           </div>
         </section>
@@ -698,7 +796,8 @@
     <script src="task-form.js?v=1" defer></script>
     <script src="tasks-view.js?v=2" defer></script>
     <script src="task-moves.js?v=1" defer></script>
+    <script src="timeline-view.js?v=1" defer></script>
     <script src="toast.js?v=1" defer></script>
-    <script src="app.js?v=12" defer></script>
+    <script src="app.js?v=13" defer></script>
   </body>
 </html>

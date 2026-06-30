@@ -209,6 +209,13 @@ function createWindow() {
           !document.querySelector("#fileBackupStatus")?.hidden &&
           document.querySelector("#fileBackupStatus")?.textContent.includes("Файловый бэкап");
 
+        click('[data-view="timeline"]');
+        const timelineVisible =
+          document.body.dataset.view === "timeline" &&
+          document.querySelectorAll(".timeline-hour-row").length >= 8 &&
+          [...document.querySelectorAll(".timeline-task")].some((item) => item.textContent.includes("Smoke Quick"));
+        const timelineSummaryWorks = document.querySelector("#timelineSummary")?.textContent.includes("по времени");
+
         document.querySelector('[data-view="overview"]').click();
         const heatmapGrid = document.querySelector("#heatmapGrid");
         const firstHeatmapCell = document.querySelector(".heatmap-cell");
@@ -231,11 +238,43 @@ function createWindow() {
         themeSelect.dispatchEvent(new Event("change", { bubbles: true }));
         const switchedDark = document.documentElement.dataset.theme === "dark";
         const themeSwitchWorks = switchedLight && switchedDark;
+        const firstDaySelect = document.querySelector("#firstDayOfWeek");
+        firstDaySelect.value = "sunday";
+        firstDaySelect.dispatchEvent(new Event("change", { bubbles: true }));
+        const firstDaySettingWorks =
+          document.querySelector(".month-weekdays span")?.textContent === "Вс" &&
+          document.querySelector("#weekBoardLabel")?.textContent;
+        const densitySelect = document.querySelector("#densityPreference");
+        densitySelect.value = "compact";
+        densitySelect.dispatchEvent(new Event("change", { bubbles: true }));
+        const densitySettingWorks = document.documentElement.dataset.density === "compact";
+        const timeFormatSelect = document.querySelector("#timeFormat");
+        timeFormatSelect.value = "12";
+        timeFormatSelect.dispatchEvent(new Event("change", { bubbles: true }));
+        click('[data-view="timeline"]');
+        const timeFormatWorks = [...document.querySelectorAll(".timeline-task strong")].some((item) =>
+          /AM|PM|дп|пп/i.test(item.textContent),
+        );
+        const backupScheduleSelect = document.querySelector("#backupSchedule");
+        backupScheduleSelect.value = "15";
+        backupScheduleSelect.dispatchEvent(new Event("change", { bubbles: true }));
+        const backupSettingWorks = backupScheduleSelect.value === "15";
+        const notificationSelect = document.querySelector("#notificationSetting");
+        notificationSelect.value = "off";
+        notificationSelect.dispatchEvent(new Event("change", { bubbles: true }));
+        const notificationSettingWorks =
+          notificationSelect.value === "off" && document.querySelector("#notifyButton")?.textContent.includes("паузе");
 
         document.querySelector('[data-view="habits"]').click();
         document.querySelector("#openHabitForm").click();
         const habitFormRect = document.querySelector("#habitFormPanel").getBoundingClientRect();
-        const habitFormFits = habitFormRect.left >= 0 && habitFormRect.right <= window.innerWidth;
+        const habitFormControlsFit = [...document.querySelectorAll("#habitFormPanel select, #habitFormPanel input")]
+          .filter((control) => control.type !== "hidden" && control.offsetParent !== null)
+          .every((control) => {
+            const rect = control.getBoundingClientRect();
+            return rect.left >= habitFormRect.left - 1 && rect.right <= habitFormRect.right + 1 && rect.right <= window.innerWidth;
+          });
+        const habitFormFits = habitFormRect.left >= 0 && habitFormRect.right <= window.innerWidth && habitFormControlsFit;
 
         return {
           title: document.title,
@@ -268,6 +307,7 @@ function createWindow() {
               window.RhythmTaskForm &&
               window.RhythmTasksView &&
               window.RhythmTaskMoves &&
+              window.RhythmTimelineView &&
               window.RhythmToast,
           ),
           desktopBridge: Boolean(window.rhythmDesktop?.syncReminders && window.rhythmDesktop?.writeFileBackup),
@@ -286,13 +326,20 @@ function createWindow() {
           fileBackupWorks,
           fileBackupInfoWorks: Boolean(fileBackupInfo?.path),
           fileBackupUiVisible,
+          backupSettingWorks,
+          densitySettingWorks,
+          firstDaySettingWorks: Boolean(firstDaySettingWorks),
           heatmapFits,
           heatmapHasLabels,
           heatmapTooltipHasDate,
           heatmapTooltipSingle,
           habitFormFits,
           nativeHeatmapTitleAbsent,
+          notificationSettingWorks,
           themeSwitchWorks,
+          timeFormatWorks,
+          timelineSummaryWorks,
+          timelineVisible,
           calendarDragMove,
           dndOrderChanged,
           archived,

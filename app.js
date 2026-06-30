@@ -1,8 +1,8 @@
 const SCHEMA_VERSION = 5;
-const BACKUP_INTERVAL_MS = 5 * 60 * 1000;
 const VALID_PRIORITIES = ["high", "medium", "low"];
 const VALID_HABIT_REPEATS = ["daily", "every2days", "every3days", "weekdays", "weekends", "weekly", "custom"];
 const VALID_REMINDER_OFFSETS = ["none", "0", "5", "15", "30", "60", "1440"];
+const VALID_BACKUP_SCHEDULES = ["0", "5", "15", "30", "60"];
 
 const storage = window.RhythmStorage.createLocalStorageAdapter({
   appName: "Ритм дня",
@@ -36,9 +36,15 @@ let taskSearchQuery = initialUiState.taskSearchQuery || "";
 let archiveCategoryFilter = initialUiState.archiveCategoryFilter || "all";
 let archiveSearchQuery = initialUiState.archiveSearchQuery || "";
 let themePreference = normalizeThemePreference(initialUiState.themePreference);
+let notificationSetting = normalizeNotificationSetting(initialUiState.notificationSetting);
+let backupSchedule = normalizeBackupSchedule(initialUiState.backupSchedule);
+let firstDayOfWeek = normalizeFirstDayOfWeek(initialUiState.firstDayOfWeek);
+let densityPreference = normalizeDensityPreference(initialUiState.densityPreference);
+let timeFormat = normalizeTimeFormat(initialUiState.timeFormat);
 let draggedTaskId = null;
 let draggedTaskDate = "";
 let pointerDragTask = null;
+let autoBackupTimerId = null;
 
 const els = {
   activeDate: document.querySelector("#activeDate"),
@@ -47,6 +53,7 @@ const els = {
   archiveList: document.querySelector("#archiveList"),
   archiveSearch: document.querySelector("#archiveSearch"),
   backupStatus: document.querySelector("#backupStatus"),
+  backupSchedule: document.querySelector("#backupSchedule"),
   categoryColor: document.querySelector("#categoryColor"),
   categoryForm: document.querySelector("#categoryForm"),
   categoryList: document.querySelector("#categoryList"),
@@ -54,6 +61,7 @@ const els = {
   clearArchiveFilter: document.querySelector("#clearArchiveFilter"),
   clearTaskSearch: document.querySelector("#clearTaskSearch"),
   desktopStatus: document.querySelector("#desktopStatus"),
+  densityPreference: document.querySelector("#densityPreference"),
   exportButton: document.querySelector("#exportButton"),
   excludedList: document.querySelector("#excludedList"),
   excludedPanel: document.querySelector("#excludedPanel"),
@@ -62,6 +70,7 @@ const els = {
   focusPercent: document.querySelector("#focusPercent"),
   focusTitle: document.querySelector("#focusTitle"),
   fileBackupStatus: document.querySelector("#fileBackupStatus"),
+  firstDayOfWeek: document.querySelector("#firstDayOfWeek"),
   habitDoneMetric: document.querySelector("#habitDoneMetric"),
   habitEmpty: document.querySelector("#habitEmpty"),
   habitForm: document.querySelector("#habitForm"),
@@ -83,9 +92,11 @@ const els = {
   importFile: document.querySelector("#importFile"),
   monthGrid: document.querySelector("#monthGrid"),
   monthLabel: document.querySelector("#monthLabel"),
+  monthWeekdays: document.querySelector("#monthWeekdays"),
   navTabs: document.querySelectorAll(".nav-tab"),
   nextDay: document.querySelector("#nextDay"),
   nextMonth: document.querySelector("#nextMonth"),
+  notificationSetting: document.querySelector("#notificationSetting"),
   notifyButton: document.querySelector("#notifyButton"),
   openHabitForm: document.querySelector("#openHabitForm"),
   openBackupFolderButton: document.querySelector("#openBackupFolderButton"),
@@ -106,6 +117,10 @@ const els = {
   resetHabitForm: document.querySelector("#resetHabitForm"),
   resetTaskForm: document.querySelector("#resetTaskForm"),
   restoreBackupButton: document.querySelector("#restoreBackupButton"),
+  settingsExportButton: document.querySelector("#settingsExportButton"),
+  settingsNotifyButton: document.querySelector("#settingsNotifyButton"),
+  settingsOpenBackupFolderButton: document.querySelector("#settingsOpenBackupFolderButton"),
+  settingsRestoreBackupButton: document.querySelector("#settingsRestoreBackupButton"),
   sideProgressBar: document.querySelector("#sideProgressBar"),
   sideProgressValue: document.querySelector("#sideProgressValue"),
   taskCategoryId: document.querySelector("#taskCategoryId"),
@@ -127,6 +142,11 @@ const els = {
   taskTime: document.querySelector("#taskTime"),
   taskTitle: document.querySelector("#taskTitle"),
   themePreference: document.querySelector("#themePreference"),
+  timeFormat: document.querySelector("#timeFormat"),
+  timelineEmpty: document.querySelector("#timelineEmpty"),
+  timelineGrid: document.querySelector("#timelineGrid"),
+  timelineSummary: document.querySelector("#timelineSummary"),
+  timelineUnscheduledList: document.querySelector("#timelineUnscheduledList"),
   todayButton: document.querySelector("#todayButton"),
   todayDoneMetric: document.querySelector("#todayDoneMetric"),
   todayLabel: document.querySelector("#todayLabel"),
@@ -138,6 +158,7 @@ const els = {
     overview: document.querySelector("#overviewView"),
     settings: document.querySelector("#settingsView"),
     tasks: document.querySelector("#tasksView"),
+    timeline: document.querySelector("#timelineView"),
   },
   weekBoardGrid: document.querySelector("#weekBoardGrid"),
   weekBoardLabel: document.querySelector("#weekBoardLabel"),
@@ -173,6 +194,7 @@ const tasksView = window.RhythmTasksView.createTasksView({
   excludedTasksForDate,
   fillTaskForm,
   formatLongDate,
+  formatTime,
   formatTaskRepeat,
   getActiveDate: () => activeDate,
   getCategory,
@@ -244,6 +266,17 @@ const calendarView = window.RhythmCalendarView.createCalendarView({
   priorityLabels,
   statsForDate,
   toDateKey,
+});
+
+const timelineView = window.RhythmTimelineView.createTimelineView({
+  els,
+  fillTaskForm,
+  formatTime,
+  getActiveDate: () => activeDate,
+  getCategory,
+  getOrderedTasksForDate,
+  isTaskDone,
+  priorityLabels,
 });
 
 const archiveView = window.RhythmArchiveView.createArchiveView({
@@ -354,6 +387,7 @@ const notificationsController = window.RhythmNotifications.createNotifications({
   els,
   cleanTimeValue,
   getCategory,
+  getNotificationsEnabled: () => notificationSetting === "on",
   getState: () => state,
   icon,
   isTaskDone,
@@ -373,6 +407,7 @@ function init() {
   els.taskSearch.value = taskSearchQuery;
   els.archiveSearch.value = archiveSearchQuery;
   applyThemePreference();
+  applySettingsPreferences();
   bindEvents();
   resetTaskForm();
   resetHabitForm();
@@ -385,8 +420,7 @@ function init() {
   syncDesktopBackup();
   setInterval(checkDueNotifications, 30000);
   setInterval(syncDesktopReminders, 60000);
-  setInterval(() => createBackup({ silent: true }), BACKUP_INTERVAL_MS);
-  setInterval(syncDesktopBackup, BACKUP_INTERVAL_MS);
+  scheduleAutoBackup();
 }
 
 function bindEvents() {
@@ -509,6 +543,10 @@ function bindEvents() {
   els.exportButton.addEventListener("click", exportData);
   els.restoreBackupButton.addEventListener("click", restoreBackup);
   els.openBackupFolderButton.addEventListener("click", openBackupFolder);
+  els.settingsExportButton?.addEventListener("click", exportData);
+  els.settingsRestoreBackupButton?.addEventListener("click", restoreBackup);
+  els.settingsOpenBackupFolderButton?.addEventListener("click", openBackupFolder);
+  els.settingsNotifyButton?.addEventListener("click", requestNotifications);
   els.importButton.addEventListener("click", () => els.importFile.click());
   els.importFile.addEventListener("change", importData);
   els.themePreference?.addEventListener("change", () => {
@@ -516,6 +554,38 @@ function bindEvents() {
     applyThemePreference();
     saveUiState();
     showToast("Тема обновлена");
+  });
+  els.notificationSetting?.addEventListener("change", () => {
+    notificationSetting = normalizeNotificationSetting(els.notificationSetting.value);
+    saveUiState();
+    updateNotificationButton();
+    syncDesktopReminders();
+    showToast(notificationSetting === "on" ? "Напоминания включены" : "Напоминания на паузе");
+  });
+  els.backupSchedule?.addEventListener("change", () => {
+    backupSchedule = normalizeBackupSchedule(els.backupSchedule.value);
+    saveUiState();
+    scheduleAutoBackup();
+    showToast(backupSchedule === "0" ? "Плановый бэкап выключен" : "Расписание бэкапа обновлено");
+  });
+  els.firstDayOfWeek?.addEventListener("change", () => {
+    firstDayOfWeek = normalizeFirstDayOfWeek(els.firstDayOfWeek.value);
+    saveUiState();
+    render();
+    showToast("Календарь обновлен");
+  });
+  els.densityPreference?.addEventListener("change", () => {
+    densityPreference = normalizeDensityPreference(els.densityPreference.value);
+    applySettingsPreferences();
+    saveUiState();
+    showToast("Плотность интерфейса обновлена");
+  });
+  els.timeFormat?.addEventListener("change", () => {
+    timeFormat = normalizeTimeFormat(els.timeFormat.value);
+    applySettingsPreferences();
+    saveUiState();
+    render();
+    showToast("Формат времени обновлен");
   });
   window.matchMedia?.("(prefers-color-scheme: light)")?.addEventListener("change", () => {
     if (themePreference === "system") applyThemePreference();
@@ -552,6 +622,7 @@ function render() {
     overview: "Обзор",
     settings: "Настройки",
     tasks: "Задачи на день",
+    timeline: "Таймлайн дня",
   }[activeView];
   document.body.dataset.view = activeView;
   syncTaskTimePresets();
@@ -573,7 +644,9 @@ function render() {
   renderCategories();
   renderDailyPulse();
   renderTasks();
+  renderTimeline();
   renderHabits();
+  renderWeekdayLabels();
   renderOverview();
   renderArchive();
 }
@@ -615,6 +688,10 @@ function renderDailyPulse() {
 
 function renderTasks() {
   tasksView.renderTasks();
+}
+
+function renderTimeline() {
+  timelineView.renderTimeline();
 }
 
 function createTaskNode(task) {
@@ -921,7 +998,7 @@ function updateQuickTaskPreview() {
   const category = parsed.categoryId ? getCategory(parsed.categoryId)?.name : parsed.categoryName;
   const details = [
     formatLongDate(parsed.date),
-    parsed.time ? `до ${parsed.time}` : "без времени",
+    parsed.time ? formatTaskTime(parsed.time) : "без времени",
     category || "без категории",
     priorityLabels[parsed.priority],
   ];
@@ -1238,7 +1315,7 @@ function sortTasks(a, b, orderMap = new Map()) {
 function taskDetails(task) {
   const details = [];
   const category = getCategory(task.categoryId);
-  if (task.time) details.push(`до ${task.time}`);
+  if (task.time) details.push(formatTaskTime(task.time));
   if (category) details.push(category.name);
   if (task.repeat !== "none") details.push(formatTaskRepeat(task));
   if (task.time && task.reminderOffset !== "none") details.push(reminderLabel(task.reminderOffset));
@@ -1260,6 +1337,7 @@ function taskMatchesSearch(task, query, dateKey = "") {
     priorityLabels[task.priority],
     formatTaskRepeat(task),
     task.time,
+    formatTime(task.time),
     dateKey,
     dateKey ? formatLongDate(dateKey) : "",
     task.reminderOffset !== "none" ? reminderLabel(task.reminderOffset) : "",
@@ -1291,7 +1369,7 @@ function taskMetaMarkup(task) {
     `);
   }
 
-  if (task.time) chips.push(`<span class="task-meta-chip">до ${escapeHtml(task.time)}</span>`);
+  if (task.time) chips.push(`<span class="task-meta-chip">${escapeHtml(formatTaskTime(task.time))}</span>`);
   if (task.repeat !== "none") chips.push(`<span class="task-meta-chip">${escapeHtml(formatTaskRepeat(task))}</span>`);
   if (task.time && task.reminderOffset !== "none") {
     chips.push(`<span class="task-meta-chip">${escapeHtml(reminderLabel(task.reminderOffset))}</span>`);
@@ -1371,6 +1449,9 @@ function checkDueNotifications() {
 }
 
 async function requestNotifications() {
+  notificationSetting = "on";
+  applySettingsPreferences();
+  saveUiState();
   return notificationsController.requestNotifications();
 }
 
@@ -1445,14 +1526,40 @@ function saveUiState() {
   storage.saveUiState({
     archiveCategoryFilter,
     archiveSearchQuery,
+    backupSchedule,
+    densityPreference,
+    firstDayOfWeek,
+    notificationSetting,
     taskCategoryFilter,
     taskSearchQuery,
     themePreference,
+    timeFormat,
   });
 }
 
 function normalizeThemePreference(value) {
   return ["dark", "light", "system"].includes(value) ? value : "dark";
+}
+
+function normalizeNotificationSetting(value) {
+  return value === "off" ? "off" : "on";
+}
+
+function normalizeBackupSchedule(value) {
+  const schedule = String(value ?? "5");
+  return VALID_BACKUP_SCHEDULES.includes(schedule) ? schedule : "5";
+}
+
+function normalizeFirstDayOfWeek(value) {
+  return value === "sunday" ? "sunday" : "monday";
+}
+
+function normalizeDensityPreference(value) {
+  return value === "compact" ? "compact" : "comfortable";
+}
+
+function normalizeTimeFormat(value) {
+  return value === "12" ? "12" : "24";
 }
 
 function applyThemePreference() {
@@ -1461,6 +1568,30 @@ function applyThemePreference() {
   document.documentElement.dataset.theme = resolvedTheme;
   document.documentElement.dataset.themePreference = themePreference;
   if (els.themePreference) els.themePreference.value = themePreference;
+}
+
+function applySettingsPreferences() {
+  document.documentElement.dataset.density = densityPreference;
+  if (els.notificationSetting) els.notificationSetting.value = notificationSetting;
+  if (els.backupSchedule) els.backupSchedule.value = backupSchedule;
+  if (els.firstDayOfWeek) els.firstDayOfWeek.value = firstDayOfWeek;
+  if (els.densityPreference) els.densityPreference.value = densityPreference;
+  if (els.timeFormat) els.timeFormat.value = timeFormat;
+}
+
+function scheduleAutoBackup() {
+  if (autoBackupTimerId) {
+    clearInterval(autoBackupTimerId);
+    autoBackupTimerId = null;
+  }
+
+  const minutes = Number(backupSchedule);
+  if (!Number.isFinite(minutes) || minutes <= 0) return;
+
+  autoBackupTimerId = setInterval(() => {
+    createBackup({ silent: true });
+    syncDesktopBackup();
+  }, minutes * 60 * 1000);
 }
 
 function cleanSearchQuery(value) {
@@ -1476,6 +1607,24 @@ function cleanTimeValue(value) {
   if (!Number.isInteger(hours) || !Number.isInteger(minutes)) return "";
   if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return "";
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+function formatTime(value) {
+  const time = cleanTimeValue(value);
+  if (!time) return "";
+  if (timeFormat === "24") return time;
+  const [hours, minutes] = time.split(":").map(Number);
+  const date = new Date(2000, 0, 1, hours, minutes);
+  return new Intl.DateTimeFormat("ru-RU", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(date);
+}
+
+function formatTaskTime(value) {
+  const formatted = formatTime(value);
+  return formatted ? `до ${formatted}` : "";
 }
 
 function parseQuickTaskInput(value) {
@@ -1680,8 +1829,8 @@ function registerServiceWorker() {
 
 function getWeekDates(dateKey) {
   const date = parseDate(dateKey);
-  const day = date.getDay() || 7;
-  date.setDate(date.getDate() - day + 1);
+  const offset = (date.getDay() - firstDayIndex() + 7) % 7;
+  date.setDate(date.getDate() - offset);
 
   return Array.from({ length: 7 }, (_, index) => {
     const item = new Date(date);
@@ -1693,7 +1842,7 @@ function getWeekDates(dateKey) {
 function getMonthCalendarDates(dateKey) {
   const date = parseDate(dateKey);
   const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
-  const offset = (firstDay.getDay() + 6) % 7;
+  const offset = (firstDay.getDay() - firstDayIndex() + 7) % 7;
   firstDay.setDate(firstDay.getDate() - offset);
 
   return Array.from({ length: 42 }, (_, index) => {
@@ -1701,6 +1850,23 @@ function getMonthCalendarDates(dateKey) {
     item.setDate(firstDay.getDate() + index);
     return toDateKey(item);
   });
+}
+
+function firstDayIndex() {
+  return firstDayOfWeek === "sunday" ? 0 : 1;
+}
+
+function renderWeekdayLabels() {
+  if (!els.monthWeekdays) return;
+  const mondayFirst = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+  const sundayFirst = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
+  els.monthWeekdays.replaceChildren(
+    ...(firstDayOfWeek === "sunday" ? sundayFirst : mondayFirst).map((label) => {
+      const node = document.createElement("span");
+      node.textContent = label;
+      return node;
+    }),
+  );
 }
 
 function parseDate(dateKey) {

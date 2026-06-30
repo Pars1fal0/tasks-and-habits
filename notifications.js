@@ -1,6 +1,7 @@
 (function (global) {
   function createNotifications(ctx) {
     function checkDueNotifications() {
+      if (ctx.getNotificationsEnabled && !ctx.getNotificationsEnabled()) return;
       if (!("Notification" in window) || Notification.permission !== "granted") return;
       const now = new Date();
 
@@ -37,6 +38,12 @@
     }
 
     function updateNotificationButton(permission = "Notification" in window ? Notification.permission : "default") {
+      if (ctx.getNotificationsEnabled && !ctx.getNotificationsEnabled()) {
+        ctx.els.notifyButton.innerHTML = `${ctx.icon("bell")}Напоминания на паузе`;
+        ctx.els.desktopStatus.textContent = "Уведомления отключены в настройках";
+        return;
+      }
+
       if (window.rhythmDesktop) {
         ctx.els.notifyButton.innerHTML = `${ctx.icon("bell")}Фон включен`;
         ctx.els.desktopStatus.textContent = "Закрытое окно останется в фоне";
@@ -50,6 +57,11 @@
       if (!window.rhythmDesktop?.syncReminders) return;
 
       const now = new Date();
+      if (ctx.getNotificationsEnabled && !ctx.getNotificationsEnabled()) {
+        window.rhythmDesktop.syncReminders({ generatedAt: now.toISOString(), reminders: [] });
+        return;
+      }
+
       const start = new Date(now);
       start.setDate(now.getDate() - 1);
       const reminders = [];
