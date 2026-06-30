@@ -214,7 +214,9 @@ function createWindow() {
           hasTaskForm: Boolean(document.querySelector("#taskForm")),
           hasHabitList: Boolean(document.querySelector("#habitList")),
           hasArchive: Boolean(document.querySelector("#archiveView")),
-          hasHeatmap: document.querySelectorAll(".heatmap-cell").length === 70,
+          hasHeatmap:
+            document.querySelectorAll(".heatmap-cell").length === 365 &&
+            Boolean(document.querySelector(".heatmap-cell[data-tooltip]")),
           hasMonthCalendar: document.querySelectorAll(".month-day").length === 42,
           hasWeekBoard,
           hasTodayButton: Boolean(document.querySelector("#todayButton")),
