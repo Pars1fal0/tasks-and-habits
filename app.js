@@ -45,6 +45,8 @@ let draggedTaskId = null;
 let draggedTaskDate = "";
 let pointerDragTask = null;
 let autoBackupTimerId = null;
+let lastAutoBackupAt = "";
+let nextAutoBackupAt = "";
 
 const els = {
   activeDate: document.querySelector("#activeDate"),
@@ -60,6 +62,11 @@ const els = {
   categoryName: document.querySelector("#categoryName"),
   clearArchiveFilter: document.querySelector("#clearArchiveFilter"),
   clearTaskSearch: document.querySelector("#clearTaskSearch"),
+  confirmAccept: document.querySelector("#confirmAccept"),
+  confirmCancel: document.querySelector("#confirmCancel"),
+  confirmMessage: document.querySelector("#confirmMessage"),
+  confirmModal: document.querySelector("#confirmModal"),
+  confirmTitle: document.querySelector("#confirmTitle"),
   desktopStatus: document.querySelector("#desktopStatus"),
   densityPreference: document.querySelector("#densityPreference"),
   exportButton: document.querySelector("#exportButton"),
@@ -118,8 +125,13 @@ const els = {
   resetTaskForm: document.querySelector("#resetTaskForm"),
   restoreBackupButton: document.querySelector("#restoreBackupButton"),
   settingsExportButton: document.querySelector("#settingsExportButton"),
+  settingsExportSettingsButton: document.querySelector("#settingsExportSettingsButton"),
+  settingsBackupStatus: document.querySelector("#settingsBackupStatus"),
+  settingsImportFile: document.querySelector("#settingsImportFile"),
+  settingsImportSettingsButton: document.querySelector("#settingsImportSettingsButton"),
   settingsNotifyButton: document.querySelector("#settingsNotifyButton"),
   settingsOpenBackupFolderButton: document.querySelector("#settingsOpenBackupFolderButton"),
+  settingsResetButton: document.querySelector("#settingsResetButton"),
   settingsRestoreBackupButton: document.querySelector("#settingsRestoreBackupButton"),
   sideProgressBar: document.querySelector("#sideProgressBar"),
   sideProgressValue: document.querySelector("#sideProgressValue"),
@@ -173,6 +185,8 @@ const toastController = window.RhythmToast.createToastController({
   element: els.toast,
   restoreUndoSnapshot,
 });
+
+const confirmDialog = window.RhythmConfirmDialog.createConfirmDialog({ els });
 
 const priorityLabels = {
   high: "Высокий",
@@ -276,7 +290,11 @@ const timelineView = window.RhythmTimelineView.createTimelineView({
   getCategory,
   getOrderedTasksForDate,
   isTaskDone,
+  moveTaskTime,
   priorityLabels,
+  setTaskTime,
+  shiftTaskTime,
+  toDateKey,
 });
 
 const archiveView = window.RhythmArchiveView.createArchiveView({
@@ -351,6 +369,7 @@ const habitFormController = window.RhythmHabitForm.createHabitForm({
 const categoriesController = window.RhythmCategories.createCategories({
   els,
   cleanText,
+  confirmAction,
   createId,
   createUndoSnapshot,
   escapeHtml,
@@ -371,6 +390,7 @@ const categoriesController = window.RhythmCategories.createCategories({
 
 const importExportController = window.RhythmImportExport.createImportExport({
   els,
+  confirmAction,
   createUndoSnapshot,
   getState: () => state,
   normalizeState,
@@ -381,6 +401,20 @@ const importExportController = window.RhythmImportExport.createImportExport({
   showToast,
   storage,
   toDateKey,
+});
+
+const settingsController = window.RhythmSettingsController.createSettingsController({
+  els,
+  exportData,
+  exportSettings,
+  getSettings: getUiSettings,
+  importSettings,
+  openBackupFolder,
+  renderBackupStatus: renderSettingsBackupStatus,
+  requestNotifications,
+  resetInterfaceSettings,
+  restoreBackup,
+  updateSetting,
 });
 
 const notificationsController = window.RhythmNotifications.createNotifications({
@@ -408,12 +442,15 @@ function init() {
   els.archiveSearch.value = archiveSearchQuery;
   applyThemePreference();
   applySettingsPreferences();
+  settingsController.syncControls();
+  confirmDialog.bindEvents();
   bindEvents();
   resetTaskForm();
   resetHabitForm();
   registerServiceWorker();
   updateNotificationButton();
   updateBackupStatus();
+  renderSettingsBackupStatus();
   updateFileBackupStatus();
   render();
   syncDesktopReminders();
@@ -543,50 +580,9 @@ function bindEvents() {
   els.exportButton.addEventListener("click", exportData);
   els.restoreBackupButton.addEventListener("click", restoreBackup);
   els.openBackupFolderButton.addEventListener("click", openBackupFolder);
-  els.settingsExportButton?.addEventListener("click", exportData);
-  els.settingsRestoreBackupButton?.addEventListener("click", restoreBackup);
-  els.settingsOpenBackupFolderButton?.addEventListener("click", openBackupFolder);
-  els.settingsNotifyButton?.addEventListener("click", requestNotifications);
+  settingsController.bindEvents();
   els.importButton.addEventListener("click", () => els.importFile.click());
   els.importFile.addEventListener("change", importData);
-  els.themePreference?.addEventListener("change", () => {
-    themePreference = normalizeThemePreference(els.themePreference.value);
-    applyThemePreference();
-    saveUiState();
-    showToast("Тема обновлена");
-  });
-  els.notificationSetting?.addEventListener("change", () => {
-    notificationSetting = normalizeNotificationSetting(els.notificationSetting.value);
-    saveUiState();
-    updateNotificationButton();
-    syncDesktopReminders();
-    showToast(notificationSetting === "on" ? "Напоминания включены" : "Напоминания на паузе");
-  });
-  els.backupSchedule?.addEventListener("change", () => {
-    backupSchedule = normalizeBackupSchedule(els.backupSchedule.value);
-    saveUiState();
-    scheduleAutoBackup();
-    showToast(backupSchedule === "0" ? "Плановый бэкап выключен" : "Расписание бэкапа обновлено");
-  });
-  els.firstDayOfWeek?.addEventListener("change", () => {
-    firstDayOfWeek = normalizeFirstDayOfWeek(els.firstDayOfWeek.value);
-    saveUiState();
-    render();
-    showToast("Календарь обновлен");
-  });
-  els.densityPreference?.addEventListener("change", () => {
-    densityPreference = normalizeDensityPreference(els.densityPreference.value);
-    applySettingsPreferences();
-    saveUiState();
-    showToast("Плотность интерфейса обновлена");
-  });
-  els.timeFormat?.addEventListener("change", () => {
-    timeFormat = normalizeTimeFormat(els.timeFormat.value);
-    applySettingsPreferences();
-    saveUiState();
-    render();
-    showToast("Формат времени обновлен");
-  });
   window.matchMedia?.("(prefers-color-scheme: light)")?.addEventListener("change", () => {
     if (themePreference === "system") applyThemePreference();
   });
@@ -1166,6 +1162,35 @@ function deleteCategory(categoryId) {
   categoriesController.deleteCategory(categoryId);
 }
 
+function moveTaskTime(taskId, targetTime) {
+  return updateTaskTime(taskId, targetTime, "Время задачи обновлено");
+}
+
+function shiftTaskTime(taskId, offsetMinutes) {
+  const task = state.tasks.find((item) => item.id === taskId);
+  const currentMinutes = timeToMinutes(task?.time);
+  if (!Number.isFinite(currentMinutes)) return;
+  const nextMinutes = Math.max(0, Math.min(23 * 60 + 59, currentMinutes + offsetMinutes));
+  updateTaskTime(taskId, minutesToTime(nextMinutes), `Перенесено на ${formatTime(minutesToTime(nextMinutes))}`);
+}
+
+function setTaskTime(taskId, targetTime) {
+  return updateTaskTime(taskId, targetTime, `Перенесено на ${formatTime(targetTime)}`);
+}
+
+function updateTaskTime(taskId, targetTime, message) {
+  const task = state.tasks.find((item) => item.id === taskId);
+  const nextTime = cleanTimeValue(targetTime);
+  if (!task || !nextTime || task.time === nextTime) return;
+
+  const undo = createUndoSnapshot();
+  task.time = nextTime;
+  if (task.notified) delete task.notified[activeDate];
+  saveState();
+  render();
+  showToast(message || "Время задачи обновлено", { undo });
+}
+
 function exportData() {
   importExportController.exportData();
 }
@@ -1579,6 +1604,150 @@ function applySettingsPreferences() {
   if (els.timeFormat) els.timeFormat.value = timeFormat;
 }
 
+function getUiSettings() {
+  return {
+    backupSchedule,
+    densityPreference,
+    firstDayOfWeek,
+    notificationSetting,
+    themePreference,
+    timeFormat,
+  };
+}
+
+function updateSetting(name, value) {
+  switch (name) {
+    case "themePreference":
+      themePreference = normalizeThemePreference(value);
+      applyThemePreference();
+      saveUiState();
+      settingsController.syncControls();
+      showToast("Тема обновлена");
+      break;
+    case "notificationSetting":
+      notificationSetting = normalizeNotificationSetting(value);
+      saveUiState();
+      settingsController.syncControls();
+      updateNotificationButton();
+      syncDesktopReminders();
+      showToast(notificationSetting === "on" ? "Напоминания включены" : "Напоминания на паузе");
+      break;
+    case "backupSchedule":
+      backupSchedule = normalizeBackupSchedule(value);
+      saveUiState();
+      scheduleAutoBackup();
+      settingsController.syncControls();
+      showToast(backupSchedule === "0" ? "Плановый бэкап выключен" : "Расписание бэкапа обновлено");
+      break;
+    case "firstDayOfWeek":
+      firstDayOfWeek = normalizeFirstDayOfWeek(value);
+      saveUiState();
+      settingsController.syncControls();
+      render();
+      showToast("Календарь обновлен");
+      break;
+    case "densityPreference":
+      densityPreference = normalizeDensityPreference(value);
+      applySettingsPreferences();
+      saveUiState();
+      settingsController.syncControls();
+      showToast("Плотность интерфейса обновлена");
+      break;
+    case "timeFormat":
+      timeFormat = normalizeTimeFormat(value);
+      applySettingsPreferences();
+      saveUiState();
+      settingsController.syncControls();
+      render();
+      showToast("Формат времени обновлен");
+      break;
+  }
+}
+
+function exportSettings() {
+  const payload = {
+    app: "Ритм дня",
+    exportedAt: new Date().toISOString(),
+    schemaVersion: SCHEMA_VERSION,
+    settings: getUiSettings(),
+    type: "settings",
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `ritm-dnya-settings-${toDateKey(new Date())}.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  showToast("Настройки экспортированы");
+}
+
+async function importSettings() {
+  const file = els.settingsImportFile?.files?.[0];
+  if (!file) return;
+
+  try {
+    const parsed = JSON.parse(await file.text());
+    applyImportedSettings(parsed.settings || parsed);
+    saveUiState();
+    render();
+    showToast("Настройки импортированы");
+  } catch {
+    showToast("Не удалось импортировать настройки");
+  } finally {
+    if (els.settingsImportFile) els.settingsImportFile.value = "";
+  }
+}
+
+async function resetInterfaceSettings() {
+  const confirmed = await confirmAction({
+    confirmLabel: "Сбросить",
+    message: "Тема, плотность, формат времени и первый день недели вернутся к настройкам по умолчанию. Данные задач и привычек не изменятся.",
+    tone: "danger",
+    title: "Сбросить настройки интерфейса?",
+  });
+  if (!confirmed) return;
+
+  themePreference = "dark";
+  densityPreference = "comfortable";
+  timeFormat = "24";
+  firstDayOfWeek = "monday";
+  applyThemePreference();
+  applySettingsPreferences();
+  saveUiState();
+  settingsController.syncControls();
+  render();
+  showToast("Настройки интерфейса сброшены");
+}
+
+function applyImportedSettings(settings = {}) {
+  themePreference = normalizeThemePreference(settings.themePreference);
+  notificationSetting = normalizeNotificationSetting(settings.notificationSetting);
+  backupSchedule = normalizeBackupSchedule(settings.backupSchedule);
+  firstDayOfWeek = normalizeFirstDayOfWeek(settings.firstDayOfWeek);
+  densityPreference = normalizeDensityPreference(settings.densityPreference);
+  timeFormat = normalizeTimeFormat(settings.timeFormat);
+  applyThemePreference();
+  applySettingsPreferences();
+  scheduleAutoBackup();
+  settingsController.syncControls();
+  updateNotificationButton();
+  syncDesktopReminders();
+}
+
+function renderSettingsBackupStatus() {
+  if (!els.settingsBackupStatus) return;
+  if (backupSchedule === "0") {
+    els.settingsBackupStatus.textContent = "Авто-бэкап выключен";
+    return;
+  }
+  const last = lastAutoBackupAt ? formatBackupDate(lastAutoBackupAt) : "еще не запускался";
+  const next = nextAutoBackupAt ? formatBackupDate(nextAutoBackupAt) : "ожидает расписание";
+  els.settingsBackupStatus.textContent = `Последний авто-бэкап: ${last} · следующий: ${next}`;
+}
+
 function scheduleAutoBackup() {
   if (autoBackupTimerId) {
     clearInterval(autoBackupTimerId);
@@ -1586,12 +1755,23 @@ function scheduleAutoBackup() {
   }
 
   const minutes = Number(backupSchedule);
-  if (!Number.isFinite(minutes) || minutes <= 0) return;
+  if (!Number.isFinite(minutes) || minutes <= 0) {
+    nextAutoBackupAt = "";
+    renderSettingsBackupStatus();
+    return;
+  }
+
+  const intervalMs = minutes * 60 * 1000;
+  nextAutoBackupAt = new Date(Date.now() + intervalMs).toISOString();
+  renderSettingsBackupStatus();
 
   autoBackupTimerId = setInterval(() => {
     createBackup({ silent: true });
     syncDesktopBackup();
-  }, minutes * 60 * 1000);
+    lastAutoBackupAt = new Date().toISOString();
+    nextAutoBackupAt = new Date(Date.now() + intervalMs).toISOString();
+    renderSettingsBackupStatus();
+  }, intervalMs);
 }
 
 function cleanSearchQuery(value) {
@@ -1607,6 +1787,20 @@ function cleanTimeValue(value) {
   if (!Number.isInteger(hours) || !Number.isInteger(minutes)) return "";
   if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return "";
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+function timeToMinutes(value) {
+  const time = cleanTimeValue(value);
+  if (!time) return NaN;
+  const [hours, minutes] = time.split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
+function minutesToTime(value) {
+  const minutes = Math.max(0, Math.min(23 * 60 + 59, Number(value) || 0));
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return `${String(hours).padStart(2, "0")}:${String(rest).padStart(2, "0")}`;
 }
 
 function formatTime(value) {
@@ -2040,4 +2234,8 @@ function restoreUndoSnapshot(snapshot) {
 
 function showToast(message, options = {}) {
   toastController.showToast(message, options);
+}
+
+function confirmAction(options = {}) {
+  return confirmDialog.confirm(options);
 }

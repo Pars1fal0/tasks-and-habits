@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#0b100f">
     <title>Ритм дня</title>
     <link rel="manifest" href="manifest.webmanifest">
-    <link rel="stylesheet" href="styles.css?v=12">
+    <link rel="stylesheet" href="styles.css?v=13">
   </head>
   <body>
     <svg class="icon-sprite" aria-hidden="true">
@@ -671,6 +671,9 @@
                   <option value="sunday">Воскресенье</option>
                 </select>
               </label>
+              <div class="settings-actions">
+                <button class="ghost-button compact-button" id="settingsResetButton" type="button">Сбросить интерфейс</button>
+              </div>
             </section>
             <section class="panel settings-panel" aria-labelledby="dataSettingsHeading">
               <div class="panel-heading compact">
@@ -696,6 +699,12 @@
                 <button class="ghost-button compact-button" id="settingsExportButton" type="button">Экспорт JSON</button>
                 <button class="ghost-button compact-button" id="settingsRestoreBackupButton" type="button">Восстановить</button>
                 <button class="ghost-button compact-button" id="settingsOpenBackupFolderButton" type="button">Папка бэкапов</button>
+              </div>
+              <p class="settings-status" id="settingsBackupStatus">Авто-бэкап ожидает расписание</p>
+              <div class="settings-actions">
+                <button class="ghost-button compact-button" id="settingsExportSettingsButton" type="button">Экспорт настроек</button>
+                <button class="ghost-button compact-button" id="settingsImportSettingsButton" type="button">Импорт настроек</button>
+                <input id="settingsImportFile" type="file" accept="application/json,.json" hidden>
               </div>
             </section>
             <section class="panel settings-panel" aria-labelledby="notificationsSettingsHeading">
@@ -726,6 +735,19 @@
     </div>
 
     <div class="toast" id="appToast" role="status" aria-live="polite"></div>
+
+    <div class="confirm-modal" id="confirmModal" hidden>
+      <div class="confirm-backdrop" data-confirm-cancel></div>
+      <section class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmMessage">
+        <span class="metric-label">Подтверждение</span>
+        <h2 id="confirmTitle">Подтвердить действие?</h2>
+        <p id="confirmMessage"></p>
+        <div class="confirm-actions">
+          <button class="ghost-button" id="confirmCancel" type="button">Отмена</button>
+          <button class="primary-button" id="confirmAccept" type="button">Подтвердить</button>
+        </div>
+      </section>
+    </div>
 
     <template id="taskTemplate">
       <article class="task-item" draggable="true">
@@ -788,16 +810,18 @@
     <script src="archive-view.js?v=1" defer></script>
     <script src="heatmap-view.js?v=3" defer></script>
     <script src="calendar-view.js?v=2" defer></script>
-    <script src="categories.js?v=1" defer></script>
+    <script src="confirm-dialog.js?v=1" defer></script>
+    <script src="categories.js?v=2" defer></script>
     <script src="habit-form.js?v=1" defer></script>
     <script src="habits-view.js?v=1" defer></script>
-    <script src="import-export.js?v=1" defer></script>
+    <script src="import-export.js?v=2" defer></script>
     <script src="notifications.js?v=1" defer></script>
     <script src="task-form.js?v=1" defer></script>
     <script src="tasks-view.js?v=2" defer></script>
     <script src="task-moves.js?v=1" defer></script>
-    <script src="timeline-view.js?v=1" defer></script>
+    <script src="settings-controller.js?v=1" defer></script>
+    <script src="timeline-view.js?v=2" defer></script>
     <script src="toast.js?v=1" defer></script>
-    <script src="app.js?v=13" defer></script>
+    <script src="app.js?v=14" defer></script>
   </body>
 </html>

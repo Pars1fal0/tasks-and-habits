@@ -63,10 +63,20 @@ function createWindow() {
     });
   }
 
+  if (isSmokeTest) {
+    mainWindow.webContents.on("console-message", (event) => {
+      const { level, lineNumber: line, message, sourceId } = event;
+      if (!message || message.includes("Electron Security Warning")) return;
+      console.error(`RENDERER_${level} ${message} ${sourceId}:${line}`);
+    });
+  }
+
   mainWindow.webContents.once("did-finish-load", async () => {
     if (!isSmokeTest) return;
 
-    const result = await mainWindow.webContents.executeJavaScript(
+    try {
+      const result = await Promise.race([
+        mainWindow.webContents.executeJavaScript(
       `(async () => {
         const submit = (form) => form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
         const click = (selector) => document.querySelector(selector)?.click();
@@ -255,15 +265,53 @@ function createWindow() {
         const timeFormatWorks = [...document.querySelectorAll(".timeline-task strong")].some((item) =>
           /AM|PM|дп|пп/i.test(item.textContent),
         );
+        const smokeQuickTask = state.tasks.find((task) => task.title === "Smoke Quick");
+        const smokeQuickTimeBefore = smokeQuickTask?.time;
+        document.querySelector('.timeline-task[data-task-id="' + smokeQuickTask?.id + '"] .timeline-time-action')?.click();
+        const timelineQuickActionWorks =
+          smokeQuickTask && smokeQuickTimeBefore && state.tasks.find((task) => task.id === smokeQuickTask.id)?.time !== smokeQuickTimeBefore;
+        const timelineDropZonesWork = document.querySelectorAll(".timeline-hour-slot[data-hour]").length >= 8;
         const backupScheduleSelect = document.querySelector("#backupSchedule");
+        document.querySelector('[data-view="settings"]').click();
         backupScheduleSelect.value = "15";
         backupScheduleSelect.dispatchEvent(new Event("change", { bubbles: true }));
         const backupSettingWorks = backupScheduleSelect.value === "15";
+        const settingsBackupStatusWorks = document.querySelector("#settingsBackupStatus")?.textContent.includes("следующий");
         const notificationSelect = document.querySelector("#notificationSetting");
         notificationSelect.value = "off";
         notificationSelect.dispatchEvent(new Event("change", { bubbles: true }));
         const notificationSettingWorks =
           notificationSelect.value === "off" && document.querySelector("#notifyButton")?.textContent.includes("паузе");
+        document.querySelector("#settingsResetButton").click();
+        const confirmModalWorks =
+          !document.querySelector("#confirmModal")?.hidden && document.querySelector("#confirmTitle")?.textContent.includes("Сбросить");
+        document.querySelector("#confirmAccept").click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        const interfaceResetWorks =
+          document.documentElement.dataset.theme === "dark" &&
+          document.documentElement.dataset.density === "comfortable" &&
+          document.querySelector("#timeFormat")?.value === "24" &&
+          document.querySelector("#firstDayOfWeek")?.value === "monday";
+        const settingsPayload = {
+          settings: {
+            backupSchedule: "0",
+            densityPreference: "compact",
+            firstDayOfWeek: "sunday",
+            notificationSetting: "on",
+            themePreference: "dark",
+            timeFormat: "12",
+          },
+        };
+        const settingsTransfer = new DataTransfer();
+        settingsTransfer.items.add(new File([JSON.stringify(settingsPayload)], "settings.json", { type: "application/json" }));
+        const settingsImportFile = document.querySelector("#settingsImportFile");
+        settingsImportFile.files = settingsTransfer.files;
+        settingsImportFile.dispatchEvent(new Event("change", { bubbles: true }));
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        const settingsImportWorks =
+          document.querySelector("#backupSchedule")?.value === "0" &&
+          document.querySelector("#densityPreference")?.value === "compact" &&
+          document.querySelector("#notificationSetting")?.value === "on";
 
         document.querySelector('[data-view="habits"]').click();
         document.querySelector("#openHabitForm").click();
@@ -296,6 +344,7 @@ function createWindow() {
               window.RhythmArchiveView &&
               window.RhythmCalendarView &&
               window.RhythmCategories &&
+              window.RhythmConfirmDialog &&
               window.RhythmHabitForm &&
               window.RhythmHabitsView &&
               window.RhythmHeatmapView &&
@@ -308,6 +357,7 @@ function createWindow() {
               window.RhythmTasksView &&
               window.RhythmTaskMoves &&
               window.RhythmTimelineView &&
+              window.RhythmSettingsController &&
               window.RhythmToast,
           ),
           desktopBridge: Boolean(window.rhythmDesktop?.syncReminders && window.rhythmDesktop?.writeFileBackup),
@@ -327,6 +377,7 @@ function createWindow() {
           fileBackupInfoWorks: Boolean(fileBackupInfo?.path),
           fileBackupUiVisible,
           backupSettingWorks,
+          confirmModalWorks,
           densitySettingWorks,
           firstDaySettingWorks: Boolean(firstDaySettingWorks),
           heatmapFits,
@@ -336,24 +387,37 @@ function createWindow() {
           habitFormFits,
           nativeHeatmapTitleAbsent,
           notificationSettingWorks,
+          interfaceResetWorks,
+          settingsBackupStatusWorks,
+          settingsImportWorks,
           themeSwitchWorks,
           timeFormatWorks,
+          timelineDropZonesWork,
+          timelineQuickActionWorks,
           timelineSummaryWorks,
           timelineVisible,
           calendarDragMove,
           dndOrderChanged,
           archived,
         };
-      })()`,
-    );
-    const failedChecks = Object.entries(result).filter(([key, value]) => key !== "title" && value !== true);
-    if (failedChecks.length) {
-      console.error(`SMOKE_FAIL ${JSON.stringify(failedChecks)}`);
+        })()`,
+        ),
+        new Promise((_, reject) => {
+          setTimeout(() => reject(new Error("Smoke script timed out")), 45000);
+        }),
+      ]);
+      const failedChecks = Object.entries(result).filter(([key, value]) => key !== "title" && value !== true);
+      if (failedChecks.length) {
+        console.error(`SMOKE_FAIL ${JSON.stringify(failedChecks)}`);
+        app.exit(1);
+        return;
+      }
+      console.log(`SMOKE_OK ${JSON.stringify(result)}`);
+      app.quit();
+    } catch (error) {
+      console.error(`SMOKE_FAIL ${error?.stack || error}`);
       app.exit(1);
-      return;
     }
-    console.log(`SMOKE_OK ${JSON.stringify(result)}`);
-    app.quit();
   });
 
   mainWindow.webContents.once("did-fail-load", (_event, code, description) => {

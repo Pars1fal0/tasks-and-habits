@@ -940,6 +940,18 @@ select:focus-visible {
   gap: 8px;
 }
 
+.settings-status {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 620;
+  line-height: 1.45;
+  margin: 0;
+  padding: 11px 12px;
+}
+
 .panel-heading,
 .habit-main {
   display: flex;
@@ -1587,10 +1599,20 @@ select:focus-visible {
 
 .timeline-hour-slot {
   display: grid;
+  position: relative;
+  align-content: start;
   gap: 8px;
   min-height: 68px;
   min-width: 0;
   padding: 10px 0 10px 14px;
+  transition:
+    background 160ms var(--ease),
+    box-shadow 160ms var(--ease);
+}
+
+.timeline-hour-slot.is-drop-target {
+  background: color-mix(in srgb, var(--teal) 10%, transparent);
+  box-shadow: inset 3px 0 0 var(--teal);
 }
 
 .timeline-slot-empty {
@@ -1618,6 +1640,7 @@ select:focus-visible {
   transition:
     border-color 160ms var(--ease),
     background 160ms var(--ease),
+    opacity 160ms var(--ease),
     transform 160ms var(--ease);
 }
 
@@ -1641,6 +1664,29 @@ select:focus-visible {
 
 .timeline-task.is-done {
   opacity: 0.58;
+}
+
+.timeline-task.is-overdue {
+  border-color: color-mix(in srgb, var(--coral) 62%, var(--line));
+  background: color-mix(in srgb, var(--coral) 9%, var(--surface-soft));
+}
+
+.timeline-task.is-dragging {
+  opacity: 0.45;
+  transform: scale(0.99);
+}
+
+.timeline-task-main {
+  display: grid;
+  gap: 5px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+  text-align: left;
 }
 
 .timeline-task-top {
@@ -1676,6 +1722,72 @@ select:focus-visible {
   font-weight: 610;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.timeline-task-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 4px;
+}
+
+.timeline-time-action {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  min-height: 28px;
+  padding: 5px 8px;
+  transition:
+    border-color 160ms var(--ease),
+    background 160ms var(--ease),
+    color 160ms var(--ease);
+}
+
+.timeline-time-action:hover,
+.timeline-time-action:focus-visible {
+  border-color: var(--line-strong);
+  background: color-mix(in srgb, var(--teal) 12%, var(--surface));
+  color: var(--text-strong);
+}
+
+.timeline-now-line {
+  position: absolute;
+  z-index: 2;
+  top: var(--now-offset);
+  right: 0;
+  left: 12px;
+  height: 1px;
+  background: var(--coral);
+  pointer-events: none;
+}
+
+.timeline-now-line::before {
+  position: absolute;
+  top: -4px;
+  left: -5px;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--coral);
+  content: "";
+}
+
+.timeline-now-label {
+  position: absolute;
+  top: -12px;
+  right: 8px;
+  border: 1px solid color-mix(in srgb, var(--coral) 55%, var(--line));
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-strong);
+  font-size: 10px;
+  font-weight: 760;
+  line-height: 1;
+  padding: 4px 7px;
 }
 
 .timeline-unscheduled-panel {
@@ -2151,6 +2263,69 @@ select:focus-visible {
 
 .toast button:hover {
   background: rgba(39, 198, 165, 0.22);
+}
+
+.confirm-modal[hidden] {
+  display: none;
+}
+
+.confirm-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+}
+
+.confirm-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(3, 7, 6, 0.68);
+  backdrop-filter: blur(10px);
+}
+
+.confirm-dialog {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 12px;
+  width: min(440px, 100%);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-lift);
+  padding: 20px;
+}
+
+.confirm-dialog h2 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.confirm-dialog p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+#confirmAccept[data-tone="danger"] {
+  background: var(--coral);
+  color: #160604;
+}
+
+#confirmAccept[data-tone="danger"]:hover {
+  background: color-mix(in srgb, var(--coral) 86%, #ffffff);
 }
 
 .day-score {

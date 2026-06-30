@@ -99,7 +99,7 @@
       ctx.storage.createImportSafetyBackup(snapshot, { schemaVersion: ctx.schemaVersion });
     }
 
-    function restoreBackup() {
+    async function restoreBackup() {
       const backup = loadBackup();
       if (!backup) {
         ctx.showToast("Локальный бэкап пока не найден");
@@ -107,9 +107,15 @@
       }
 
       const backupDate = backup.exportedAt ? formatBackupDate(backup.exportedAt) : "без даты";
-      const confirmed = window.confirm(
-        `Восстановить данные из локального бэкапа (${backupDate})? Текущий план будет заменен.`,
-      );
+      const message = `Восстановить данные из локального бэкапа (${backupDate})? Текущий план будет заменен.`;
+      const confirmed = ctx.confirmAction
+        ? await ctx.confirmAction({
+            confirmLabel: "Восстановить",
+            message,
+            tone: "danger",
+            title: "Восстановить бэкап?",
+          })
+        : window.confirm(message);
       if (!confirmed) return;
 
       ctx.replaceState(backup.state || backup);

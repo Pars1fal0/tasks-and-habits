@@ -102,9 +102,24 @@
       ctx.showToast("Категория создана", { undo });
     }
 
-    function deleteCategory(categoryId) {
-      const undo = ctx.createUndoSnapshot();
+    async function deleteCategory(categoryId) {
       const state = ctx.getState();
+      const category = state.categories.find((item) => item.id === categoryId);
+      const taskCount = state.tasks.filter((task) => task.categoryId === categoryId).length;
+      const message = taskCount
+        ? `Удалить категорию «${category?.name || "Без названия"}»? У ${taskCount} задач категория будет очищена.`
+        : `Удалить категорию «${category?.name || "Без названия"}»?`;
+      const confirmed = ctx.confirmAction
+        ? await ctx.confirmAction({
+            confirmLabel: "Удалить",
+            message,
+            tone: "danger",
+            title: "Удалить категорию?",
+          })
+        : window.confirm(message);
+      if (!confirmed) return;
+
+      const undo = ctx.createUndoSnapshot();
       const hasTasks = state.tasks.some((task) => task.categoryId === categoryId);
       state.categories = state.categories.filter((category) => category.id !== categoryId);
       if (hasTasks) {
