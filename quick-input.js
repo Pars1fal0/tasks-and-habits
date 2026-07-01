@@ -55,11 +55,15 @@
       title: "",
       date: context.activeDate || fallbackDateKey(new Date()),
       time: "",
+      scheduleMode: "deadline",
+      startTime: "",
+      endTime: "",
       categoryId: "",
       categoryName: "",
       priority: "medium",
     };
 
+    text = extractQuickTimeRange(text, parsed);
     text = extractQuickTime(text, parsed);
     text = extractQuickTimeWord(text, parsed);
     text = extractQuickPriority(text, parsed);
@@ -72,13 +76,31 @@
   }
 
   function extractQuickTime(text, parsed) {
+    if (parsed.scheduleMode === "block") return text;
     return text.replace(/(^|\s)([01]?\d|2[0-3])[:.]([0-5]\d)(?=\s|$)/, (_match, prefix, hours, minutes) => {
       parsed.time = `${String(Number(hours)).padStart(2, "0")}:${minutes}`;
       return prefix;
     });
   }
 
+  function extractQuickTimeRange(text, parsed) {
+    return text.replace(
+      /(^|\s)([01]?\d|2[0-3])[:.]([0-5]\d)\s*[-–—]\s*([01]?\d|2[0-3])[:.]([0-5]\d)(?=\s|$)/,
+      (_match, prefix, startHours, startMinutes, endHours, endMinutes) => {
+        const startTime = `${String(Number(startHours)).padStart(2, "0")}:${startMinutes}`;
+        const endTime = `${String(Number(endHours)).padStart(2, "0")}:${endMinutes}`;
+        if (timeToMinutes(endTime) <= timeToMinutes(startTime)) return _match;
+        parsed.scheduleMode = "block";
+        parsed.startTime = startTime;
+        parsed.endTime = endTime;
+        parsed.time = endTime;
+        return prefix;
+      },
+    );
+  }
+
   function extractQuickTimeWord(text, parsed) {
+    if (parsed.scheduleMode === "block") return text;
     return text.replace(
       /(^|\s)(утром|утро|днем|днём|день|вечером|вечер|ночью|ночь)(?=\s|$)/i,
       (_match, prefix, value) => {
@@ -235,6 +257,12 @@ function extractQuickCategory(text, parsed, context) {
     if (context.toTimeValue) return context.toTimeValue(date);
     const safeDate = date instanceof Date && Number.isFinite(date.getTime()) ? date : new Date();
     return `${String(safeDate.getHours()).padStart(2, "0")}:${String(safeDate.getMinutes()).padStart(2, "0")}`;
+  }
+
+  function timeToMinutes(value) {
+    const [hours, minutes] = String(value || "").split(":").map(Number);
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return NaN;
+    return hours * 60 + minutes;
   }
 
   function fallbackDateKey(date) {

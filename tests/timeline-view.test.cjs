@@ -50,4 +50,29 @@ module.exports = [
       assert.deepEqual(model.nowLine, { hour: 10, offsetPercent: 50 });
     },
   },
+  {
+    name: "uses start and end times for scheduled blocks",
+    fn() {
+      const tasks = [
+        { id: "block", title: "Block", scheduleMode: "block", startTime: "14:00", endTime: "15:30", time: "15:30", priority: "medium", categoryId: "" },
+      ];
+      const model = buildTimelineModel({
+        activeDate: "2026-06-30",
+        formatTime: (value) => value,
+        getCategory: () => null,
+        isTaskDone: () => false,
+        now: new Date(2026, 5, 30, 10, 30),
+        priorityLabels: { medium: "Medium" },
+        tasks,
+        todayKey: "2026-06-30",
+      });
+
+      const entry = model.timedTasks[0];
+      assert.equal(entry.isTimeBlock, true);
+      assert.equal(entry.minutes, 14 * 60);
+      assert.equal(entry.endMinutes, 15 * 60 + 30);
+      assert.equal(entry.timeLabel, "14:00-15:30");
+      assert.equal(model.hourRows.some((row) => row.hour === 15), true);
+    },
+  },
 ];

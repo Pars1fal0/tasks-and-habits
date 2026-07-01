@@ -5,6 +5,7 @@
         schemaVersion: config.schemaVersion,
         tasks: [],
         habits: [],
+        goals: [],
         categories: [],
         taskOrder: {},
       };
@@ -40,6 +41,10 @@
       normalized.tasks = Array.isArray(raw.tasks)
         ? raw.tasks.map((task) => {
             const time = config.cleanTimeValue(task.time);
+            const startTime = config.cleanTimeValue(task.startTime);
+            const endTime = config.cleanTimeValue(task.endTime);
+            const hasBlock = isValidTimeBlock(startTime, endTime);
+            const normalizedTime = hasBlock ? endTime : time;
             const categoryId = normalized.categories.some((category) => category.id === task.categoryId)
               ? task.categoryId
               : ensureCategory(task.category);
@@ -48,12 +53,15 @@
               id: task.id || config.createId(),
               title: config.cleanText(task.title) || "Задача",
               date: config.normalizeDateKey(task.date),
-              time,
+              time: normalizedTime,
+              scheduleMode: hasBlock ? "block" : "deadline",
+              startTime: hasBlock ? startTime : "",
+              endTime: hasBlock ? endTime : "",
               categoryId,
               priority: config.validPriorities.includes(task.priority) ? task.priority : "medium",
               repeat: config.recurrence.normalizeRepeat(task.repeat),
               customRepeat: config.recurrence.normalizeCustomRepeat(task.customRepeat),
-              reminderOffset: config.normalizeReminderOffset(task.reminderOffset, Boolean(time)),
+              reminderOffset: config.normalizeReminderOffset(task.reminderOffset, Boolean(normalizedTime)),
               completed: config.normalizeTaskFlags(task.completed),
               excludedDates: config.normalizeTaskFlags(task.excludedDates),
               notified: config.normalizeTaskFlags(task.notified),
@@ -80,11 +88,54 @@
           })
         : [];
 
+      normalized.goals = Array.isArray(raw.goals)
+        ? raw.goals.map((goal) => {
+            const createdAt = goal.createdAt || new Date().toISOString();
+            const status = goal.status === "done" || goal.completed === true ? "done" : "active";
+            return {
+              id: goal.id || config.createId(),
+              title: config.cleanText(goal.title) || "Цель",
+              description: config.cleanText(goal.description),
+              measure: config.cleanText(goal.measure),
+              reality: config.cleanText(goal.reality),
+              why: config.cleanText(goal.why),
+              dueDate: config.normalizeDateKey(goal.dueDate),
+              steps: normalizeGoalSteps(goal.steps, config),
+              status,
+              completedAt: status === "done" ? goal.completedAt || new Date().toISOString() : "",
+              createdAt,
+            };
+          })
+        : [];
+
       normalized.taskOrder = config.normalizeTaskOrder(raw.taskOrder);
       return normalized;
     }
 
     return { normalizeState };
+  }
+
+  function isValidTimeBlock(startTime, endTime) {
+    const start = timeToMinutes(startTime);
+    const end = timeToMinutes(endTime);
+    return Number.isFinite(start) && Number.isFinite(end) && end > start;
+  }
+
+  function timeToMinutes(value) {
+    const match = /^(\d{2}):(\d{2})$/.exec(String(value || ""));
+    if (!match) return NaN;
+    return Number(match[1]) * 60 + Number(match[2]);
+  }
+
+  function normalizeGoalSteps(value, config) {
+    if (!Array.isArray(value)) return [];
+    return value
+      .map((step) => ({
+        id: step?.id || config.createId(),
+        title: config.cleanText(step?.title || step),
+        done: step?.done === true,
+      }))
+      .filter((step) => step.title);
   }
 
   const api = { createStateNormalizer };

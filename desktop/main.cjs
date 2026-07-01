@@ -106,6 +106,26 @@ function createWindow() {
         document.querySelector("#taskRepeat").value = "none";
         submit(document.querySelector("#taskForm"));
 
+        document.querySelector("#taskTitle").value = "Smoke Time Block";
+        document.querySelector("#taskDate").value = document.querySelector("#activeDate").value;
+        document.querySelector("#taskScheduleBlock").checked = true;
+        document.querySelector("#taskScheduleBlock").dispatchEvent(new Event("change", { bubbles: true }));
+        document.querySelector("#taskStartTime").value = "14:00";
+        document.querySelector("#taskEndTime").value = "15:30";
+        document.querySelector("#taskCategoryId").value = categoryOption?.value || "";
+        document.querySelector("#taskPriority").value = "medium";
+        document.querySelector("#taskReminder").value = "15";
+        document.querySelector("#taskRepeat").value = "none";
+        submit(document.querySelector("#taskForm"));
+        const timeBlockCreated = state.tasks.some(
+          (task) =>
+            task.title === "Smoke Time Block" &&
+            task.scheduleMode === "block" &&
+            task.startTime === "14:00" &&
+            task.endTime === "15:30" &&
+            task.time === "15:30",
+        );
+
         const beforeOrder = [...document.querySelectorAll(".task-item")].map((item) => ({
           id: item.dataset.taskId,
           title: item.querySelector("h3")?.textContent,
@@ -137,6 +157,15 @@ function createWindow() {
           Boolean(quickTaskCard) &&
           quickTaskCard?.querySelector(".task-meta")?.textContent.includes("10:00") &&
           quickTaskCard?.querySelector(".priority-pill")?.textContent === "Высокий";
+        document.querySelector("#quickTaskInput").value = "Smoke Quick Block завтра 14:00-15:30 #SmokeQuick !high";
+        document.querySelector("#quickTaskInput").dispatchEvent(new Event("input", { bubbles: true }));
+        const quickBlockPreviewVisible =
+          !document.querySelector("#quickTaskPreview")?.hidden &&
+          document.querySelector("#quickTaskPreview")?.textContent.includes("14:00-15:30");
+        submit(document.querySelector("#quickTaskForm"));
+        const quickBlockCreated = state.tasks.some(
+          (task) => task.title === "Smoke Quick Block" && task.scheduleMode === "block" && task.startTime === "14:00" && task.endTime === "15:30",
+        );
         const quickTaskId = quickTaskCard?.dataset.taskId;
         const quickSourceDate = document.querySelector("#activeDate").value;
         const quickTargetDate = addDays(quickSourceDate, 1);
@@ -149,6 +178,13 @@ function createWindow() {
         const hasWeekBoard =
           document.querySelectorAll(".week-board-day").length === 7 &&
           [...document.querySelectorAll(".week-task-chip span")].some((item) => item.textContent === "Smoke Quick");
+        const calendarKeyboardDateBefore = state.tasks.find((task) => task.id === quickTaskId)?.date;
+        document.querySelector('.month-task-chip[data-task-id="' + quickTaskId + '"]')?.dispatchEvent(
+          new KeyboardEvent("keydown", { altKey: true, bubbles: true, cancelable: true, key: "ArrowRight" }),
+        );
+        const calendarKeyboardMove =
+          Boolean(calendarKeyboardDateBefore) &&
+          state.tasks.find((task) => task.id === quickTaskId)?.date === addDays(calendarKeyboardDateBefore, 1);
         const relativeQuick = parseQuickTaskInput("Smoke Relative через 2 часа #SmokeQuick !low");
         const phraseQuick = parseQuickTaskInput("Smoke Next в следующий понедельник вечером #SmokeQuick !high");
         const customRepeatTask = {
@@ -176,6 +212,28 @@ function createWindow() {
           habitOccursOn(customHabit, "2026-06-26") &&
           !habitOccursOn(customHabit, "2026-06-27") &&
           formatHabitRepeat(customHabit).includes("ПН");
+
+        click('[data-view="goals"]');
+        document.querySelector("#goalTitle").value = "Smoke Goal";
+        document.querySelector("#goalDueDate").value = "2026-07-20";
+        document.querySelector("#goalDescription").value = "Ship a goal flow";
+        document.querySelector("#goalMeasure").value = "3 verified milestones";
+        document.querySelector("#goalReality").value = "Has time, scope, and clear checkpoints";
+        document.querySelector("#goalWhy").value = "Keeps larger outcomes visible";
+        document.querySelector("#goalSteps").value = "Design\\nBuild\\nVerify";
+        submit(document.querySelector("#goalForm"));
+        const goalCreated =
+          document.body.dataset.view === "goals" &&
+          state.goals.some((goal) => goal.title === "Smoke Goal" && goal.dueDate === "2026-07-20" && goal.measure && goal.why && goal.steps?.length === 3) &&
+          [...document.querySelectorAll(".goal-item")].some((item) => item.textContent.includes("Smoke Goal") && item.textContent.includes("0%"));
+        document.querySelector(".goal-step input")?.click();
+        const goalStepProgressWorks =
+          state.goals.some((goal) => goal.title === "Smoke Goal" && goal.steps?.some((step) => step.done)) &&
+          [...document.querySelectorAll(".goal-item")].some((item) => item.textContent.includes("Smoke Goal") && item.textContent.includes("33%"));
+        document.querySelector(".goal-item .goal-actions button:nth-child(2)")?.click();
+        const goalCompleteWorks =
+          state.goals.some((goal) => goal.title === "Smoke Goal" && goal.status === "done") &&
+          [...document.querySelectorAll(".goal-item.is-done")].some((item) => item.textContent.includes("Smoke Goal"));
 
         click('[data-view="tasks"]');
         document.querySelector("#quickTaskInput").value = "Smoke Undo 2026-07-12 #SmokeQuick";
@@ -209,15 +267,17 @@ function createWindow() {
         saveState({ skipBackup: true });
         render();
         const fileBackupResult = await window.rhythmDesktop.writeFileBackup({
-          schemaVersion: 5,
+          schemaVersion: 7,
           state,
         });
         const fileBackupWorks = fileBackupResult.ok || fileBackupResult.reason === "throttled";
         const fileBackupInfo = await window.rhythmDesktop.getFileBackupInfo();
+        const openBackupFolderResult = await window.rhythmDesktop.openBackupFolder();
         const fileBackupUiVisible =
           Boolean(document.querySelector("#openBackupFolderButton")) &&
           !document.querySelector("#fileBackupStatus")?.hidden &&
           document.querySelector("#fileBackupStatus")?.textContent.includes("Файловый бэкап");
+        const openBackupFolderWorks = openBackupFolderResult?.ok && Boolean(openBackupFolderResult.path);
 
         click('[data-view="timeline"]');
         const timelineVisible =
@@ -225,6 +285,21 @@ function createWindow() {
           document.querySelectorAll(".timeline-hour-row").length >= 8 &&
           [...document.querySelectorAll(".timeline-task")].some((item) => item.textContent.includes("Smoke Quick"));
         const timelineSummaryWorks = document.querySelector("#timelineSummary")?.textContent.includes("по времени");
+        const timelineDateBeforeBlockCheck = document.querySelector("#activeDate")?.value || activeDate;
+        const blockTaskForTimeline = state.tasks.find((task) => task.title === "Smoke Time Block");
+        activeDate = blockTaskForTimeline?.date || timelineDateBeforeBlockCheck;
+        render();
+        click('[data-view="timeline"]');
+        const timelineBlockVisible =
+          [...document.querySelectorAll(".timeline-task.is-time-block")].some((item) => item.textContent.includes("Smoke Time Block")) &&
+          document.querySelectorAll(".timeline-task.is-time-block .timeline-resize-handle").length >= 2;
+        activeDate = timelineDateBeforeBlockCheck;
+        render();
+        click('[data-view="timeline"]');
+        const timelineAccessibilityWorks =
+          document.querySelector("#timelineSummary")?.getAttribute("aria-live") === "polite" &&
+          document.querySelectorAll(".timeline-hour-slot[role='list']").length >= 8 &&
+          document.querySelectorAll(".timeline-task[role='listitem']").length >= 1;
 
         document.querySelector('[data-view="overview"]').click();
         const heatmapGrid = document.querySelector("#heatmapGrid");
@@ -258,6 +333,13 @@ function createWindow() {
         densitySelect.value = "compact";
         densitySelect.dispatchEvent(new Event("change", { bubbles: true }));
         const densitySettingWorks = document.documentElement.dataset.density === "compact";
+        const interfaceModeSelect = document.querySelector("#interfaceMode");
+        const defaultSimpleModeWorks =
+          interfaceModeSelect?.value === "simple" && document.documentElement.dataset.interfaceMode === "simple";
+        interfaceModeSelect.value = "advanced";
+        interfaceModeSelect.dispatchEvent(new Event("change", { bubbles: true }));
+        const advancedModeWorks =
+          document.documentElement.dataset.interfaceMode === "advanced" && document.querySelector("#goalAdvancedPanel")?.open;
         const timeFormatSelect = document.querySelector("#timeFormat");
         timeFormatSelect.value = "12";
         timeFormatSelect.dispatchEvent(new Event("change", { bubbles: true }));
@@ -270,6 +352,12 @@ function createWindow() {
         document.querySelector('.timeline-task[data-task-id="' + smokeQuickTask?.id + '"] .timeline-time-action')?.click();
         const timelineQuickActionWorks =
           smokeQuickTask && smokeQuickTimeBefore && state.tasks.find((task) => task.id === smokeQuickTask.id)?.time !== smokeQuickTimeBefore;
+        const smokeQuickTimeAfterAction = state.tasks.find((task) => task.id === smokeQuickTask?.id)?.time;
+        document.querySelector('.timeline-task[data-task-id="' + smokeQuickTask?.id + '"] .timeline-task-main')?.dispatchEvent(
+          new KeyboardEvent("keydown", { altKey: true, bubbles: true, cancelable: true, key: "ArrowRight" }),
+        );
+        const timelineKeyboardMoveWorks =
+          smokeQuickTimeAfterAction && state.tasks.find((task) => task.id === smokeQuickTask?.id)?.time !== smokeQuickTimeAfterAction;
         const timelineDropZonesWork = document.querySelectorAll(".timeline-hour-slot[data-hour]").length >= 8;
         const backupScheduleSelect = document.querySelector("#backupSchedule");
         document.querySelector('[data-view="settings"]').click();
@@ -283,6 +371,11 @@ function createWindow() {
         const notificationSettingWorks =
           notificationSelect.value === "off" && document.querySelector("#notifyButton")?.textContent.includes("паузе");
         document.querySelector("#settingsResetButton").click();
+        const confirmInitialFocusWorks = document.activeElement?.id === "confirmAccept";
+        document.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "Tab" }));
+        const confirmTabWrapWorks = document.activeElement?.id === "confirmCancel";
+        document.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "Tab", shiftKey: true }));
+        const confirmShiftTabWrapWorks = document.activeElement?.id === "confirmAccept";
         const confirmModalWorks =
           !document.querySelector("#confirmModal")?.hidden && document.querySelector("#confirmTitle")?.textContent.includes("Сбросить");
         document.querySelector("#confirmAccept").click();
@@ -290,6 +383,7 @@ function createWindow() {
         const interfaceResetWorks =
           document.documentElement.dataset.theme === "dark" &&
           document.documentElement.dataset.density === "comfortable" &&
+          document.documentElement.dataset.interfaceMode === "simple" &&
           document.querySelector("#timeFormat")?.value === "24" &&
           document.querySelector("#firstDayOfWeek")?.value === "monday";
         const settingsPayload = {
@@ -299,6 +393,7 @@ function createWindow() {
             firstDayOfWeek: "sunday",
             notificationSetting: "on",
             themePreference: "dark",
+            interfaceMode: "advanced",
             timeFormat: "12",
           },
         };
@@ -311,6 +406,7 @@ function createWindow() {
         const settingsImportWorks =
           document.querySelector("#backupSchedule")?.value === "0" &&
           document.querySelector("#densityPreference")?.value === "compact" &&
+          document.querySelector("#interfaceMode")?.value === "advanced" &&
           document.querySelector("#notificationSetting")?.value === "on";
 
         document.querySelector('[data-view="habits"]').click();
@@ -328,6 +424,7 @@ function createWindow() {
           title: document.title,
           hasTaskForm: Boolean(document.querySelector("#taskForm")),
           hasHabitList: Boolean(document.querySelector("#habitList")),
+          hasGoals: Boolean(document.querySelector("#goalsView")) && Boolean(document.querySelector("#goalForm")),
           hasArchive: Boolean(document.querySelector("#archiveView")),
           hasHeatmap:
             document.querySelectorAll(".heatmap-cell").length === 365 &&
@@ -345,6 +442,7 @@ function createWindow() {
               window.RhythmCalendarView &&
               window.RhythmCategories &&
               window.RhythmConfirmDialog &&
+              window.RhythmGoalsView &&
               window.RhythmHabitForm &&
               window.RhythmHabitsView &&
               window.RhythmHeatmapView &&
@@ -362,12 +460,18 @@ function createWindow() {
           ),
           desktopBridge: Boolean(window.rhythmDesktop?.syncReminders && window.rhythmDesktop?.writeFileBackup),
           taskCreated: Boolean(taskCard),
+          timeBlockCreated,
           quickTaskCreated,
+          quickBlockCreated,
+          quickBlockPreviewVisible,
           quickPreviewVisible,
           smartQuickRelative: relativeQuick.title === "Smoke Relative" && Boolean(relativeQuick.time) && relativeQuick.priority === "low",
           smartQuickPhrase: phraseQuick.title === "Smoke Next" && phraseQuick.time === "18:00" && phraseQuick.priority === "high",
           customRepeatWorks,
           customHabitRepeatWorks,
+          goalCreated,
+          goalStepProgressWorks,
+          goalCompleteWorks,
           hasUndoButton,
           undoTaskCreated,
           undoRestored,
@@ -376,8 +480,13 @@ function createWindow() {
           fileBackupWorks,
           fileBackupInfoWorks: Boolean(fileBackupInfo?.path),
           fileBackupUiVisible,
+          openBackupFolderWorks,
           backupSettingWorks,
+          calendarKeyboardMove,
+          confirmFocusTrapWorks: confirmInitialFocusWorks && confirmTabWrapWorks && confirmShiftTabWrapWorks,
           confirmModalWorks,
+          advancedModeWorks,
+          defaultSimpleModeWorks,
           densitySettingWorks,
           firstDaySettingWorks: Boolean(firstDaySettingWorks),
           heatmapFits,
@@ -393,9 +502,12 @@ function createWindow() {
           themeSwitchWorks,
           timeFormatWorks,
           timelineDropZonesWork,
+          timelineAccessibilityWorks,
+          timelineKeyboardMoveWorks,
           timelineQuickActionWorks,
           timelineSummaryWorks,
           timelineVisible,
+          timelineBlockVisible,
           calendarDragMove,
           dndOrderChanged,
           archived,
@@ -563,8 +675,15 @@ function registerIpc() {
   ipcMain.handle("backups:open-folder", async () => {
     const backupDir = getFileBackupDir();
     await fs.promises.mkdir(backupDir, { recursive: true });
+    if (isSmokeTest) return { ok: true, path: backupDir, smoke: true };
     const error = await shell.openPath(backupDir);
-    return { ok: !error, path: backupDir, error };
+    if (!error) return { ok: true, path: backupDir };
+    try {
+      shell.showItemInFolder(backupDir);
+      return { ok: true, path: backupDir, fallback: "showItemInFolder", error };
+    } catch {
+      return { ok: false, path: backupDir, error };
+    }
   });
 }
 

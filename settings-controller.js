@@ -15,6 +15,7 @@
       ctx.els.backupSchedule?.addEventListener("change", () => ctx.updateSetting("backupSchedule", ctx.els.backupSchedule.value));
       ctx.els.firstDayOfWeek?.addEventListener("change", () => ctx.updateSetting("firstDayOfWeek", ctx.els.firstDayOfWeek.value));
       ctx.els.densityPreference?.addEventListener("change", () => ctx.updateSetting("densityPreference", ctx.els.densityPreference.value));
+      ctx.els.interfaceMode?.addEventListener("change", () => ctx.updateSetting("interfaceMode", ctx.els.interfaceMode.value));
       ctx.els.timeFormat?.addEventListener("change", () => ctx.updateSetting("timeFormat", ctx.els.timeFormat.value));
     }
 
@@ -24,6 +25,7 @@
       setValue(ctx.els.backupSchedule, settings.backupSchedule);
       setValue(ctx.els.firstDayOfWeek, settings.firstDayOfWeek);
       setValue(ctx.els.densityPreference, settings.densityPreference);
+      setValue(ctx.els.interfaceMode, settings.interfaceMode);
       setValue(ctx.els.timeFormat, settings.timeFormat);
       ctx.renderBackupStatus?.();
     }

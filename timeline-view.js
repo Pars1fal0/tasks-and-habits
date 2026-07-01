@@ -31,6 +31,8 @@
         label.textContent = row.label;
         slot.className = "timeline-hour-slot";
         slot.dataset.hour = String(row.hour);
+        slot.setAttribute("role", "list");
+        slot.setAttribute("aria-label", `Задачи на ${row.label}`);
         attachDropZone(slot, row.hour);
 
         if (model.nowLine?.hour === row.hour) {
@@ -68,8 +70,14 @@
       card.className = `timeline-task priority-${entry.task.priority || "medium"}`;
       card.classList.toggle("is-done", entry.done);
       card.classList.toggle("is-overdue", entry.isOverdue);
+      card.classList.toggle("is-time-block", entry.isTimeBlock);
       card.dataset.taskId = entry.task.id;
+      card.setAttribute("role", "listitem");
       if (entry.categoryColor) card.style.setProperty("--category-color", entry.categoryColor);
+      if (entry.isTimeBlock) {
+        const duration = Math.max(15, entry.endMinutes - entry.minutes);
+        setBlockHeight(card, duration);
+      }
 
       if (ctx.moveTaskTime) {
         card.draggable = true;
@@ -91,6 +99,10 @@
       main.type = "button";
       main.className = "timeline-task-main";
       main.setAttribute("aria-label", `${entry.title}, ${entry.timeLabel || "без времени"}`);
+      if (Number.isFinite(entry.minutes) && ctx.shiftTaskTime) {
+        main.setAttribute("aria-keyshortcuts", "Alt+ArrowUp Alt+ArrowDown Alt+ArrowLeft Alt+ArrowRight");
+        main.addEventListener("keydown", (event) => handleTaskKeydown(event, entry));
+      }
       main.addEventListener("click", () => ctx.fillTaskForm(entry.task));
 
       top.className = "timeline-task-top";
@@ -100,6 +112,11 @@
       top.append(time, title);
       main.append(top, meta);
       card.appendChild(main);
+
+      if (entry.isTimeBlock && ctx.resizeTaskBlockTime) {
+        card.appendChild(createResizeHandle(entry, "start"));
+        card.appendChild(createResizeHandle(entry, "end"));
+      }
 
       if (Number.isFinite(entry.minutes) && (ctx.shiftTaskTime || ctx.setTaskTime)) {
         card.appendChild(createQuickActions(entry));
@@ -120,6 +137,97 @@
       return actions;
     }
 
+    function createResizeHandle(entry, edge) {
+      const handle = document.createElement("button");
+      handle.type = "button";
+      handle.className = `timeline-resize-handle is-${edge}`;
+      handle.setAttribute("aria-label", edge === "start" ? "Потянуть начало блока" : "Потянуть конец блока");
+      handle.addEventListener("pointerdown", (event) => startBlockResize(event, entry, edge));
+      handle.addEventListener("keydown", (event) => {
+        const offsets = { ArrowDown: 15, ArrowUp: -15 };
+        const offset = offsets[event.key];
+        if (!offset) return;
+        event.preventDefault();
+        resizeBlockByKeyboard(entry, edge, offset);
+      });
+      return handle;
+    }
+
+    function startBlockResize(event, entry, edge) {
+      event.preventDefault();
+      event.stopPropagation();
+      const target = event.currentTarget;
+      const card = target.closest(".timeline-task");
+      const slotHeight = Math.max(48, target.closest(".timeline-hour-slot")?.clientHeight || 68);
+      const startY = event.clientY;
+      const originalStart = entry.minutes;
+      const originalEnd = entry.endMinutes;
+      target.setPointerCapture?.(event.pointerId);
+      card?.classList.add("is-resizing");
+      card?.setAttribute("data-resize-label", formatBlockLabel(originalStart, originalEnd));
+
+      const onMove = (moveEvent) => {
+        moveEvent.preventDefault();
+        const rawDelta = ((moveEvent.clientY - startY) / slotHeight) * 60;
+        const delta = Math.round(rawDelta / 15) * 15;
+        const next = nextBlockTimes(originalStart, originalEnd, edge, delta);
+        if (card) {
+          setBlockHeight(card, next.end - next.start);
+          card.setAttribute("data-resize-label", formatBlockLabel(next.start, next.end));
+        }
+      };
+
+      const onUp = (upEvent) => {
+        cleanup(upEvent);
+        const rawDelta = ((upEvent.clientY - startY) / slotHeight) * 60;
+        const delta = Math.round(rawDelta / 15) * 15;
+        const next = nextBlockTimes(originalStart, originalEnd, edge, delta);
+        ctx.resizeTaskBlockTime(entry.task.id, formatHourMinute(Math.floor(next.start / 60), next.start % 60), formatHourMinute(Math.floor(next.end / 60), next.end % 60));
+      };
+
+      const onCancel = (cancelEvent) => {
+        cleanup(cancelEvent);
+        if (card) {
+          setBlockHeight(card, originalEnd - originalStart);
+          card.removeAttribute("data-resize-label");
+        }
+      };
+
+      const cleanup = (nextEvent) => {
+        target.releasePointerCapture?.(nextEvent.pointerId);
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+        window.removeEventListener("pointercancel", onCancel);
+        card?.classList.remove("is-resizing");
+      };
+
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+      window.addEventListener("pointercancel", onCancel);
+    }
+
+    function resizeBlockByKeyboard(entry, edge, offset) {
+      const next = nextBlockTimes(entry.minutes, entry.endMinutes, edge, offset);
+      ctx.resizeTaskBlockTime(entry.task.id, formatHourMinute(Math.floor(next.start / 60), next.start % 60), formatHourMinute(Math.floor(next.end / 60), next.end % 60));
+    }
+
+    function nextBlockTimes(start, end, edge, delta) {
+      if (edge === "start") {
+        const nextStart = Math.max(0, Math.min(end - 15, start + delta));
+        return { start: nextStart, end };
+      }
+      const nextEnd = Math.max(start + 15, Math.min(23 * 60 + 59, end + delta));
+      return { start, end: nextEnd };
+    }
+
+    function setBlockHeight(card, duration) {
+      card.style.setProperty("--block-min-height", `${Math.max(58, Math.round(Math.max(15, duration) * 1.2))}px`);
+    }
+
+    function formatBlockLabel(start, end) {
+      return `${formatHourMinute(Math.floor(start / 60), start % 60)}-${formatHourMinute(Math.floor(end / 60), end % 60)}`;
+    }
+
     function createActionButton(label, handler) {
       const button = document.createElement("button");
       button.type = "button";
@@ -130,6 +238,21 @@
         handler();
       });
       return button;
+    }
+
+    function handleTaskKeydown(event, entry) {
+      if (!event.altKey) return;
+      const offsets = {
+        ArrowDown: 60,
+        ArrowLeft: -15,
+        ArrowRight: 15,
+        ArrowUp: -60,
+      };
+      const offset = offsets[event.key];
+      if (!offset) return;
+      event.preventDefault();
+      event.stopPropagation();
+      ctx.shiftTaskTime(entry.task.id, offset);
     }
 
     function createNowLine(offsetPercent) {
@@ -190,18 +313,27 @@
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
     tasks.forEach((task) => {
-      const minutes = parseTimeToMinutes(task.time);
+      const block = parseTaskBlock(task);
+      const minutes = Number.isFinite(block.start) ? block.start : parseTimeToMinutes(task.time);
+      const endMinutes = Number.isFinite(block.end) ? block.end : minutes;
       const category = getCategory(task.categoryId);
       const done = isTaskDone(task, activeDate);
       const entry = {
         categoryColor: category?.color || "",
         done,
+        endMinutes,
         hour: Number.isFinite(minutes) ? Math.floor(minutes / 60) : null,
-        isOverdue: Number.isFinite(minutes) && !done && isTaskTimeOverdue(activeDate, minutes, resolvedTodayKey, currentMinutes),
+        isOverdue: Number.isFinite(endMinutes) && !done && isTaskTimeOverdue(activeDate, endMinutes, resolvedTodayKey, currentMinutes),
+        isTimeBlock: Number.isFinite(block.start) && Number.isFinite(block.end),
         metaLabel: category?.name || priorityLabels[task.priority] || "Задача",
         minutes,
         task,
-        timeLabel: Number.isFinite(minutes) ? formatTime(task.time) : "",
+        timeLabel:
+          Number.isFinite(block.start) && Number.isFinite(block.end)
+            ? `${formatTime(task.startTime)}-${formatTime(task.endTime)}`
+            : Number.isFinite(minutes)
+              ? formatTime(task.time)
+              : "",
         title: task.title,
       };
 
@@ -216,8 +348,8 @@
     unscheduledTasks.sort((a, b) => priorityRank(a.task.priority) - priorityRank(b.task.priority) || a.title.localeCompare(b.title));
 
     const currentHour = activeDate === resolvedTodayKey ? Math.floor(currentMinutes / 60) : null;
-    const earliestHour = timedTasks.length ? Math.floor(timedTasks[0].minutes / 60) : 8;
-    const latestHour = timedTasks.length ? Math.floor(timedTasks[timedTasks.length - 1].minutes / 60) : 18;
+    const earliestHour = timedTasks.length ? Math.min(...timedTasks.map((entry) => Math.floor(entry.minutes / 60))) : 8;
+    const latestHour = timedTasks.length ? Math.max(...timedTasks.map((entry) => Math.floor((entry.endMinutes || entry.minutes) / 60))) : 18;
     const startHour = Math.min(8, earliestHour, Number.isFinite(currentHour) ? currentHour : 8);
     const endHour = Math.max(20, latestHour, Number.isFinite(currentHour) ? currentHour : 20);
     const hourRows = [];
@@ -261,6 +393,14 @@
     if (activeDate < todayKey) return true;
     if (activeDate > todayKey) return false;
     return minutes < currentMinutes;
+  }
+
+  function parseTaskBlock(task) {
+    if (task?.scheduleMode !== "block") return { start: NaN, end: NaN };
+    const start = parseTimeToMinutes(task.startTime);
+    const end = parseTimeToMinutes(task.endTime);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return { start: NaN, end: NaN };
+    return { start, end };
   }
 
   function formatHourMinute(hour, minute = 0) {

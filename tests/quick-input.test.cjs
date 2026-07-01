@@ -40,4 +40,25 @@ module.exports = [
       assert.equal(parsed.priority, "low");
     },
   },
+  {
+    name: "parses time range as a scheduled block",
+    fn() {
+      const parsed = quickInput.parseQuickTaskInput("Созвон завтра 14:00-15:30 #работа", {
+        activeDate: "2026-06-26",
+        cleanText,
+        getOrCreateCategory: () => "cat-work",
+        normalizeCategoryName: (value) => cleanText(value),
+        normalizeDateKey,
+        toDateKey,
+        toTimeValue,
+      });
+
+      assert.equal(parsed.title, "Созвон");
+      assert.equal(parsed.scheduleMode, "block");
+      assert.equal(parsed.startTime, "14:00");
+      assert.equal(parsed.endTime, "15:30");
+      assert.equal(parsed.time, "15:30");
+      assert.equal(parsed.categoryId, "cat-work");
+    },
+  },
 ];

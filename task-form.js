@@ -5,11 +5,22 @@
       const undo = ctx.createUndoSnapshot();
       const id = ctx.els.taskId.value || ctx.createId();
       const existing = ctx.findTask(id);
+      const scheduleMode = ctx.getTaskScheduleMode();
+      const startTime = scheduleMode === "block" ? ctx.cleanTimeValue(ctx.els.taskStartTime.value) : "";
+      const endTime = scheduleMode === "block" ? ctx.cleanTimeValue(ctx.els.taskEndTime.value) : "";
+      const deadlineTime = ctx.cleanTimeValue(ctx.els.taskTime.value);
+      if (scheduleMode === "block" && !ctx.isValidTimeBlock(startTime, endTime)) {
+        ctx.showToast("Укажи корректный временной блок");
+        return;
+      }
       const task = {
         id,
         title: ctx.cleanText(ctx.els.taskTitle.value),
         date: ctx.els.taskDate.value || ctx.getActiveDate(),
-        time: ctx.cleanTimeValue(ctx.els.taskTime.value),
+        scheduleMode,
+        startTime,
+        endTime,
+        time: scheduleMode === "block" ? endTime : deadlineTime,
         categoryId: ctx.els.taskCategoryId.value,
         priority: ctx.els.taskPriority.value,
         repeat: ctx.els.taskRepeat.value,
@@ -35,11 +46,15 @@
       ctx.els.taskTitle.value = task.title;
       ctx.els.taskDate.value = task.date;
       ctx.els.taskTime.value = ctx.cleanTimeValue(task.time);
+      ctx.setTaskScheduleMode(ctx.isTimeBlock(task) ? "block" : "deadline");
+      ctx.els.taskStartTime.value = ctx.cleanTimeValue(task.startTime);
+      ctx.els.taskEndTime.value = ctx.cleanTimeValue(task.endTime);
       ctx.els.taskCategoryId.value = task.categoryId || "";
       ctx.els.taskPriority.value = task.priority || "medium";
       ctx.els.taskRepeat.value = task.repeat || "none";
       ctx.setCustomRepeatForm(task.customRepeat);
       ctx.els.taskReminder.value = task.reminderOffset ?? (task.time ? "15" : "none");
+      ctx.syncTaskScheduleMode();
       ctx.syncCustomRepeatPanel();
       ctx.syncTaskTimePresets();
       ctx.els.taskTitle.focus();
@@ -51,11 +66,15 @@
       ctx.els.taskId.value = "";
       ctx.els.taskDate.value = ctx.getActiveDate();
       ctx.els.taskTime.value = "";
+      ctx.setTaskScheduleMode("deadline");
+      ctx.els.taskStartTime.value = "";
+      ctx.els.taskEndTime.value = "";
       ctx.els.taskCategoryId.value = "";
       ctx.els.taskPriority.value = "medium";
       ctx.els.taskRepeat.value = "none";
       ctx.setCustomRepeatForm();
       ctx.syncCustomRepeatPanel();
+      ctx.syncTaskScheduleMode();
       ctx.els.taskReminder.value = "15";
       ctx.syncTaskTimePresets();
     }

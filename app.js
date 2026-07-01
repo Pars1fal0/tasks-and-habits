@@ -1,4 +1,4 @@
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 7;
 const VALID_PRIORITIES = ["high", "medium", "low"];
 const VALID_HABIT_REPEATS = ["daily", "every2days", "every3days", "weekdays", "weekends", "weekly", "custom"];
 const VALID_REMINDER_OFFSETS = ["none", "0", "5", "15", "30", "60", "1440"];
@@ -40,6 +40,7 @@ let notificationSetting = normalizeNotificationSetting(initialUiState.notificati
 let backupSchedule = normalizeBackupSchedule(initialUiState.backupSchedule);
 let firstDayOfWeek = normalizeFirstDayOfWeek(initialUiState.firstDayOfWeek);
 let densityPreference = normalizeDensityPreference(initialUiState.densityPreference);
+let interfaceMode = normalizeInterfaceMode(initialUiState.interfaceMode);
 let timeFormat = normalizeTimeFormat(initialUiState.timeFormat);
 let draggedTaskId = null;
 let draggedTaskDate = "";
@@ -62,6 +63,7 @@ const els = {
   categoryName: document.querySelector("#categoryName"),
   clearArchiveFilter: document.querySelector("#clearArchiveFilter"),
   clearTaskSearch: document.querySelector("#clearTaskSearch"),
+  closeGoalForm: document.querySelector("#closeGoalForm"),
   confirmAccept: document.querySelector("#confirmAccept"),
   confirmCancel: document.querySelector("#confirmCancel"),
   confirmMessage: document.querySelector("#confirmMessage"),
@@ -78,6 +80,23 @@ const els = {
   focusTitle: document.querySelector("#focusTitle"),
   fileBackupStatus: document.querySelector("#fileBackupStatus"),
   firstDayOfWeek: document.querySelector("#firstDayOfWeek"),
+  goalActiveMetric: document.querySelector("#goalActiveMetric"),
+  goalAdvancedPanel: document.querySelector("#goalAdvancedPanel"),
+  goalDescription: document.querySelector("#goalDescription"),
+  goalDoneMetric: document.querySelector("#goalDoneMetric"),
+  goalDueDate: document.querySelector("#goalDueDate"),
+  goalEmpty: document.querySelector("#goalEmpty"),
+  goalForm: document.querySelector("#goalForm"),
+  goalFormHeading: document.querySelector("#goalFormHeading"),
+  goalFormPanel: document.querySelector("#goalFormPanel"),
+  goalId: document.querySelector("#goalId"),
+  goalList: document.querySelector("#goalList"),
+  goalMeasure: document.querySelector("#goalMeasure"),
+  goalOverdueMetric: document.querySelector("#goalOverdueMetric"),
+  goalReality: document.querySelector("#goalReality"),
+  goalSteps: document.querySelector("#goalSteps"),
+  goalTitle: document.querySelector("#goalTitle"),
+  goalWhy: document.querySelector("#goalWhy"),
   habitDoneMetric: document.querySelector("#habitDoneMetric"),
   habitEmpty: document.querySelector("#habitEmpty"),
   habitForm: document.querySelector("#habitForm"),
@@ -97,6 +116,7 @@ const els = {
   heatmapGrid: document.querySelector("#heatmapGrid"),
   importButton: document.querySelector("#importButton"),
   importFile: document.querySelector("#importFile"),
+  interfaceMode: document.querySelector("#interfaceMode"),
   monthGrid: document.querySelector("#monthGrid"),
   monthLabel: document.querySelector("#monthLabel"),
   monthWeekdays: document.querySelector("#monthWeekdays"),
@@ -105,6 +125,7 @@ const els = {
   nextMonth: document.querySelector("#nextMonth"),
   notificationSetting: document.querySelector("#notificationSetting"),
   notifyButton: document.querySelector("#notifyButton"),
+  openGoalForm: document.querySelector("#openGoalForm"),
   openHabitForm: document.querySelector("#openHabitForm"),
   openBackupFolderButton: document.querySelector("#openBackupFolderButton"),
   openTaskForm: document.querySelector("#openTaskForm"),
@@ -122,6 +143,7 @@ const els = {
   quickTaskInput: document.querySelector("#quickTaskInput"),
   quickTaskPreview: document.querySelector("#quickTaskPreview"),
   resetHabitForm: document.querySelector("#resetHabitForm"),
+  resetGoalForm: document.querySelector("#resetGoalForm"),
   resetTaskForm: document.querySelector("#resetTaskForm"),
   restoreBackupButton: document.querySelector("#restoreBackupButton"),
   settingsExportButton: document.querySelector("#settingsExportButton"),
@@ -143,15 +165,21 @@ const els = {
   taskForm: document.querySelector("#taskForm"),
   taskFormPanel: document.querySelector("#taskFormPanel"),
   taskId: document.querySelector("#taskId"),
+  taskBlockTimeFields: document.querySelector("#taskBlockTimeFields"),
   taskList: document.querySelector("#taskList"),
   taskPriority: document.querySelector("#taskPriority"),
   taskProgress: document.querySelector("#taskProgress"),
   taskProgressRing: document.querySelector("#taskProgressRing"),
+  taskScheduleBlock: document.querySelector("#taskScheduleBlock"),
+  taskScheduleDeadline: document.querySelector("#taskScheduleDeadline"),
   taskReminder: document.querySelector("#taskReminder"),
   taskRepeat: document.querySelector("#taskRepeat"),
   taskSearch: document.querySelector("#taskSearch"),
+  taskStartTime: document.querySelector("#taskStartTime"),
   taskTemplate: document.querySelector("#taskTemplate"),
   taskTime: document.querySelector("#taskTime"),
+  taskDeadlineTimeField: document.querySelector("#taskDeadlineTimeField"),
+  taskEndTime: document.querySelector("#taskEndTime"),
   taskTitle: document.querySelector("#taskTitle"),
   themePreference: document.querySelector("#themePreference"),
   timeFormat: document.querySelector("#timeFormat"),
@@ -166,6 +194,7 @@ const els = {
   toast: document.querySelector("#appToast"),
   views: {
     archive: document.querySelector("#archiveView"),
+    goals: document.querySelector("#goalsView"),
     habits: document.querySelector("#habitsView"),
     overview: document.querySelector("#overviewView"),
     settings: document.querySelector("#settingsView"),
@@ -258,6 +287,30 @@ const habitsView = window.RhythmHabitsView.createHabitsView({
   showToast,
 });
 
+const goalsView = window.RhythmGoalsView.createGoalsView({
+  els,
+  cleanText,
+  createId,
+  createUndoSnapshot,
+  deleteGoal,
+  getActiveDate: () => activeDate,
+  getInterfaceMode: () => interfaceMode,
+  getState: () => state,
+  normalizeDateKey,
+  render,
+  saveState,
+  showToast,
+  toDateKey,
+  upsertGoal: (goal) => {
+    const existing = state.goals.find((item) => item.id === goal.id);
+    if (existing) {
+      Object.assign(existing, goal);
+    } else {
+      state.goals.push(goal);
+    }
+  },
+});
+
 const calendarView = window.RhythmCalendarView.createCalendarView({
   els,
   attachTaskChipDrag,
@@ -292,6 +345,7 @@ const timelineView = window.RhythmTimelineView.createTimelineView({
   isTaskDone,
   moveTaskTime,
   priorityLabels,
+  resizeTaskBlockTime,
   setTaskTime,
   shiftTaskTime,
   toDateKey,
@@ -323,14 +377,19 @@ const taskFormController = window.RhythmTaskForm.createTaskForm({
   findTask: (id) => state.tasks.find((task) => task.id === id),
   getActiveDate: () => activeDate,
   getCustomRepeatFromForm,
+  getTaskScheduleMode,
+  isTimeBlock,
+  isValidTimeBlock,
   render,
   saveState,
   setActiveDate: (dateKey) => {
     activeDate = dateKey;
   },
   setCustomRepeatForm,
+  setTaskScheduleMode,
   showToast,
   syncCustomRepeatPanel,
+  syncTaskScheduleMode,
   syncTaskTimePresets,
   upsertTask: (task) => {
     const existing = state.tasks.find((item) => item.id === task.id);
@@ -447,6 +506,7 @@ function init() {
   bindEvents();
   resetTaskForm();
   resetHabitForm();
+  resetGoalForm();
   registerServiceWorker();
   updateNotificationButton();
   updateBackupStatus();
@@ -527,6 +587,9 @@ function bindEvents() {
   els.quickTaskForm.addEventListener("submit", saveQuickTask);
   els.quickTaskInput.addEventListener("input", updateQuickTaskPreview);
   els.taskRepeat.addEventListener("change", syncCustomRepeatPanel);
+  [els.taskScheduleDeadline, els.taskScheduleBlock].forEach((input) => {
+    input?.addEventListener("change", syncTaskScheduleMode);
+  });
   document.querySelectorAll("[data-repeat-mode]").forEach((button) => {
     button.addEventListener("click", () => setCustomRepeatMode(button.dataset.repeatMode));
   });
@@ -542,11 +605,18 @@ function bindEvents() {
     input.addEventListener("input", updateCustomRepeatSummary);
   });
   els.taskTime.addEventListener("input", syncTaskTimePresets);
+  [els.taskStartTime, els.taskEndTime].forEach((input) => input?.addEventListener("input", syncTaskTimePresets));
   document.querySelectorAll("[data-time-preset]").forEach((button) => {
     button.addEventListener("click", () => {
-      els.taskTime.value = button.dataset.timePreset || "";
+      const preset = button.dataset.timePreset || "";
+      if (getTaskScheduleMode() === "block") {
+        els.taskStartTime.value = preset;
+        els.taskEndTime.value = preset ? minutesToTime(Math.min(23 * 60 + 59, timeToMinutes(preset) + 60)) : "";
+      } else {
+        els.taskTime.value = preset;
+      }
       syncTaskTimePresets();
-      els.taskTime.focus();
+      (getTaskScheduleMode() === "block" ? els.taskStartTime : els.taskTime).focus();
     });
   });
 
@@ -574,6 +644,17 @@ function bindEvents() {
   [els.habitCustomRepeatMonthDay, els.habitCustomRepeatInterval].forEach((input) => {
     input.addEventListener("input", updateHabitCustomRepeatSummary);
   });
+
+  els.closeGoalForm.addEventListener("click", () => {
+    els.goalFormPanel.classList.add("is-collapsed");
+  });
+  els.openGoalForm.addEventListener("click", () => {
+    resetGoalForm();
+    els.goalFormPanel.classList.remove("is-collapsed");
+    els.goalTitle.focus();
+  });
+  els.resetGoalForm.addEventListener("click", resetGoalForm);
+  els.goalForm.addEventListener("submit", saveGoalFromForm);
 
   els.categoryForm.addEventListener("submit", saveCategoryFromForm);
   els.notifyButton.addEventListener("click", requestNotifications);
@@ -614,6 +695,7 @@ function render() {
   els.todayLabel.textContent = formatLongDate(activeDate);
   els.pageTitle.textContent = {
     archive: "Архив",
+    goals: "Цели",
     habits: "Привычки",
     overview: "Обзор",
     settings: "Настройки",
@@ -642,6 +724,7 @@ function render() {
   renderTasks();
   renderTimeline();
   renderHabits();
+  renderGoals();
   renderWeekdayLabels();
   renderOverview();
   renderArchive();
@@ -738,6 +821,10 @@ function deleteHabit(habitId) {
   state.habits = state.habits.filter((item) => item.id !== habitId);
 }
 
+function deleteGoal(goalId) {
+  state.goals = state.goals.filter((item) => item.id !== goalId);
+}
+
 function openDateTasks(dateKey) {
   activeDate = dateKey;
   activeView = "tasks";
@@ -776,11 +863,18 @@ function attachTaskDropZone(element, dateKey) {
 }
 
 function attachTaskChipDrag(chip) {
+  chip.tabIndex = 0;
+  chip.setAttribute("role", "button");
+  chip.setAttribute("aria-keyshortcuts", "Enter Space Alt+ArrowLeft Alt+ArrowRight Alt+ArrowUp Alt+ArrowDown");
+  chip.setAttribute(
+    "aria-label",
+    `${chip.textContent.trim()}. Enter открыть день. Alt и стрелки — перенести задачу по календарю.`,
+  );
   chip.addEventListener("click", (event) => {
     event.stopPropagation();
     openDateTasks(chip.dataset.date);
   });
-  chip.addEventListener("keydown", (event) => event.stopPropagation());
+  chip.addEventListener("keydown", (event) => handleTaskChipKeydown(event, chip));
   chip.addEventListener("pointerdown", (event) => {
     startCalendarPointerDrag(event, chip);
   });
@@ -800,6 +894,27 @@ function attachTaskChipDrag(chip) {
     chip.classList.remove("is-dragging");
     clearTaskDragState();
   });
+}
+
+function handleTaskChipKeydown(event, chip) {
+  event.stopPropagation();
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    openDateTasks(chip.dataset.date);
+    return;
+  }
+
+  if (!event.altKey) return;
+  const offsets = {
+    ArrowDown: 7,
+    ArrowLeft: -1,
+    ArrowRight: 1,
+    ArrowUp: -7,
+  };
+  const offset = offsets[event.key];
+  if (!offset || !chip.dataset.taskId || !chip.dataset.date) return;
+  event.preventDefault();
+  moveTaskToDate(chip.dataset.taskId, chip.dataset.date, addDays(chip.dataset.date, offset));
 }
 
 function getDraggedTaskTransfer(event) {
@@ -905,6 +1020,10 @@ function renderHabits() {
   habitsView.renderHabits();
 }
 
+function renderGoals() {
+  goalsView.renderGoals();
+}
+
 function createHabitNode(habit) {
   return habitsView.createHabitNode(habit);
 }
@@ -945,6 +1064,14 @@ function saveTaskFromForm(event) {
   taskFormController.saveTaskFromForm(event);
 }
 
+function saveGoalFromForm(event) {
+  goalsView.saveGoalFromForm(event);
+}
+
+function resetGoalForm() {
+  goalsView.resetGoalForm();
+}
+
 function saveQuickTask(event) {
   event.preventDefault();
   const undo = createUndoSnapshot();
@@ -960,6 +1087,9 @@ function saveQuickTask(event) {
     title: parsed.title,
     date: parsed.date,
     time: parsed.time,
+    scheduleMode: parsed.scheduleMode || "deadline",
+    startTime: parsed.startTime || "",
+    endTime: parsed.endTime || "",
     categoryId: parsed.categoryId,
     priority: parsed.priority,
     repeat: "none",
@@ -994,7 +1124,7 @@ function updateQuickTaskPreview() {
   const category = parsed.categoryId ? getCategory(parsed.categoryId)?.name : parsed.categoryName;
   const details = [
     formatLongDate(parsed.date),
-    parsed.time ? formatTaskTime(parsed.time) : "без времени",
+    parsed.scheduleMode === "block" ? formatTaskWindow(parsed) : parsed.time ? formatTaskTime(parsed.time) : "без времени",
     category || "без категории",
     priorityLabels[parsed.priority],
   ];
@@ -1060,7 +1190,7 @@ function setCustomRepeatForm(value = {}) {
 }
 
 function syncCustomRepeatPanel() {
-  const isCustom = els.taskRepeat.value === "custom";
+  const isCustom = els.taskRepeat.value === "custom" && interfaceMode === "advanced";
   els.customRepeatPanel.hidden = !isCustom;
   if (isCustom) updateCustomRepeatSummary();
 }
@@ -1115,7 +1245,7 @@ function setHabitCustomRepeatForm(value = {}) {
 }
 
 function syncHabitCustomRepeatPanel() {
-  const isCustom = els.habitRepeat.value === "custom";
+  const isCustom = els.habitRepeat.value === "custom" && interfaceMode === "advanced";
   els.habitCustomRepeatPanel.hidden = !isCustom;
   if (isCustom) updateHabitCustomRepeatSummary();
 }
@@ -1132,6 +1262,22 @@ function setHabitCustomRepeatMode(mode = "weekdays") {
 
 function updateHabitCustomRepeatSummary() {
   els.habitCustomRepeatSummary.textContent = window.RhythmRecurrence.customRepeatLabel(getHabitCustomRepeatFromForm());
+}
+
+function getTaskScheduleMode() {
+  return els.taskScheduleBlock?.checked ? "block" : "deadline";
+}
+
+function setTaskScheduleMode(mode = "deadline") {
+  const isBlock = mode === "block";
+  if (els.taskScheduleDeadline) els.taskScheduleDeadline.checked = !isBlock;
+  if (els.taskScheduleBlock) els.taskScheduleBlock.checked = isBlock;
+}
+
+function syncTaskScheduleMode() {
+  const isBlock = getTaskScheduleMode() === "block";
+  if (els.taskDeadlineTimeField) els.taskDeadlineTimeField.hidden = isBlock;
+  if (els.taskBlockTimeFields) els.taskBlockTimeFields.hidden = !isBlock;
 }
 
 function fillTaskForm(task) {
@@ -1168,7 +1314,7 @@ function moveTaskTime(taskId, targetTime) {
 
 function shiftTaskTime(taskId, offsetMinutes) {
   const task = state.tasks.find((item) => item.id === taskId);
-  const currentMinutes = timeToMinutes(task?.time);
+  const currentMinutes = timeToMinutes(taskSortTime(task));
   if (!Number.isFinite(currentMinutes)) return;
   const nextMinutes = Math.max(0, Math.min(23 * 60 + 59, currentMinutes + offsetMinutes));
   updateTaskTime(taskId, minutesToTime(nextMinutes), `Перенесено на ${formatTime(minutesToTime(nextMinutes))}`);
@@ -1181,14 +1327,45 @@ function setTaskTime(taskId, targetTime) {
 function updateTaskTime(taskId, targetTime, message) {
   const task = state.tasks.find((item) => item.id === taskId);
   const nextTime = cleanTimeValue(targetTime);
-  if (!task || !nextTime || task.time === nextTime) return;
+  if (!task || !nextTime || taskSortTime(task) === nextTime) return;
 
   const undo = createUndoSnapshot();
-  task.time = nextTime;
+  if (isTimeBlock(task)) {
+    const duration = timeToMinutes(task.endTime) - timeToMinutes(task.startTime);
+    const nextStart = timeToMinutes(nextTime);
+    const nextEnd = Math.min(23 * 60 + 59, nextStart + duration);
+    task.startTime = minutesToTime(Math.max(0, nextEnd - duration));
+    task.endTime = minutesToTime(nextEnd);
+    task.time = task.endTime;
+    task.scheduleMode = "block";
+  } else {
+    task.time = nextTime;
+    task.scheduleMode = "deadline";
+    task.startTime = "";
+    task.endTime = "";
+  }
   if (task.notified) delete task.notified[activeDate];
   saveState();
   render();
   showToast(message || "Время задачи обновлено", { undo });
+}
+
+function resizeTaskBlockTime(taskId, startTime, endTime) {
+  const task = state.tasks.find((item) => item.id === taskId);
+  if (!task || !isValidTimeBlock(startTime, endTime)) return;
+  const nextStart = cleanTimeValue(startTime);
+  const nextEnd = cleanTimeValue(endTime);
+  if (task.startTime === nextStart && task.endTime === nextEnd) return;
+
+  const undo = createUndoSnapshot();
+  task.scheduleMode = "block";
+  task.startTime = nextStart;
+  task.endTime = nextEnd;
+  task.time = nextEnd;
+  if (task.notified) delete task.notified[activeDate];
+  saveState();
+  render();
+  showToast(`Блок обновлен: ${formatTaskWindow(task)}`, { undo });
 }
 
 function exportData() {
@@ -1325,7 +1502,7 @@ function sortTasks(a, b, orderMap = new Map()) {
   const hasManualOrder = manualRankA !== undefined || manualRankB !== undefined;
   const priorityWeight = { high: 0, medium: 1, low: 2 };
   const priorityDiff = (priorityWeight[a.priority] ?? 1) - (priorityWeight[b.priority] ?? 1);
-  const timeDiff = timeValue(a.time).localeCompare(timeValue(b.time));
+  const timeDiff = timeValue(taskSortTime(a)).localeCompare(timeValue(taskSortTime(b)));
   const categoryDiff = categoryLabel(a).localeCompare(categoryLabel(b), "ru");
 
   if (hasManualOrder) {
@@ -1340,10 +1517,10 @@ function sortTasks(a, b, orderMap = new Map()) {
 function taskDetails(task) {
   const details = [];
   const category = getCategory(task.categoryId);
-  if (task.time) details.push(formatTaskTime(task.time));
+  if (taskHasSchedule(task)) details.push(formatTaskScheduleLabel(task));
   if (category) details.push(category.name);
   if (task.repeat !== "none") details.push(formatTaskRepeat(task));
-  if (task.time && task.reminderOffset !== "none") details.push(reminderLabel(task.reminderOffset));
+  if (taskHasSchedule(task) && task.reminderOffset !== "none") details.push(reminderLabel(task.reminderOffset));
   return details;
 }
 
@@ -1362,7 +1539,10 @@ function taskMatchesSearch(task, query, dateKey = "") {
     priorityLabels[task.priority],
     formatTaskRepeat(task),
     task.time,
+    task.startTime,
+    task.endTime,
     formatTime(task.time),
+    formatTaskScheduleLabel(task),
     dateKey,
     dateKey ? formatLongDate(dateKey) : "",
     task.reminderOffset !== "none" ? reminderLabel(task.reminderOffset) : "",
@@ -1394,9 +1574,9 @@ function taskMetaMarkup(task) {
     `);
   }
 
-  if (task.time) chips.push(`<span class="task-meta-chip">${escapeHtml(formatTaskTime(task.time))}</span>`);
+  if (taskHasSchedule(task)) chips.push(`<span class="task-meta-chip">${escapeHtml(formatTaskScheduleLabel(task))}</span>`);
   if (task.repeat !== "none") chips.push(`<span class="task-meta-chip">${escapeHtml(formatTaskRepeat(task))}</span>`);
-  if (task.time && task.reminderOffset !== "none") {
+  if (taskHasSchedule(task) && task.reminderOffset !== "none") {
     chips.push(`<span class="task-meta-chip">${escapeHtml(reminderLabel(task.reminderOffset))}</span>`);
   }
 
@@ -1554,6 +1734,7 @@ function saveUiState() {
     backupSchedule,
     densityPreference,
     firstDayOfWeek,
+    interfaceMode,
     notificationSetting,
     taskCategoryFilter,
     taskSearchQuery,
@@ -1583,6 +1764,10 @@ function normalizeDensityPreference(value) {
   return value === "compact" ? "compact" : "comfortable";
 }
 
+function normalizeInterfaceMode(value) {
+  return value === "advanced" ? "advanced" : "simple";
+}
+
 function normalizeTimeFormat(value) {
   return value === "12" ? "12" : "24";
 }
@@ -1597,11 +1782,18 @@ function applyThemePreference() {
 
 function applySettingsPreferences() {
   document.documentElement.dataset.density = densityPreference;
+  document.documentElement.dataset.interfaceMode = interfaceMode;
   if (els.notificationSetting) els.notificationSetting.value = notificationSetting;
   if (els.backupSchedule) els.backupSchedule.value = backupSchedule;
   if (els.firstDayOfWeek) els.firstDayOfWeek.value = firstDayOfWeek;
   if (els.densityPreference) els.densityPreference.value = densityPreference;
+  if (els.interfaceMode) els.interfaceMode.value = interfaceMode;
   if (els.timeFormat) els.timeFormat.value = timeFormat;
+  syncCustomRepeatPanel();
+  syncHabitCustomRepeatPanel();
+  if (els.goalAdvancedPanel && !els.goalId?.value) {
+    els.goalAdvancedPanel.open = interfaceMode === "advanced";
+  }
 }
 
 function getUiSettings() {
@@ -1609,6 +1801,7 @@ function getUiSettings() {
     backupSchedule,
     densityPreference,
     firstDayOfWeek,
+    interfaceMode,
     notificationSetting,
     themePreference,
     timeFormat,
@@ -1652,6 +1845,14 @@ function updateSetting(name, value) {
       saveUiState();
       settingsController.syncControls();
       showToast("Плотность интерфейса обновлена");
+      break;
+    case "interfaceMode":
+      interfaceMode = normalizeInterfaceMode(value);
+      applySettingsPreferences();
+      saveUiState();
+      settingsController.syncControls();
+      render();
+      showToast(interfaceMode === "advanced" ? "Расширенный режим включен" : "Простой режим включен");
       break;
     case "timeFormat":
       timeFormat = normalizeTimeFormat(value);
@@ -1712,6 +1913,7 @@ async function resetInterfaceSettings() {
 
   themePreference = "dark";
   densityPreference = "comfortable";
+  interfaceMode = "simple";
   timeFormat = "24";
   firstDayOfWeek = "monday";
   applyThemePreference();
@@ -1728,6 +1930,7 @@ function applyImportedSettings(settings = {}) {
   backupSchedule = normalizeBackupSchedule(settings.backupSchedule);
   firstDayOfWeek = normalizeFirstDayOfWeek(settings.firstDayOfWeek);
   densityPreference = normalizeDensityPreference(settings.densityPreference);
+  interfaceMode = normalizeInterfaceMode(settings.interfaceMode);
   timeFormat = normalizeTimeFormat(settings.timeFormat);
   applyThemePreference();
   applySettingsPreferences();
@@ -1821,6 +2024,33 @@ function formatTaskTime(value) {
   return formatted ? `до ${formatted}` : "";
 }
 
+function isTimeBlock(task) {
+  return task?.scheduleMode === "block" && isValidTimeBlock(task.startTime, task.endTime);
+}
+
+function isValidTimeBlock(startTime, endTime) {
+  const start = timeToMinutes(startTime);
+  const end = timeToMinutes(endTime);
+  return Number.isFinite(start) && Number.isFinite(end) && end > start;
+}
+
+function taskHasSchedule(task) {
+  return isTimeBlock(task) || Boolean(cleanTimeValue(task?.time));
+}
+
+function taskSortTime(task) {
+  return isTimeBlock(task) ? task.startTime : task?.time || "";
+}
+
+function formatTaskWindow(task) {
+  if (!isValidTimeBlock(task?.startTime, task?.endTime)) return "";
+  return `${formatTime(task.startTime)}-${formatTime(task.endTime)}`;
+}
+
+function formatTaskScheduleLabel(task) {
+  return isTimeBlock(task) ? formatTaskWindow(task) : formatTaskTime(task.time);
+}
+
 function parseQuickTaskInput(value) {
   return window.RhythmQuickInput.parseQuickTaskInput(value, {
     activeDate,
@@ -1862,7 +2092,7 @@ function normalizeReminderOffset(value, hasTime = true) {
 }
 
 function syncTaskTimePresets() {
-  const time = cleanTimeValue(els.taskTime.value);
+  const time = getTaskScheduleMode() === "block" ? cleanTimeValue(els.taskStartTime.value) : cleanTimeValue(els.taskTime.value);
   document.querySelectorAll("[data-time-preset]").forEach((button) => {
     const preset = button.dataset.timePreset || "";
     button.classList.toggle("is-active", preset === time);
@@ -1921,7 +2151,7 @@ function seedIfEmpty() {
     );
   }
 
-  if (state.tasks.length || state.habits.length) {
+  if (state.tasks.length || state.habits.length || state.goals.length) {
     saveState();
     return;
   }

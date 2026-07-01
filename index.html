@@ -5,8 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#0b100f">
     <title>Ритм дня</title>
+    <link rel="icon" href="data:,">
     <link rel="manifest" href="manifest.webmanifest">
-    <link rel="stylesheet" href="styles.css?v=13">
+    <link rel="stylesheet" href="styles.css?v=15">
   </head>
   <body>
     <svg class="icon-sprite" aria-hidden="true">
@@ -31,6 +32,7 @@
       <symbol id="icon-settings" viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1A2 2 0 0 1 4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1A2 2 0 0 1 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.6V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1A2 2 0 0 1 19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.1a2 2 0 0 1 0 4H21a1.7 1.7 0 0 0-1.6 1Z"/></symbol>
       <symbol id="icon-skip" viewBox="0 0 24 24"><path d="M7 4v16"/><path d="m11 7 5 5-5 5"/><path d="M18 5v14"/></symbol>
       <symbol id="icon-tasks" viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12"/><path d="m3 6 1 1 2-2M3 12l1 1 2-2M3 18l1 1 2-2"/></symbol>
+      <symbol id="icon-target" viewBox="0 0 24 24"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z"/><path d="M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z"/><path d="M12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z"/></symbol>
       <symbol id="icon-trash" viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/><path d="M10 11v5M14 11v5"/></symbol>
       <symbol id="icon-upload" viewBox="0 0 24 24"><path d="M12 21V9"/><path d="m7 14 5-5 5 5"/><path d="M5 4h14"/></symbol>
     </svg>
@@ -59,6 +61,10 @@
           <button class="nav-tab" data-view="habits" type="button">
             <svg class="ui-icon"><use href="#icon-habit"></use></svg>
             <span>Привычки</span>
+          </button>
+          <button class="nav-tab" data-view="goals" type="button">
+            <svg class="ui-icon"><use href="#icon-target"></use></svg>
+            <span>Цели</span>
           </button>
           <button class="nav-tab" data-view="overview" type="button">
             <svg class="ui-icon"><use href="#icon-heat"></use></svg>
@@ -95,9 +101,9 @@
             <svg class="ui-icon"><use href="#icon-rotate"></use></svg>
             Восстановить
           </button>
-          <div class="storage-note" id="backupStatus">Бэкап еще не создан</div>
+          <div class="storage-note" id="backupStatus" aria-live="polite" aria-atomic="true">Бэкап еще не создан</div>
           <button class="ghost-button compact-button" id="openBackupFolderButton" type="button" hidden>Папка бэкапов</button>
-          <div class="storage-note" id="fileBackupStatus" hidden>Файловый бэкап недоступен</div>
+          <div class="storage-note" id="fileBackupStatus" aria-live="polite" aria-atomic="true" hidden>Файловый бэкап недоступен</div>
           <input id="importFile" type="file" accept="application/json,.json" hidden>
         </div>
 
@@ -190,7 +196,7 @@
           <form class="quick-task-form" id="quickTaskForm">
             <label class="quick-task-input">
               <span>Быстрый ввод</span>
-              <input id="quickTaskInput" type="text" autocomplete="off" placeholder="Позвонить врачу завтра 10:00 #здоровье !high">
+              <input id="quickTaskInput" type="text" autocomplete="off" placeholder="Созвон завтра 14:00-15:30 #работа !high">
             </label>
             <button class="primary-button compact-button" type="submit">Добавить</button>
             <div class="quick-task-preview" id="quickTaskPreview" hidden></div>
@@ -244,16 +250,36 @@
                   <div class="deadline-card">
                     <div class="deadline-title">
                       <svg class="ui-icon"><use href="#icon-clock"></use></svg>
-                      Дедлайн
+                      Время
+                    </div>
+                    <div class="schedule-mode-control" aria-label="Тип времени задачи">
+                      <label>
+                        <input id="taskScheduleDeadline" type="radio" name="taskScheduleMode" value="deadline" checked>
+                        <span>Дедлайн</span>
+                      </label>
+                      <label>
+                        <input id="taskScheduleBlock" type="radio" name="taskScheduleMode" value="block">
+                        <span>Временной блок</span>
+                      </label>
                     </div>
                     <div class="form-grid">
                       <label>
                         Дата
                         <input id="taskDate" type="date" required>
                       </label>
-                      <label>
+                      <label id="taskDeadlineTimeField">
                         Время
                         <input id="taskTime" type="time" step="300">
+                      </label>
+                    </div>
+                    <div class="form-grid" id="taskBlockTimeFields" hidden>
+                      <label>
+                        Начало
+                        <input id="taskStartTime" type="time" step="300">
+                      </label>
+                      <label>
+                        Конец
+                        <input id="taskEndTime" type="time" step="300">
                       </label>
                     </div>
                     <div class="time-presets" aria-label="Быстрый выбор времени">
@@ -377,11 +403,11 @@
               <h2 id="timelineHeading">Таймлайн дня</h2>
               <p class="muted">Задачи с временем разложены по часам выбранного дня.</p>
             </div>
-            <span class="task-counter" id="timelineSummary">0 по времени · 0 без времени</span>
+            <span class="task-counter" id="timelineSummary" aria-live="polite" aria-atomic="true">0 по времени · 0 без времени</span>
           </div>
 
           <section class="panel timeline-panel">
-            <div class="timeline-grid" id="timelineGrid"></div>
+            <div class="timeline-grid" id="timelineGrid" role="region" aria-label="Задачи по времени"></div>
             <div class="empty-state" id="timelineEmpty">На выбранный день задач пока нет.</div>
           </section>
 
@@ -392,7 +418,7 @@
                 <h2>Задачи без точного часа</h2>
               </div>
             </div>
-            <div class="timeline-unscheduled-list" id="timelineUnscheduledList"></div>
+            <div class="timeline-unscheduled-list" id="timelineUnscheduledList" role="list" aria-label="Задачи без времени"></div>
           </section>
         </section>
 
@@ -499,6 +525,96 @@
                   <div class="form-actions">
                     <button class="primary-button" type="submit">Сохранить</button>
                     <button class="ghost-button" id="resetHabitForm" type="button">Очистить</button>
+                  </div>
+                </form>
+              </section>
+            </aside>
+          </div>
+        </section>
+
+        <section class="view" id="goalsView" aria-labelledby="goalsHeading">
+          <div class="toolbar">
+            <div>
+              <h2 id="goalsHeading">Цели</h2>
+              <p class="muted">Большие результаты со сроком, статусом и спокойным контролем прогресса.</p>
+            </div>
+            <button class="primary-button icon-text-button" id="openGoalForm" type="button">
+              <svg class="ui-icon"><use href="#icon-plus"></use></svg>
+              Новая цель
+            </button>
+          </div>
+
+          <div class="goal-metrics">
+            <article class="panel goal-metric">
+              <span class="metric-label">Активные</span>
+              <strong id="goalActiveMetric">0</strong>
+            </article>
+            <article class="panel goal-metric goal-metric-alert">
+              <span class="metric-label">Просрочены</span>
+              <strong id="goalOverdueMetric">0</strong>
+            </article>
+            <article class="panel goal-metric goal-metric-done">
+              <span class="metric-label">Готово</span>
+              <strong id="goalDoneMetric">0</strong>
+            </article>
+          </div>
+
+          <div class="split-layout goals-layout">
+            <section class="panel main-panel">
+              <div class="goal-list" id="goalList"></div>
+              <div class="empty-state" id="goalEmpty">Добавь первую цель и срок, до которого хочешь ее закрыть.</div>
+            </section>
+
+            <aside class="right-rail">
+              <section class="panel form-panel" id="goalFormPanel" aria-labelledby="goalFormHeading">
+                <div class="panel-heading compact">
+                  <div>
+                    <span class="metric-label">План</span>
+                    <h2 id="goalFormHeading">Новая цель</h2>
+                  </div>
+                  <button class="icon-button subtle" id="closeGoalForm" type="button" aria-label="Закрыть форму">×</button>
+                </div>
+                <form id="goalForm" class="stack-form">
+                  <input type="hidden" id="goalId">
+                  <label>
+                    Название
+                    <input id="goalTitle" type="text" maxlength="100" required placeholder="Например: запустить портфолио">
+                  </label>
+                  <label>
+                    Срок
+                    <input id="goalDueDate" type="date" required>
+                  </label>
+                  <label>
+                    Почему это важно
+                    <textarea id="goalWhy" maxlength="260" rows="3" required placeholder="Зачем тебе эта цель и как она связана с жизнью или ростом"></textarea>
+                  </label>
+                  <label>
+                    Шаги прогресса
+                    <textarea id="goalSteps" maxlength="600" rows="5" placeholder="Каждый шаг с новой строки:&#10;Дизайн&#10;Верстка&#10;Деплой"></textarea>
+                  </label>
+                  <details class="advanced-panel smart-card" id="goalAdvancedPanel">
+                    <summary class="advanced-summary">
+                      <span>Подробнее</span>
+                      <strong>SMART-проверка</strong>
+                    </summary>
+                    <div class="advanced-body">
+                      <label>
+                        Конкретный результат
+                        <textarea id="goalDescription" maxlength="240" rows="3" placeholder="Что именно должно быть готово или измениться"></textarea>
+                      </label>
+                      <label>
+                        Измеримый результат
+                        <input id="goalMeasure" type="text" maxlength="120" placeholder="Например: 5 кейсов в портфолио или -5 кг">
+                      </label>
+                      <label>
+                        Реалистичность
+                        <textarea id="goalReality" maxlength="240" rows="3" placeholder="Какие ресурсы, время или опыт помогут это выполнить"></textarea>
+                      </label>
+                    </div>
+                  </details>
+                  <div class="form-actions">
+                    <button class="primary-button" type="submit">Сохранить</button>
+                    <button class="ghost-button" id="resetGoalForm" type="button">Очистить</button>
                   </div>
                 </form>
               </section>
@@ -653,6 +769,16 @@
               </label>
               <label class="settings-row">
                 <span>
+                  <strong>Режим интерфейса</strong>
+                  <small>Простой прячет дополнительные поля. Расширенный показывает SMART, кастомные повторы и тонкие настройки.</small>
+                </span>
+                <select id="interfaceMode" aria-label="Режим интерфейса">
+                  <option value="simple">Простой</option>
+                  <option value="advanced">Расширенный</option>
+                </select>
+              </label>
+              <label class="settings-row">
+                <span>
                   <strong>Формат времени</strong>
                   <small>Меняет отображение времени в карточках и таймлайне.</small>
                 </span>
@@ -700,7 +826,7 @@
                 <button class="ghost-button compact-button" id="settingsRestoreBackupButton" type="button">Восстановить</button>
                 <button class="ghost-button compact-button" id="settingsOpenBackupFolderButton" type="button">Папка бэкапов</button>
               </div>
-              <p class="settings-status" id="settingsBackupStatus">Авто-бэкап ожидает расписание</p>
+              <p class="settings-status" id="settingsBackupStatus" aria-live="polite" aria-atomic="true">Авто-бэкап ожидает расписание</p>
               <div class="settings-actions">
                 <button class="ghost-button compact-button" id="settingsExportSettingsButton" type="button">Экспорт настроек</button>
                 <button class="ghost-button compact-button" id="settingsImportSettingsButton" type="button">Импорт настроек</button>
@@ -803,25 +929,26 @@
       </article>
     </template>
 
-    <script src="quick-input.js?v=1" defer></script>
+    <script src="quick-input.js?v=2" defer></script>
     <script src="recurrence.js?v=1" defer></script>
-    <script src="state-normalizer.js?v=1" defer></script>
+    <script src="state-normalizer.js?v=2" defer></script>
     <script src="storage.js?v=1" defer></script>
     <script src="archive-view.js?v=1" defer></script>
     <script src="heatmap-view.js?v=3" defer></script>
     <script src="calendar-view.js?v=2" defer></script>
-    <script src="confirm-dialog.js?v=1" defer></script>
+    <script src="confirm-dialog.js?v=2" defer></script>
     <script src="categories.js?v=2" defer></script>
+    <script src="goals-view.js?v=3" defer></script>
     <script src="habit-form.js?v=1" defer></script>
     <script src="habits-view.js?v=1" defer></script>
-    <script src="import-export.js?v=2" defer></script>
+    <script src="import-export.js?v=3" defer></script>
     <script src="notifications.js?v=1" defer></script>
-    <script src="task-form.js?v=1" defer></script>
+    <script src="task-form.js?v=2" defer></script>
     <script src="tasks-view.js?v=2" defer></script>
-    <script src="task-moves.js?v=1" defer></script>
-    <script src="settings-controller.js?v=1" defer></script>
-    <script src="timeline-view.js?v=2" defer></script>
+    <script src="task-moves.js?v=2" defer></script>
+    <script src="settings-controller.js?v=2" defer></script>
+    <script src="timeline-view.js?v=4" defer></script>
     <script src="toast.js?v=1" defer></script>
-    <script src="app.js?v=14" defer></script>
+    <script src="app.js?v=18" defer></script>
   </body>
 </html>

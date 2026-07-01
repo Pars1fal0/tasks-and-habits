@@ -25,6 +25,7 @@
       "CHANGELOG.md",
       "confirm-dialog.js",
       "desktop/**/*",
+      "goals-view.js",
       "habit-form.js",
       "heatmap-view.js",
       "icon.svg",

@@ -74,9 +74,19 @@
     }
 
     async function openBackupFolder() {
-      if (!window.rhythmDesktop?.openBackupFolder) return;
-      const result = await window.rhythmDesktop.openBackupFolder();
-      ctx.showToast(result?.ok ? "Папка бэкапов открыта" : "Не удалось открыть папку бэкапов");
+      if (!window.rhythmDesktop?.openBackupFolder) {
+        ctx.showToast("Папка бэкапов доступна в desktop-версии приложения");
+        return { ok: false, reason: "desktop-unavailable" };
+      }
+
+      try {
+        const result = await window.rhythmDesktop.openBackupFolder();
+        ctx.showToast(result?.ok ? "Папка бэкапов открыта" : "Не удалось открыть папку бэкапов");
+        return result;
+      } catch {
+        ctx.showToast("Не удалось открыть папку бэкапов");
+        return { ok: false, reason: "open-failed" };
+      }
     }
 
     function createBackup({ payload = null, silent = false, throttle = false } = {}) {

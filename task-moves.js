@@ -16,7 +16,12 @@
     task.completed = task.completed || {};
     task.notified = task.notified || {};
     task.date = targetDateKey;
-    if (options.clearTime) task.time = "";
+    if (options.clearTime) {
+      task.time = "";
+      task.scheduleMode = "deadline";
+      task.startTime = "";
+      task.endTime = "";
+    }
     delete task.completed?.[sourceDateKey];
     delete task.notified?.[sourceDateKey];
     removeTaskFromOrder(state, task.id, sourceDateKey);
@@ -38,6 +43,9 @@
       title: task.title,
       date: targetDateKey,
       time: options.clearTime ? "" : task.time,
+      scheduleMode: options.clearTime ? "deadline" : task.scheduleMode || "deadline",
+      startTime: options.clearTime ? "" : task.startTime || "",
+      endTime: options.clearTime ? "" : task.endTime || "",
       categoryId: task.categoryId,
       priority: task.priority,
       repeat: "none",
