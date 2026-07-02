@@ -8,6 +8,11 @@ const storage = window.RhythmStorage.createLocalStorageAdapter({
   appName: "Ритм дня",
   schemaVersion: SCHEMA_VERSION,
 });
+const settingsState = window.RhythmSettingsState.createSettingsState({
+  cleanText,
+  normalizeRemoteUserKey: window.RhythmRemoteSync.normalizeUserKey,
+  validBackupSchedules: VALID_BACKUP_SCHEDULES,
+});
 const stateNormalizer = window.RhythmStateNormalizer.createStateNormalizer({
   schemaVersion: SCHEMA_VERSION,
   validPriorities: VALID_PRIORITIES,
@@ -49,6 +54,7 @@ let remoteSyncUserKey = normalizeRemoteUserKey(initialUiState.remoteSyncUserKey 
 let remoteSyncLastPushedAt = initialUiState.remoteSyncLastPushedAt || "";
 let remoteSyncLastPulledAt = initialUiState.remoteSyncLastPulledAt || "";
 let remoteSyncLastError = "";
+let localStateUpdatedAt = initialUiState.localStateUpdatedAt || "";
 let draggedTaskId = null;
 let draggedTaskDate = "";
 let pointerDragTask = null;
@@ -276,7 +282,7 @@ const tasksView = window.RhythmTasksView.createTasksView({
   },
   overdueTaskEntries,
   postponeTask,
-  render,
+  render: renderTaskSurfaces,
   reorderTask,
   restoreTaskDate,
   saveState,
@@ -302,7 +308,7 @@ const habitsView = window.RhythmHabitsView.createHabitsView({
   getState: () => state,
   habitStreak,
   habitsForDate,
-  render,
+  render: renderHabitSurfaces,
   renderDailyPulse,
   renderOverview,
   saveState,
@@ -319,7 +325,7 @@ const goalsView = window.RhythmGoalsView.createGoalsView({
   getInterfaceMode: () => interfaceMode,
   getState: () => state,
   normalizeDateKey,
-  render,
+  render: renderGoalSurfaces,
   saveState,
   showToast,
   toDateKey,
@@ -384,7 +390,7 @@ const timelineController = window.RhythmTimelineController.createTimelineControl
   },
   minutesToTime,
   openFloatingTaskForm,
-  render,
+  render: renderTaskSurfaces,
   resetTaskForm,
   saveState,
   setTaskScheduleMode,
@@ -427,7 +433,7 @@ const archiveView = window.RhythmArchiveView.createArchiveView({
   getCategory,
   matchesCategoryFilter,
   priorityLabels,
-  render,
+  render: renderTaskSurfaces,
   saveState,
   showToast,
 });
@@ -805,6 +811,24 @@ function render() {
   renderWeekdayLabels();
   renderOverview();
   renderArchive();
+}
+
+function renderTaskSurfaces() {
+  renderDailyPulse();
+  renderTasks();
+  renderTimeline();
+  renderOverview();
+  renderArchive();
+}
+
+function renderHabitSurfaces() {
+  renderDailyPulse();
+  renderHabits();
+  renderOverview();
+}
+
+function renderGoalSurfaces() {
+  renderGoals();
 }
 
 function renderDailyPulse() {
@@ -1782,6 +1806,7 @@ function saveUiState() {
     densityPreference,
     firstDayOfWeek,
     interfaceMode,
+    localStateUpdatedAt,
     notificationSetting,
     remoteSyncAnonKey,
     remoteSyncEnabled,
@@ -1797,36 +1822,35 @@ function saveUiState() {
 }
 
 function normalizeThemePreference(value) {
-  return ["dark", "light", "system"].includes(value) ? value : "dark";
+  return settingsState.normalizeThemePreference(value);
 }
 
 function normalizeNotificationSetting(value) {
-  return value === "off" ? "off" : "on";
+  return settingsState.normalizeNotificationSetting(value);
 }
 
 function normalizeBackupSchedule(value) {
-  const schedule = String(value ?? "5");
-  return VALID_BACKUP_SCHEDULES.includes(schedule) ? schedule : "5";
+  return settingsState.normalizeBackupSchedule(value);
 }
 
 function normalizeFirstDayOfWeek(value) {
-  return value === "sunday" ? "sunday" : "monday";
+  return settingsState.normalizeFirstDayOfWeek(value);
 }
 
 function normalizeDensityPreference(value) {
-  return value === "compact" ? "compact" : "comfortable";
+  return settingsState.normalizeDensityPreference(value);
 }
 
 function normalizeInterfaceMode(value) {
-  return value === "advanced" ? "advanced" : "simple";
+  return settingsState.normalizeInterfaceMode(value);
 }
 
 function normalizeTimeFormat(value) {
-  return value === "12" ? "12" : "24";
+  return settingsState.normalizeTimeFormat(value);
 }
 
 function normalizeRemoteSyncEnabled(value) {
-  return value === true || value === "on" ? "on" : "off";
+  return settingsState.normalizeRemoteSyncEnabled(value);
 }
 
 function normalizeRemoteUserKey(value) {
@@ -1867,6 +1891,7 @@ function getUiSettings() {
     densityPreference,
     firstDayOfWeek,
     interfaceMode,
+    localStateUpdatedAt,
     notificationSetting,
     remoteSyncAnonKey,
     remoteSyncEnabled,
@@ -1877,6 +1902,10 @@ function getUiSettings() {
     themePreference,
     timeFormat,
   };
+}
+
+function getRemoteUiSettings(overrides = {}) {
+  return settingsState.createRemoteUiSettings(getUiSettings(), overrides);
 }
 
 function updateSetting(name, value) {
@@ -2030,19 +2059,21 @@ async function resetInterfaceSettings() {
 }
 
 function applyImportedSettings(settings = {}) {
-  themePreference = normalizeThemePreference(settings.themePreference);
-  notificationSetting = normalizeNotificationSetting(settings.notificationSetting);
-  backupSchedule = normalizeBackupSchedule(settings.backupSchedule);
-  firstDayOfWeek = normalizeFirstDayOfWeek(settings.firstDayOfWeek);
-  densityPreference = normalizeDensityPreference(settings.densityPreference);
-  interfaceMode = normalizeInterfaceMode(settings.interfaceMode);
-  timeFormat = normalizeTimeFormat(settings.timeFormat);
-  remoteSyncEnabled = normalizeRemoteSyncEnabled(settings.remoteSyncEnabled);
-  remoteSyncUrl = cleanText(settings.remoteSyncUrl || "");
-  remoteSyncAnonKey = cleanText(settings.remoteSyncAnonKey || "");
-  remoteSyncUserKey = normalizeRemoteUserKey(settings.remoteSyncUserKey || "");
-  remoteSyncLastPulledAt = settings.remoteSyncLastPulledAt || "";
-  remoteSyncLastPushedAt = settings.remoteSyncLastPushedAt || "";
+  const normalized = settingsState.normalizeImportedSettings(settings);
+  themePreference = normalized.themePreference;
+  notificationSetting = normalized.notificationSetting;
+  backupSchedule = normalized.backupSchedule;
+  firstDayOfWeek = normalized.firstDayOfWeek;
+  densityPreference = normalized.densityPreference;
+  interfaceMode = normalized.interfaceMode;
+  timeFormat = normalized.timeFormat;
+  remoteSyncEnabled = normalized.remoteSyncEnabled;
+  remoteSyncUrl = normalized.remoteSyncUrl;
+  remoteSyncAnonKey = normalized.remoteSyncAnonKey;
+  remoteSyncUserKey = normalized.remoteSyncUserKey;
+  remoteSyncLastPulledAt = normalized.remoteSyncLastPulledAt;
+  remoteSyncLastPushedAt = normalized.remoteSyncLastPushedAt;
+  localStateUpdatedAt = normalized.localStateUpdatedAt || localStateUpdatedAt;
   remoteSyncLastError = "";
   applyThemePreference();
   applySettingsPreferences();
@@ -2128,12 +2159,14 @@ async function pushRemoteState(options = {}) {
   remoteSyncLastError = "";
   renderRemoteSyncStatus();
   try {
+    const canPush = await confirmRemoteOverwriteIfNeeded({ manual });
+    if (!canPush) return;
     const pushedAt = new Date().toISOString();
     await remoteSync.pushState(getRemoteSyncConfig(), {
       clientUpdatedAt: pushedAt,
       schemaVersion: SCHEMA_VERSION,
       state,
-      uiState: { ...getUiSettings(), remoteSyncLastPushedAt: pushedAt },
+      uiState: getRemoteUiSettings({ remoteSyncLastPushedAt: pushedAt }),
     });
     remoteSyncLastPushedAt = pushedAt;
     saveUiState();
@@ -2146,6 +2179,24 @@ async function pushRemoteState(options = {}) {
     settingsController.syncControls();
     renderRemoteSyncStatus();
   }
+}
+
+async function confirmRemoteOverwriteIfNeeded({ manual }) {
+  const remoteSnapshot = await remoteSync.pullState(getRemoteSyncConfig());
+  if (!remoteSnapshot.found || !remoteSnapshot.clientUpdatedAt) return true;
+  if (!settingsState.isRemoteVersionNewer(remoteSnapshot.clientUpdatedAt, remoteSyncLastPulledAt, remoteSyncLastPushedAt)) return true;
+  const remoteDate = formatBackupDate(remoteSnapshot.clientUpdatedAt);
+  if (!manual) {
+    remoteSyncLastError = `удаленная версия новее (${remoteDate}); нажми "Загрузить из БД" или подтверди ручное сохранение`;
+    return false;
+  }
+
+  return confirmAction({
+    confirmLabel: "Перезаписать БД",
+    message: `В БД есть версия от ${remoteDate}, которую это устройство еще не загружало. Если продолжить, она будет перезаписана текущими локальными данными.`,
+    tone: "danger",
+    title: "Удаленная версия новее",
+  });
 }
 
 async function checkRemoteConnection(options = {}) {
@@ -2181,9 +2232,38 @@ async function pullRemoteState(options = {}) {
     return;
   }
 
+  if (remoteSyncInFlight) return;
+  remoteSyncInFlight = true;
+  remoteSyncLastError = "";
+  renderRemoteSyncStatus();
+  let pulled;
+  try {
+    pulled = await remoteSync.pullState(getRemoteSyncConfig());
+  } catch (error) {
+    remoteSyncLastError = describeRemoteSyncError(error);
+    showToast("Не удалось загрузить данные из БД");
+    remoteSyncInFlight = false;
+    settingsController.syncControls();
+    renderRemoteSyncStatus();
+    return;
+  }
+  remoteSyncInFlight = false;
+  settingsController.syncControls();
+  renderRemoteSyncStatus();
+
+  if (!pulled.found || !pulled.state) {
+    showToast("В БД пока нет сохраненных данных");
+    return;
+  }
+
+  const remoteDate = pulled.clientUpdatedAt ? formatBackupDate(pulled.clientUpdatedAt) : "неизвестно";
+  const localWarning =
+    localStateUpdatedAt && pulled.clientUpdatedAt && localStateUpdatedAt > pulled.clientUpdatedAt
+      ? ` Локальные данные новее удаленной версии (${formatBackupDate(localStateUpdatedAt)}).`
+      : "";
   const confirmed = await confirmAction({
     confirmLabel: "Загрузить",
-    message: "Локальные данные будут заменены состоянием из БД. Перед заменой приложение создаст safety backup.",
+    message: `Локальные данные будут заменены состоянием из БД от ${remoteDate}.${localWarning} Перед заменой приложение создаст safety backup.`,
     tone: "danger",
     title: "Загрузить данные из БД?",
   });
@@ -2193,16 +2273,12 @@ async function pullRemoteState(options = {}) {
   remoteSyncLastError = "";
   renderRemoteSyncStatus();
   try {
-    const pulled = await remoteSync.pullState(getRemoteSyncConfig());
-    if (!pulled.found || !pulled.state) {
-      showToast("В БД пока нет сохраненных данных");
-      return;
-    }
     const undo = createUndoSnapshot();
     createImportSafetyBackup({ state: JSON.stringify(state) });
     replaceState(pulled.state);
-    saveState({ skipBackup: true, skipRemote: true });
-    remoteSyncLastPulledAt = new Date().toISOString();
+    const pulledAt = new Date().toISOString();
+    remoteSyncLastPulledAt = pulledAt;
+    saveState({ localUpdatedAt: pulled.clientUpdatedAt || pulledAt, skipBackup: true, skipRemote: true });
     saveUiState();
     render();
     showToast("Данные загружены из БД", { undo });
@@ -2389,6 +2465,8 @@ function saveState(options = {}) {
     schemaVersion: SCHEMA_VERSION,
     skipBackup: options.skipBackup,
   });
+  localStateUpdatedAt = options.localUpdatedAt || new Date().toISOString();
+  saveUiState();
   if (!options.skipBackup) updateBackupStatus();
   syncDesktopReminders();
   if (!options.skipBackup) syncDesktopBackup();
