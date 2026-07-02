@@ -1,4 +1,4 @@
-(function (global) {
+﻿(function (global) {
   function createCalendarView(ctx) {
     const heatmapView = global.RhythmHeatmapView.createHeatmapView(ctx);
 
@@ -63,7 +63,7 @@
       return bar;
     }
 
-    function renderWeekBoard(week) {
+            function renderWeekBoard(week) {
       const activeDate = ctx.getActiveDate();
       ctx.els.weekBoardLabel.textContent = `${ctx.formatShortDate(week[0])} — ${ctx.formatShortDate(week[6])}`;
       ctx.els.weekBoardGrid.replaceChildren();
@@ -73,6 +73,11 @@
         const openTasks = tasks.filter((task) => !ctx.isTaskDone(task, dateKey));
         const doneCount = tasks.length - openTasks.length;
         const column = document.createElement("article");
+        const header = document.createElement("div");
+        const weekday = document.createElement("span");
+        const day = document.createElement("strong");
+        const count = document.createElement("div");
+        const list = document.createElement("div");
 
         column.className = "week-board-day calendar-drop-zone";
         column.dataset.date = dateKey;
@@ -81,32 +86,24 @@
         column.setAttribute("aria-label", `${ctx.formatLongDate(dateKey)}: ${openTasks.length} открыто, ${doneCount} готово`);
         column.classList.toggle("is-active", dateKey === activeDate);
         column.classList.toggle("is-today", dateKey === ctx.toDateKey(new Date()));
-        column.innerHTML = `
-          <div class="week-board-header">
-            <span>${ctx.formatWeekday(dateKey)}</span>
-            <strong>${ctx.parseDate(dateKey).getDate()}</strong>
-          </div>
-          <div class="week-board-count">${doneCount}/${tasks.length} выполнено</div>
-          <div class="week-board-list">
-            ${
-              tasks.length
-                ? tasks
-                    .map((task) => {
-                      const done = ctx.isTaskDone(task, dateKey);
-                      const category = ctx.getCategory(task.categoryId);
-                      return `
-                        <span class="week-task-chip month-task-chip${done ? " is-done" : ""}" draggable="true" data-task-id="${ctx.escapeHtml(task.id)}" data-date="${dateKey}">
-                          <span>${ctx.escapeHtml(task.title)}</span>
-                          <small>${ctx.escapeHtml(category?.name || ctx.priorityLabels[task.priority] || "Задача")}</small>
-                        </span>
-                      `;
-                    })
-                    .join("")
-                : `<span class="week-board-empty">Нет задач</span>`
-            }
-          </div>
-        `;
+        header.className = "week-board-header";
+        weekday.textContent = ctx.formatWeekday(dateKey);
+        day.textContent = String(ctx.parseDate(dateKey).getDate());
+        count.className = "week-board-count";
+        count.textContent = `${doneCount}/${tasks.length} выполнено`;
+        list.className = "week-board-list";
+        header.append(weekday, day);
 
+        if (tasks.length) {
+          tasks.forEach((task) => list.appendChild(createWeekTaskChip(task, dateKey)));
+        } else {
+          const empty = document.createElement("span");
+          empty.className = "week-board-empty";
+          empty.textContent = "Нет задач";
+          list.appendChild(empty);
+        }
+
+        column.append(header, count, list);
         column.addEventListener("click", () => ctx.openDateTasks(dateKey));
         column.addEventListener("keydown", (event) => {
           if (event.key !== "Enter" && event.key !== " ") return;
@@ -117,6 +114,20 @@
         column.querySelectorAll(".month-task-chip").forEach((chip) => ctx.attachTaskChipDrag(chip));
         ctx.els.weekBoardGrid.appendChild(column);
       });
+    }
+
+    function createWeekTaskChip(task, dateKey) {
+      const chip = createTaskChip(task, dateKey, "week-task-chip month-task-chip");
+      const title = document.createElement("span");
+      const meta = document.createElement("small");
+      const done = ctx.isTaskDone(task, dateKey);
+      const category = ctx.getCategory(task.categoryId);
+
+      chip.classList.toggle("is-done", done);
+      title.textContent = task.title;
+      meta.textContent = category?.name || ctx.priorityLabels[task.priority] || "Задача";
+      chip.append(title, meta);
+      return chip;
     }
 
     function renderMonthCalendar() {
@@ -138,6 +149,9 @@
         const hiddenTasks = openTasks.slice(3);
         const hiddenCount = hiddenTasks.length;
         const dayCell = document.createElement("div");
+        const head = document.createElement("span");
+        const dayNumber = document.createElement("strong");
+        const items = document.createElement("div");
         const details = [];
 
         if (openTasks.length) details.push(`${openTasks.length} открыто`);
@@ -152,27 +166,19 @@
         dayCell.classList.toggle("is-outside", date.getMonth() !== currentMonth);
         dayCell.classList.toggle("is-active", dateKey === activeDate);
         dayCell.classList.toggle("is-today", dateKey === ctx.toDateKey(new Date()));
-        dayCell.innerHTML = `
-          <span class="month-day-head">
-            <strong>${date.getDate()}</strong>
-            ${tasks.length ? `<span>${doneCount}/${tasks.length}</span>` : ""}
-          </span>
-          <div class="month-day-items">
-            ${visibleTasks
-              .map((task) => `<span class="month-task-chip" draggable="true" data-task-id="${ctx.escapeHtml(task.id)}" data-date="${dateKey}">${ctx.escapeHtml(task.title)}</span>`)
-              .join("")}
-            ${
-              hiddenCount > 0
-                ? `<button class="month-day-more" type="button">+${hiddenCount}</button>
-                  <div class="month-day-hidden">
-                    ${hiddenTasks
-                      .map((task) => `<span class="month-task-chip" draggable="true" data-task-id="${ctx.escapeHtml(task.id)}" data-date="${dateKey}">${ctx.escapeHtml(task.title)}</span>`)
-                      .join("")}
-                  </div>`
-                : ""
-            }
-          </div>
-        `;
+        head.className = "month-day-head";
+        dayNumber.textContent = String(date.getDate());
+        head.appendChild(dayNumber);
+        if (tasks.length) {
+          const progress = document.createElement("span");
+          progress.textContent = `${doneCount}/${tasks.length}`;
+          head.appendChild(progress);
+        }
+        items.className = "month-day-items";
+        visibleTasks.forEach((task) => items.appendChild(createMonthTaskChip(task, dateKey)));
+        if (hiddenCount > 0) appendHiddenMonthTasks(dayCell, items, hiddenTasks, dateKey, hiddenCount);
+        dayCell.append(head, items);
+
         dayCell.addEventListener("click", () => ctx.openDateTasks(dateKey));
         dayCell.addEventListener("keydown", (event) => {
           if (event.key !== "Enter" && event.key !== " ") return;
@@ -181,19 +187,40 @@
         });
         ctx.attachTaskDropZone(dayCell, dateKey);
         dayCell.querySelectorAll(".month-task-chip").forEach((chip) => ctx.attachTaskChipDrag(chip));
-        const moreButton = dayCell.querySelector(".month-day-more");
-        if (moreButton) {
-          moreButton.addEventListener("click", (event) => {
-            event.stopPropagation();
-            const expanded = dayCell.classList.toggle("is-expanded");
-            moreButton.textContent = expanded ? "Скрыть" : `+${hiddenCount}`;
-          });
-        }
-
         ctx.els.monthGrid.appendChild(dayCell);
       });
     }
 
+    function appendHiddenMonthTasks(dayCell, items, hiddenTasks, dateKey, hiddenCount) {
+      const moreButton = document.createElement("button");
+      const hiddenList = document.createElement("div");
+      moreButton.className = "month-day-more";
+      moreButton.type = "button";
+      moreButton.textContent = `+${hiddenCount}`;
+      hiddenList.className = "month-day-hidden";
+      hiddenTasks.forEach((task) => hiddenList.appendChild(createMonthTaskChip(task, dateKey)));
+      moreButton.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const expanded = dayCell.classList.toggle("is-expanded");
+        moreButton.textContent = expanded ? "Скрыть" : `+${hiddenCount}`;
+      });
+      items.append(moreButton, hiddenList);
+    }
+
+    function createMonthTaskChip(task, dateKey) {
+      const chip = createTaskChip(task, dateKey, "month-task-chip");
+      chip.textContent = task.title;
+      return chip;
+    }
+
+    function createTaskChip(task, dateKey, className) {
+      const chip = document.createElement("span");
+      chip.className = className;
+      chip.draggable = true;
+      chip.dataset.taskId = task.id;
+      chip.dataset.date = dateKey;
+      return chip;
+    }
     function renderHeatmap() {
       heatmapView.renderHeatmap();
     }

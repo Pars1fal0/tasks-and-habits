@@ -526,6 +526,7 @@ function createWindow() {
               window.RhythmTaskForm &&
               window.RhythmTasksView &&
               window.RhythmTaskMoves &&
+              window.RhythmTimelineController &&
               window.RhythmTimelineView &&
               window.RhythmSettingsController &&
               window.RhythmToast,

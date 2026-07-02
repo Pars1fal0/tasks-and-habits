@@ -2121,8 +2121,6 @@ body.has-floating-task-form::before {
   transform: translateY(calc(var(--timeline-drag-y, 0px) - 1px));
 }
 
-.timeline-task:hover .timeline-delete-button,
-.timeline-task:focus-within .timeline-delete-button,
 .timeline-task:hover .timeline-menu-button,
 .timeline-task:focus-within .timeline-menu-button,
 .timeline-task-menu-wrap.is-open .timeline-menu-button {
@@ -2164,22 +2162,6 @@ body.has-floating-task-form::before {
 .timeline-task.is-short-block .timeline-task-main {
   gap: 1px;
   padding-right: 24px;
-}
-
-.timeline-task.is-short-block .timeline-delete-button {
-  top: 50%;
-  right: 6px;
-  width: 18px;
-  height: 18px;
-  font-size: 13px;
-  transform: translateY(-50%);
-}
-
-.timeline-task.is-tiny-block .timeline-delete-button {
-  right: 5px;
-  width: 16px;
-  height: 16px;
-  font-size: 12px;
 }
 
 .timeline-task.is-tiny-block .timeline-task-main {
@@ -2305,40 +2287,6 @@ body.has-floating-task-form::before {
   font: inherit;
   padding: 0 28px 0 0;
   text-align: left;
-}
-
-.timeline-delete-button {
-  position: absolute;
-  top: 6px;
-  right: 7px;
-  z-index: 3;
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  min-height: 0;
-  border: 1px solid color-mix(in srgb, var(--coral) 38%, var(--line));
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--surface) 90%, transparent);
-  color: var(--coral);
-  cursor: pointer;
-  font-size: 17px;
-  font-weight: 760;
-  line-height: 1;
-  opacity: 0;
-  padding: 0;
-  transition:
-    opacity 140ms var(--ease),
-    background 140ms var(--ease),
-    border-color 140ms var(--ease);
-}
-
-.timeline-delete-button:hover,
-.timeline-delete-button:focus-visible {
-  border-color: color-mix(in srgb, var(--coral) 72%, var(--line));
-  background: color-mix(in srgb, var(--coral) 14%, var(--surface));
-  opacity: 1;
-  outline: 0;
 }
 
 .timeline-task-menu-wrap {

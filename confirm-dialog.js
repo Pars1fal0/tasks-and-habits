@@ -10,7 +10,7 @@
       tone = "default",
       title = "Подтвердить действие?",
     } = {}) {
-      if (!ctx.els.confirmModal) return Promise.resolve(window.confirm(message || title));
+      if (!ctx.els.confirmModal) return Promise.resolve(false);
 
       close(false, { silent: true });
       previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;

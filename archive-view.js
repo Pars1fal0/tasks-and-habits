@@ -1,4 +1,4 @@
-(function (global) {
+﻿(function (global) {
   function createArchiveView(ctx) {
     function renderArchive() {
       const allEntries = ctx.archiveEntries();
@@ -13,34 +13,52 @@
       ctx.els.archiveEmpty.classList.toggle("is-visible", entries.length === 0);
     }
 
-    function createArchiveNode(entry) {
+        function createArchiveNode(entry) {
       const node = document.createElement("article");
-      node.className = "archive-item";
-
+      const content = document.createElement("div");
+      const title = document.createElement("h3");
+      const meta = document.createElement("p");
+      const restoreButton = document.createElement("button");
       const category = ctx.getCategory(entry.task.categoryId);
-      const categoryHtml = category
-        ? `<span class="category-dot" style="--category-color: ${ctx.escapeHtml(category.color)}"></span>${ctx.escapeHtml(category.name)}`
-        : "Без категории";
 
-      node.innerHTML = `
-        <div>
-          <h3>${ctx.escapeHtml(entry.task.title)}</h3>
-          <p>${ctx.formatLongDate(entry.dateKey)} · ${categoryHtml} · ${ctx.priorityLabels[entry.task.priority] || "Средний"}</p>
-        </div>
-        <button class="ghost-button restore-task" type="button">Вернуть</button>
-      `;
-
-      node.querySelector(".restore-task").addEventListener("click", () => {
+      node.className = "archive-item";
+      title.textContent = entry.task.title;
+      appendArchiveMeta(meta, ctx.formatLongDate(entry.dateKey));
+      if (category) {
+        const categoryLabel = document.createElement("span");
+        const dot = document.createElement("span");
+        dot.className = "category-dot";
+        dot.style.setProperty("--category-color", category.color);
+        categoryLabel.append(dot, document.createTextNode(category.name));
+        appendArchiveMeta(meta, categoryLabel);
+      } else {
+        appendArchiveMeta(meta, "Без категории");
+      }
+      appendArchiveMeta(meta, ctx.priorityLabels[entry.task.priority] || "Средний");
+      restoreButton.className = "ghost-button restore-task";
+      restoreButton.type = "button";
+      restoreButton.textContent = "Вернуть";
+      restoreButton.addEventListener("click", () => {
         const undo = ctx.createUndoSnapshot();
         entry.task.completed[entry.dateKey] = false;
         ctx.saveState();
         ctx.render();
         ctx.showToast("Задача возвращена в план", { undo });
       });
+      content.append(title, meta);
+      node.append(content, restoreButton);
 
       return node;
     }
 
+    function appendArchiveMeta(meta, value) {
+      if (meta.childNodes.length) meta.append(document.createTextNode(" · "));
+      if (value instanceof Node) {
+        meta.appendChild(value);
+      } else {
+        meta.append(document.createTextNode(value));
+      }
+    }
     return { createArchiveNode, renderArchive };
   }
 

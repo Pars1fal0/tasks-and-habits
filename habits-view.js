@@ -26,23 +26,36 @@
         const goal = Number(habit.goal || 1);
         const percent = Math.min(100, Math.round((current / goal) * 100));
 
-        control.innerHTML = `
-          <div class="habit-number-row">
-            <input type="number" min="0" step="1" value="${current}" aria-label="${ctx.escapeHtml(habit.title)}">
-            <span>${current} / ${goal} ${ctx.escapeHtml(habit.unit || "")}</span>
-          </div>
-          <div class="progress-track" aria-hidden="true"><div class="progress-fill" style="width: ${percent}%"></div></div>
-        `;
+        const row = document.createElement("div");
+        const input = document.createElement("input");
+        const value = document.createElement("span");
+        const track = document.createElement("div");
+        const fill = document.createElement("div");
 
-        control.querySelector("input").addEventListener("input", (event) => {
+        row.className = "habit-number-row";
+        input.type = "number";
+        input.min = "0";
+        input.step = "1";
+        input.value = String(current);
+        input.setAttribute("aria-label", habit.title);
+        value.textContent = `${current} / ${goal} ${habit.unit || ""}`;
+        track.className = "progress-track";
+        track.setAttribute("aria-hidden", "true");
+        fill.className = "progress-fill";
+        fill.style.width = `${percent}%`;
+        track.appendChild(fill);
+        row.append(input, value);
+        control.replaceChildren(row, track);
+
+        input.addEventListener("input", (event) => {
           habit.logs[activeDate] = Math.max(0, Number(event.target.value || 0));
           ctx.saveState();
           ctx.renderDailyPulse();
           ctx.renderOverview();
           node.querySelector(".habit-streak").textContent = habitSubtitle(habit);
           const nextPercent = Math.min(100, Math.round((Number(habit.logs[activeDate]) / goal) * 100));
-          control.querySelector(".progress-fill").style.width = `${nextPercent}%`;
-          control.querySelector("span").textContent = `${habit.logs[activeDate]} / ${goal} ${habit.unit || ""}`;
+          fill.style.width = `${nextPercent}%`;
+          value.textContent = `${habit.logs[activeDate]} / ${goal} ${habit.unit || ""}`;
         });
       } else {
         const done = habit.logs[activeDate] === true;

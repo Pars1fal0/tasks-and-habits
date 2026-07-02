@@ -61,7 +61,7 @@
       check.classList.toggle("is-checked", done);
       priority.textContent = ctx.priorityLabels[task.priority] || "Средний";
       priority.classList.add(`priority-${task.priority || "medium"}`);
-      meta.innerHTML = ctx.taskMetaMarkup(task);
+      renderTaskMeta(meta, task);
 
       node.addEventListener("dragstart", (event) => {
         draggedTaskId = task.id;
@@ -137,6 +137,23 @@
       });
 
       return node;
+    }
+
+    function renderTaskMeta(meta, task) {
+      meta.replaceChildren();
+      ctx.taskMetaItems(task).forEach((item) => {
+        const chip = document.createElement("span");
+        chip.className = item.type === "category" ? "task-meta-chip task-category-chip" : "task-meta-chip";
+        if (item.type === "empty") chip.classList.add("is-empty");
+        if (item.categoryColor) {
+          const dot = document.createElement("span");
+          chip.style.setProperty("--category-color", item.categoryColor);
+          dot.className = "task-meta-dot";
+          chip.appendChild(dot);
+        }
+        chip.append(document.createTextNode(item.label));
+        meta.appendChild(chip);
+      });
     }
 
     function renderOverdueTasks() {

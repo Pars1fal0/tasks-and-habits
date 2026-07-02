@@ -1,4 +1,4 @@
-(function (global) {
+﻿(function (global) {
   const TASK_DRAG_MIME = "application/x-rhythm-timeline-task";
   const TIMELINE_HOUR_HEIGHT = 96;
   const TIMELINE_SLOT_MINUTES = 15;
@@ -230,24 +230,7 @@
       });
     }
 
-    function createDeleteButton(entry) {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "timeline-delete-button";
-      button.setAttribute("aria-label", `Удалить задачу ${entry.title}`);
-      button.textContent = "×";
-      button.addEventListener("pointerdown", (event) => {
-        event.stopPropagation();
-      });
-      button.addEventListener("click", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        ctx.deleteTask?.(entry.task.id);
-      });
-      return button;
-    }
-
-    function attachUnscheduledDrag(card, entry) {
+        function attachUnscheduledDrag(card, entry) {
       card.draggable = true;
       card.setAttribute("aria-grabbed", "false");
       card.addEventListener("dragstart", (event) => {

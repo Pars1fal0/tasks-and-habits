@@ -1,4 +1,4 @@
-(function (global) {
+﻿(function (global) {
   function createNotifications(ctx) {
     function checkDueNotifications() {
       if (ctx.getNotificationsEnabled && !ctx.getNotificationsEnabled()) return;
@@ -37,22 +37,29 @@
       updateNotificationButton(permission);
     }
 
-    function updateNotificationButton(permission = "Notification" in window ? Notification.permission : "default") {
+        function updateNotificationButton(permission = "Notification" in window ? Notification.permission : "default") {
       if (ctx.getNotificationsEnabled && !ctx.getNotificationsEnabled()) {
-        ctx.els.notifyButton.innerHTML = `${ctx.icon("bell")}Напоминания на паузе`;
+        setNotifyButtonLabel("Напоминания на паузе");
         ctx.els.desktopStatus.textContent = "Уведомления отключены в настройках";
         return;
       }
 
       if (window.rhythmDesktop) {
-        ctx.els.notifyButton.innerHTML = `${ctx.icon("bell")}Фон включен`;
+        setNotifyButtonLabel("Фон включен");
         ctx.els.desktopStatus.textContent = "Закрытое окно останется в фоне";
         return;
       }
-      ctx.els.notifyButton.innerHTML =
-        permission === "granted" ? `${ctx.icon("bell")}Уведомления включены` : `${ctx.icon("bell")}Уведомления`;
+      setNotifyButtonLabel(permission === "granted" ? "Уведомления включены" : "Уведомления");
     }
 
+    function setNotifyButtonLabel(label) {
+      const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+      icon.classList.add("ui-icon");
+      use.setAttribute("href", "#icon-bell");
+      icon.appendChild(use);
+      ctx.els.notifyButton.replaceChildren(icon, document.createTextNode(label));
+    }
     function syncDesktopReminders() {
       if (!window.rhythmDesktop?.syncReminders) return;
 

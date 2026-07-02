@@ -46,6 +46,7 @@
       "task-form.js",
       "tasks-view.js",
       "task-moves.js",
+      "timeline-controller.js",
       "timeline-view.js",
       "toast.js",
       "sw.js"

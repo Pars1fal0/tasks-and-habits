@@ -1,4 +1,4 @@
-const SCHEMA_VERSION = 7;
+﻿const SCHEMA_VERSION = 7;
 const VALID_PRIORITIES = ["high", "medium", "low"];
 const VALID_HABIT_REPEATS = ["daily", "every2days", "every3days", "weekdays", "weekends", "weekly", "custom"];
 const VALID_REMINDER_OFFSETS = ["none", "0", "5", "15", "30", "60", "1440"];
@@ -286,7 +286,7 @@ const tasksView = window.RhythmTasksView.createTasksView({
   showToast,
   taskDetails,
   taskMatchesSearch,
-  taskMetaMarkup,
+  taskMetaItems,
   toDateKey,
 });
 
@@ -356,23 +356,61 @@ const calendarView = window.RhythmCalendarView.createCalendarView({
   toDateKey,
 });
 
+const timelineController = window.RhythmTimelineController.createTimelineController({
+  cleanTimeValue,
+  createId,
+  createUndoSnapshot,
+  deleteTask,
+  els,
+  findTask: (id) => state.tasks.find((task) => task.id === id),
+  formatTaskWindow,
+  formatTime,
+  getActiveDate: () => activeDate,
+  getOrderedTasksForDate,
+  getState: () => state,
+  isTaskDone,
+  isTimeBlock,
+  isValidTimeBlock,
+  messages: {
+    active: "Задача снова активна",
+    blockUpdated: "Блок обновлен",
+    copySuffix: "копия",
+    deleted: "Задача удалена",
+    done: "Задача выполнена",
+    duplicated: "Задача продублирована",
+    movedTo: "Перенесено на",
+    timeUpdated: "Время задачи обновлено",
+  },
+  minutesToTime,
+  openFloatingTaskForm,
+  render,
+  resetTaskForm,
+  saveState,
+  setTaskScheduleMode,
+  showToast,
+  syncTaskScheduleMode,
+  syncTaskTimePresets,
+  taskSortTime,
+  timeToMinutes,
+});
+
 const timelineView = window.RhythmTimelineView.createTimelineView({
   els,
-  createTaskAtTime,
-  deleteTask: deleteTimelineTask,
-  duplicateTask: duplicateTimelineTask,
+  createTaskAtTime: timelineController.createTaskAtTime,
+  deleteTask: timelineController.deleteTask,
+  duplicateTask: timelineController.duplicateTask,
   fillTaskForm,
   formatTime,
   getActiveDate: () => activeDate,
   getCategory,
   getOrderedTasksForDate,
   isTaskDone,
-  moveTaskTime,
+  moveTaskTime: timelineController.moveTaskTime,
   priorityLabels,
-  resizeTaskBlockTime,
-  setTaskTime,
-  shiftTaskTime,
-  toggleTaskDone: toggleTimelineTaskDone,
+  resizeTaskBlockTime: timelineController.resizeTaskBlockTime,
+  setTaskTime: timelineController.setTaskTime,
+  shiftTaskTime: timelineController.shiftTaskTime,
+  toggleTaskDone: timelineController.toggleTaskDone,
   toDateKey,
 });
 
@@ -515,7 +553,6 @@ const notificationsController = window.RhythmNotifications.createNotifications({
   getCategory,
   getNotificationsEnabled: () => notificationSetting === "on",
   getState: () => state,
-  icon,
   isTaskDone,
   parseDate,
   saveState,
@@ -852,58 +889,7 @@ function deleteTask(taskId) {
   Object.keys(state.taskOrder).forEach((dateKey) => {
     state.taskOrder[dateKey] = state.taskOrder[dateKey].filter((id) => id !== taskId);
   });
-}
-
-function deleteTimelineTask(taskId) {
-  const task = state.tasks.find((item) => item.id === taskId);
-  if (!task) return;
-  const undo = createUndoSnapshot();
-  deleteTask(taskId);
-  saveState();
-  render();
-  showToast("Задача удалена", { undo });
-}
-
-function toggleTimelineTaskDone(taskId) {
-  const task = state.tasks.find((item) => item.id === taskId);
-  if (!task) return;
-  const undo = createUndoSnapshot();
-  const done = isTaskDone(task, activeDate);
-  task.completed = task.completed || {};
-  task.completed[activeDate] = !done;
-  saveState();
-  render();
-  showToast(done ? "Задача снова активна" : "Задача выполнена", { undo });
-}
-
-function duplicateTimelineTask(taskId) {
-  const task = state.tasks.find((item) => item.id === taskId);
-  if (!task) return;
-  const undo = createUndoSnapshot();
-  const source = typeof structuredClone === "function" ? structuredClone(task) : JSON.parse(JSON.stringify(task));
-  const duplicate = {
-    ...source,
-    id: createId(),
-    title: `${task.title} копия`,
-    date: activeDate,
-    completed: {},
-    excludedDates: {},
-    notified: {},
-    createdAt: new Date().toISOString(),
-  };
-  state.tasks.push(duplicate);
-  state.taskOrder[activeDate] = getOrderedTasksForDate(activeDate).map((item) => item.id);
-  const sourceIndex = state.taskOrder[activeDate].indexOf(task.id);
-  if (sourceIndex >= 0) {
-    state.taskOrder[activeDate] = state.taskOrder[activeDate].filter((id) => id !== duplicate.id);
-    state.taskOrder[activeDate].splice(sourceIndex + 1, 0, duplicate.id);
-  }
-  saveState();
-  render();
-  showToast("Задача продублирована", { undo });
-}
-
-function deleteHabit(habitId) {
+}function deleteHabit(habitId) {
   state.habits = state.habits.filter((item) => item.id !== habitId);
 }
 
@@ -1216,15 +1202,28 @@ function updateQuickTaskPreview() {
   ];
 
   els.quickTaskPreview.hidden = false;
-  els.quickTaskPreview.innerHTML = `
-    <div>
-      <span>Будет создано</span>
-      <strong>${escapeHtml(parsed.title || "Задача без названия")}</strong>
-    </div>
-    <div class="quick-preview-chips">
-      ${details.map((detail) => `<span>${escapeHtml(detail)}</span>`).join("")}
-    </div>
-  `;
+  els.quickTaskPreview.replaceChildren(createQuickPreviewSummary(parsed), createQuickPreviewChips(details));
+}
+
+function createQuickPreviewSummary(parsed) {
+  const summary = document.createElement("div");
+  const label = document.createElement("span");
+  const title = document.createElement("strong");
+  label.textContent = "Будет создано";
+  title.textContent = parsed.title || "Задача без названия";
+  summary.append(label, title);
+  return summary;
+}
+
+function createQuickPreviewChips(details) {
+  const chips = document.createElement("div");
+  chips.className = "quick-preview-chips";
+  details.forEach((detail) => {
+    const chip = document.createElement("span");
+    chip.textContent = detail;
+    chips.appendChild(chip);
+  });
+  return chips;
 }
 
 function parseQuickTaskPreview(value) {
@@ -1393,84 +1392,7 @@ function saveCategoryFromForm(event) {
 
 function deleteCategory(categoryId) {
   categoriesController.deleteCategory(categoryId);
-}
-
-function moveTaskTime(taskId, targetTime) {
-  return updateTaskTime(taskId, targetTime, "Время задачи обновлено");
-}
-
-function shiftTaskTime(taskId, offsetMinutes) {
-  const task = state.tasks.find((item) => item.id === taskId);
-  const currentMinutes = timeToMinutes(taskSortTime(task));
-  if (!Number.isFinite(currentMinutes)) return;
-  const nextMinutes = Math.max(0, Math.min(23 * 60 + 59, currentMinutes + offsetMinutes));
-  updateTaskTime(taskId, minutesToTime(nextMinutes), `Перенесено на ${formatTime(minutesToTime(nextMinutes))}`);
-}
-
-function setTaskTime(taskId, targetTime) {
-  return updateTaskTime(taskId, targetTime, `Перенесено на ${formatTime(targetTime)}`);
-}
-
-function updateTaskTime(taskId, targetTime, message) {
-  const task = state.tasks.find((item) => item.id === taskId);
-  const nextTime = cleanTimeValue(targetTime);
-  if (!task || !nextTime || taskSortTime(task) === nextTime) return;
-
-  const undo = createUndoSnapshot();
-  if (isTimeBlock(task)) {
-    const duration = timeToMinutes(task.endTime) - timeToMinutes(task.startTime);
-    const nextStart = timeToMinutes(nextTime);
-    const nextEnd = Math.min(23 * 60 + 59, nextStart + duration);
-    task.startTime = minutesToTime(Math.max(0, nextEnd - duration));
-    task.endTime = minutesToTime(nextEnd);
-    task.time = task.endTime;
-    task.scheduleMode = "block";
-  } else {
-    task.time = nextTime;
-    task.scheduleMode = "deadline";
-    task.startTime = "";
-    task.endTime = "";
-  }
-  if (task.notified) delete task.notified[activeDate];
-  saveState();
-  render();
-  showToast(message || "Время задачи обновлено", { undo });
-}
-
-function resizeTaskBlockTime(taskId, startTime, endTime) {
-  const task = state.tasks.find((item) => item.id === taskId);
-  if (!task || !isValidTimeBlock(startTime, endTime)) return;
-  const nextStart = cleanTimeValue(startTime);
-  const nextEnd = cleanTimeValue(endTime);
-  if (task.startTime === nextStart && task.endTime === nextEnd) return;
-
-  const undo = createUndoSnapshot();
-  task.scheduleMode = "block";
-  task.startTime = nextStart;
-  task.endTime = nextEnd;
-  task.time = nextEnd;
-  if (task.notified) delete task.notified[activeDate];
-  saveState();
-  render();
-  showToast(`Блок обновлен: ${formatTaskWindow(task)}`, { undo });
-}
-
-function createTaskAtTime(startTime, endTime) {
-  resetTaskForm();
-  openFloatingTaskForm();
-  setTaskScheduleMode("block");
-  els.taskDate.value = activeDate;
-  els.taskStartTime.value = cleanTimeValue(startTime);
-  els.taskEndTime.value = cleanTimeValue(endTime);
-  els.taskTime.value = "";
-  els.taskReminder.value = "15";
-  syncTaskScheduleMode();
-  syncTaskTimePresets();
-  els.taskFormPanel.classList.remove("is-collapsed");
-  els.taskTitle.focus();
-}
-
-function openFloatingTaskForm() {
+}function openFloatingTaskForm() {
   if (!els.taskFormPanel || !taskFormHome.parent) return;
   if (!els.taskFormPanel.classList.contains("is-floating-panel")) {
     document.body.appendChild(els.taskFormPanel);
@@ -1684,26 +1606,25 @@ function archiveEntryMatchesSearch(entry, query) {
   return taskMatchesSearch(entry.task, search, entry.dateKey);
 }
 
-function taskMetaMarkup(task) {
+function taskMetaItems(task) {
   const category = getCategory(task.categoryId);
-  const chips = [];
+  const items = [];
 
   if (category) {
-    chips.push(`
-      <span class="task-meta-chip task-category-chip" style="--category-color: ${escapeHtml(category.color)}">
-        <span class="task-meta-dot"></span>
-        ${escapeHtml(category.name)}
-      </span>
-    `);
+    items.push({
+      categoryColor: category.color,
+      label: category.name,
+      type: "category",
+    });
   }
 
-  if (taskHasSchedule(task)) chips.push(`<span class="task-meta-chip">${escapeHtml(formatTaskScheduleLabel(task))}</span>`);
-  if (task.repeat !== "none") chips.push(`<span class="task-meta-chip">${escapeHtml(formatTaskRepeat(task))}</span>`);
+  if (taskHasSchedule(task)) items.push({ label: formatTaskScheduleLabel(task), type: "schedule" });
+  if (task.repeat !== "none") items.push({ label: formatTaskRepeat(task), type: "repeat" });
   if (taskHasSchedule(task) && task.reminderOffset !== "none") {
-    chips.push(`<span class="task-meta-chip">${escapeHtml(reminderLabel(task.reminderOffset))}</span>`);
+    items.push({ label: reminderLabel(task.reminderOffset), type: "reminder" });
   }
 
-  return chips.join("") || `<span class="task-meta-chip is-empty">Без категории</span>`;
+  return items.length ? items : [{ label: "Без категории", type: "empty" }];
 }
 
 function categoryLabel(task) {

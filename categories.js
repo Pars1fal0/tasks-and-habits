@@ -1,4 +1,4 @@
-(function (global) {
+﻿(function (global) {
   function createCategories(ctx) {
     function renderCategories() {
       ctx.els.taskCategoryId.replaceChildren();
@@ -65,15 +65,25 @@
       ctx.els.categoryList.replaceChildren();
       categories.forEach((category) => {
         const item = document.createElement("div");
+        const dot = document.createElement("span");
+        const name = document.createElement("span");
+        const button = document.createElement("button");
+        const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+
         item.className = "category-item";
-        item.innerHTML = `
-          <span class="category-dot" style="--category-color: ${ctx.escapeHtml(category.color)}"></span>
-          <span>${ctx.escapeHtml(category.name)}</span>
-          <button class="icon-button subtle" type="button" aria-label="Удалить категорию">
-            <svg class="ui-icon"><use href="#icon-trash"></use></svg>
-          </button>
-        `;
-        item.querySelector("button").addEventListener("click", () => deleteCategory(category.id));
+        dot.className = "category-dot";
+        dot.style.setProperty("--category-color", category.color);
+        name.textContent = category.name;
+        button.className = "icon-button subtle";
+        button.type = "button";
+        button.setAttribute("aria-label", "Удалить категорию");
+        icon.classList.add("ui-icon");
+        use.setAttribute("href", "#icon-trash");
+        icon.appendChild(use);
+        button.appendChild(icon);
+        button.addEventListener("click", () => deleteCategory(category.id));
+        item.append(dot, name, button);
         ctx.els.categoryList.appendChild(item);
       });
     }
@@ -109,14 +119,12 @@
       const message = taskCount
         ? `Удалить категорию «${category?.name || "Без названия"}»? У ${taskCount} задач категория будет очищена.`
         : `Удалить категорию «${category?.name || "Без названия"}»?`;
-      const confirmed = ctx.confirmAction
-        ? await ctx.confirmAction({
+      const confirmed = await ctx.confirmAction({
             confirmLabel: "Удалить",
             message,
             tone: "danger",
             title: "Удалить категорию?",
-          })
-        : window.confirm(message);
+          });
       if (!confirmed) return;
 
       const undo = ctx.createUndoSnapshot();

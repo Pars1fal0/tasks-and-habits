@@ -1,4 +1,4 @@
-(function (global) {
+﻿(function (global) {
   function createImportExport(ctx) {
     function exportData() {
       const payload = {
@@ -118,14 +118,12 @@
 
       const backupDate = backup.exportedAt ? formatBackupDate(backup.exportedAt) : "без даты";
       const message = `Восстановить данные из локального бэкапа (${backupDate})? Текущий план будет заменен.`;
-      const confirmed = ctx.confirmAction
-        ? await ctx.confirmAction({
+      const confirmed = await ctx.confirmAction({
             confirmLabel: "Восстановить",
             message,
             tone: "danger",
             title: "Восстановить бэкап?",
-          })
-        : window.confirm(message);
+          });
       if (!confirmed) return;
 
       ctx.replaceState(backup.state || backup);
