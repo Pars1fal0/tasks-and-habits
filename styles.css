@@ -2067,6 +2067,66 @@ body.has-floating-task-form::before {
   box-shadow: inset 3px 0 0 var(--teal);
 }
 
+.timeline-drop-preview {
+  position: absolute;
+  z-index: 12;
+  left: 10px;
+  right: 10px;
+  top: var(--drop-preview-top, 0%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--teal);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.timeline-drop-preview::before {
+  content: "";
+  flex: 1 1 auto;
+  height: 2px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--teal) 70%, transparent);
+}
+
+.timeline-pointer-hint {
+  position: fixed;
+  z-index: 2000;
+  transform: translate(12px, -50%);
+  pointer-events: none;
+  border: 1px solid color-mix(in srgb, var(--teal) 42%, var(--line));
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: color-mix(in srgb, var(--surface) 92%, black);
+  color: var(--text);
+  box-shadow: var(--shadow-soft);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.timeline-create-preview {
+  position: absolute;
+  z-index: 13;
+  left: 14px;
+  right: 10px;
+  top: var(--create-preview-top, 0%);
+  display: flex;
+  align-items: flex-start;
+  min-height: var(--create-preview-height, 24px);
+  border: 1px solid color-mix(in srgb, var(--teal) 58%, var(--line));
+  border-left: 4px solid var(--teal);
+  border-radius: var(--radius-sm);
+  padding: 5px 8px;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--teal) 16%, var(--surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--teal) 18%, transparent);
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 740;
+}
+
 .timeline-slot-empty {
   position: absolute;
   top: 50%;
@@ -3325,6 +3385,25 @@ body.has-floating-task-form::before {
   .timeline-task.is-scheduled {
     left: calc(10px + var(--timeline-column-left, 0%));
     width: calc(var(--timeline-column-width, 100%) - 10px - var(--timeline-column-gap, 0px));
+  }
+
+  .timeline-task-main {
+    padding-right: 32px;
+  }
+
+  .timeline-task-menu {
+    right: 0;
+    max-width: min(220px, calc(100vw - 44px));
+  }
+
+  .timeline-task.is-tiny-block .timeline-task-main {
+    min-height: 20px;
+    padding-block: 2px;
+  }
+
+  .timeline-create-preview {
+    left: 10px;
+    right: 8px;
   }
 
   .timeline-task-top {

@@ -79,4 +79,27 @@ module.exports = [
       assert.equal(calls[0].options.method, "GET");
     },
   },
+  {
+    name: "checks Supabase connection without changing state",
+    async fn() {
+      const calls = [];
+      const sync = createRemoteSync({
+        fetch: async (url, options) => {
+          calls.push({ url, options });
+          return {
+            ok: true,
+            status: 200,
+            text: async () => JSON.stringify([{ user_key: "me", client_updated_at: "2026-07-01T00:00:00.000Z" }]),
+          };
+        },
+      });
+
+      const result = await sync.checkConnection({ enabled: true, supabaseUrl: "https://demo.supabase.co", anonKey: "anon", userKey: "me" });
+
+      assert.equal(result.ok, true);
+      assert.equal(result.found, true);
+      assert.match(calls[0].url, /select=user_key,client_updated_at/);
+      assert.equal(calls[0].options.method, "GET");
+    },
+  },
 ];

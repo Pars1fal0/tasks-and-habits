@@ -38,6 +38,7 @@
       "recurrence.js",
       "README.md",
       "remote-sync.js",
+      "settings-sync.js",
       "settings-controller.js",
       "state-normalizer.js",
       "storage.js",
@@ -47,6 +48,9 @@
       "tasks-view.js",
       "task-moves.js",
       "timeline-controller.js",
+      "timeline-drag.js",
+      "timeline-layout.js",
+      "timeline-menu.js",
       "timeline-view.js",
       "toast.js",
       "sw.js"

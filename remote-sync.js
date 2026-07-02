@@ -68,6 +68,22 @@
       };
     }
 
+    async function checkConnection(config) {
+      ensureFetch();
+      const normalized = normalizeConfig(config);
+      ensureConfigured(normalized);
+      const filter = `user_key=eq.${encodeURIComponent(normalized.userKey)}`;
+      const response = await fetchFn(`${normalized.supabaseUrl}/rest/v1/${tableName}?select=user_key,client_updated_at&${filter}&limit=1`, {
+        method: "GET",
+        headers: supabaseHeaders(normalized),
+      });
+
+      const data = await readResponse(response);
+      if (!response.ok) throw createRemoteError("check-failed", response, data);
+      const row = Array.isArray(data) ? data[0] : null;
+      return { found: Boolean(row), ok: true, row };
+    }
+
     function ensureFetch() {
       if (!fetchFn) throw new Error("Fetch API is not available for remote sync");
     }
@@ -99,6 +115,7 @@
     }
 
     return {
+      checkConnection,
       isConfigured,
       normalizeConfig,
       pullState,

@@ -1,15 +1,38 @@
 ﻿(function (global) {
   const TASK_DRAG_MIME = "application/x-rhythm-timeline-task";
-  const TIMELINE_HOUR_HEIGHT = 96;
-  const TIMELINE_SLOT_MINUTES = 15;
-  const DEFAULT_BLOCK_MINUTES = 60;
+  const layout =
+    global.RhythmTimelineLayout ||
+    (typeof require !== "undefined" ? require("./timeline-layout.js") : null);
+  const {
+    DEFAULT_BLOCK_MINUTES,
+    TIMELINE_SLOT_MINUTES,
+    buildTimelineModel,
+    formatBlockLabel,
+    formatHourMinute,
+    getSlotHeight,
+    minuteOffsetToPx,
+    minutesToPx,
+    nextBlockTimes,
+    snapMinutes,
+  } = layout;
+  const menuApi =
+    global.RhythmTimelineMenu ||
+    (typeof require !== "undefined" ? require("./timeline-menu.js") : null);
+  const dragApi =
+    global.RhythmTimelineDrag ||
+    (typeof require !== "undefined" ? require("./timeline-drag.js") : null);
 
   function createTimelineView(ctx) {
-    let openTaskMenu = null;
-    ensureMenuDismissHandlers();
+    const taskMenu = menuApi.createTimelineMenu(ctx);
+    const timelineDrag = dragApi.createTimelineDrag({
+      ctx,
+      formatHourMinute,
+      minuteFromPointer,
+      taskDragMime: TASK_DRAG_MIME,
+    });
 
     function renderTimeline() {
-      closeTaskMenu();
+      taskMenu.closeTaskMenu();
       const activeDate = ctx.getActiveDate();
       const now = ctx.getNow?.() || new Date();
       const model = buildTimelineModel({
@@ -40,7 +63,7 @@
         slot.dataset.hour = String(row.hour);
         slot.setAttribute("role", "list");
         slot.setAttribute("aria-label", `Задачи на ${row.label}`);
-        attachDropZone(slot, row.hour);
+        timelineDrag.attachDropZone(slot, row.hour);
         attachSlotCreate(slot, row.hour);
 
         if (model.nowLine?.hour === row.hour) {
@@ -74,7 +97,7 @@
       const time = document.createElement("strong");
       const title = document.createElement("span");
       const meta = document.createElement("small");
-      const actions = createTaskMenu(entry);
+      const actions = taskMenu.createTaskMenu(entry);
 
       card.className = `timeline-task priority-${entry.task.priority || "medium"}`;
       card.classList.toggle("is-scheduled", Number.isFinite(entry.minutes));
@@ -97,7 +120,7 @@
         card.setAttribute("aria-grabbed", "false");
         if (ctx.moveTaskTime) card.addEventListener("pointerdown", (event) => startTaskDrag(event, entry));
       } else if (ctx.moveTaskTime) {
-        attachUnscheduledDrag(card, entry);
+        timelineDrag.attachUnscheduledDrag(card, entry);
       }
       if (Number.isFinite(entry.visualDuration)) {
         const duration = Math.max(TIMELINE_SLOT_MINUTES, entry.visualDuration);
@@ -145,111 +168,6 @@
       return handle;
     }
 
-    function createTaskMenu(entry) {
-      const wrap = document.createElement("div");
-      const button = document.createElement("button");
-      const menu = document.createElement("div");
-
-      wrap.className = "timeline-task-menu-wrap";
-      button.type = "button";
-      button.className = "timeline-menu-button";
-      button.setAttribute("aria-haspopup", "menu");
-      button.setAttribute("aria-expanded", "false");
-      button.setAttribute("aria-label", `Действия для задачи ${entry.title}`);
-      button.textContent = "...";
-
-      menu.className = "timeline-task-menu";
-      menu.setAttribute("role", "menu");
-      menu.hidden = true;
-      menu.append(
-        createMenuItem(entry.done ? "Снова активна" : "Завершить", "complete", () => ctx.toggleTaskDone?.(entry.task.id)),
-        createMenuItem("Дублировать", "duplicate", () => ctx.duplicateTask?.(entry.task.id)),
-        createMenuItem("Открыть детали", "details", () => ctx.fillTaskForm(entry.task)),
-        createMenuItem("Удалить", "delete", () => ctx.deleteTask?.(entry.task.id), "danger"),
-      );
-
-      button.addEventListener("pointerdown", (event) => event.stopPropagation());
-      button.addEventListener("click", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        toggleTaskMenu(wrap);
-      });
-
-      wrap.append(button, menu);
-      return wrap;
-    }
-
-    function createMenuItem(label, action, handler, tone = "") {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = tone ? `timeline-menu-item is-${tone}` : "timeline-menu-item";
-      button.dataset.action = action;
-      button.setAttribute("role", "menuitem");
-      button.textContent = label;
-      button.addEventListener("pointerdown", (event) => event.stopPropagation());
-      button.addEventListener("click", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        closeTaskMenu();
-        handler();
-      });
-      return button;
-    }
-
-    function toggleTaskMenu(wrap) {
-      const shouldOpen = openTaskMenu !== wrap;
-      closeTaskMenu();
-      if (!shouldOpen) return;
-      const menu = wrap.querySelector(".timeline-task-menu");
-      const button = wrap.querySelector(".timeline-menu-button");
-      wrap.classList.add("is-open");
-      wrap.closest(".timeline-task")?.classList.add("has-open-menu");
-      menu.hidden = false;
-      button.setAttribute("aria-expanded", "true");
-      openTaskMenu = wrap;
-    }
-
-    function closeTaskMenu() {
-      if (!openTaskMenu) return;
-      const menu = openTaskMenu.querySelector(".timeline-task-menu");
-      const button = openTaskMenu.querySelector(".timeline-menu-button");
-      openTaskMenu.closest(".timeline-task")?.classList.remove("has-open-menu");
-      openTaskMenu.classList.remove("is-open");
-      if (menu) menu.hidden = true;
-      if (button) button.setAttribute("aria-expanded", "false");
-      openTaskMenu = null;
-    }
-
-    function ensureMenuDismissHandlers() {
-      if (typeof document === "undefined") return;
-      document.addEventListener("click", (event) => {
-        if (!event.target.closest?.(".timeline-task-menu-wrap")) closeTaskMenu();
-      });
-      document.addEventListener("keydown", (event) => {
-        if (event.key === "Escape") closeTaskMenu();
-      });
-    }
-
-        function attachUnscheduledDrag(card, entry) {
-      card.draggable = true;
-      card.setAttribute("aria-grabbed", "false");
-      card.addEventListener("dragstart", (event) => {
-        event.dataTransfer.effectAllowed = "move";
-        event.dataTransfer.setData("text/plain", entry.task.id);
-        event.dataTransfer.setData(TASK_DRAG_MIME, JSON.stringify({ taskId: entry.task.id }));
-        card.classList.add("is-dragging");
-        card.setAttribute("aria-grabbed", "true");
-      });
-      card.addEventListener("dragend", () => {
-        card.classList.remove("is-dragging");
-        card.setAttribute("aria-grabbed", "false");
-        card.dataset.suppressClick = "true";
-        window.setTimeout(() => {
-          delete card.dataset.suppressClick;
-        }, 0);
-      });
-    }
-
     function startBlockResize(event, entry, edge) {
       event.preventDefault();
       event.stopPropagation();
@@ -270,6 +188,7 @@
         const next = nextBlockTimes(originalStart, originalEnd, edge, delta);
         if (card) {
           previewBlockResize(card, originalStart, next.start, next.end);
+          timelineDrag.showPointerHint(formatBlockLabel(next.start, next.end), moveEvent);
         }
       };
 
@@ -297,6 +216,7 @@
         window.removeEventListener("pointerup", onUp);
         window.removeEventListener("pointercancel", onCancel);
         card?.classList.remove("is-resizing");
+        timelineDrag.hidePointerHint();
       };
 
       window.addEventListener("pointermove", onMove);
@@ -337,6 +257,7 @@
           : formatHourMinute(Math.floor(nextStart / 60), nextStart % 60);
         card.style.setProperty("--timeline-drag-y", `${minutesToPx(nextStart - originalStart)}px`);
         card.setAttribute("data-drag-label", label);
+        timelineDrag.showPointerHint(label, moveEvent);
       };
 
       const onUp = (upEvent) => {
@@ -362,6 +283,7 @@
         card.setAttribute("aria-grabbed", "false");
         card.style.removeProperty("--timeline-drag-y");
         card.removeAttribute("data-drag-label");
+        timelineDrag.hidePointerHint();
       };
 
       window.addEventListener("pointermove", onMove);
@@ -375,21 +297,8 @@
       card.setAttribute("data-resize-label", formatBlockLabel(nextStart, nextEnd));
     }
 
-    function nextBlockTimes(start, end, edge, delta) {
-      if (edge === "start") {
-        const nextStart = Math.max(0, Math.min(end - 15, start + delta));
-        return { start: nextStart, end };
-      }
-      const nextEnd = Math.max(start + 15, Math.min(23 * 60 + 59, end + delta));
-      return { start, end: nextEnd };
-    }
-
     function setBlockHeight(card, duration) {
       card.style.setProperty("--block-min-height", `${Math.max(20, Math.round(minutesToPx(Math.max(TIMELINE_SLOT_MINUTES, duration)) - 4))}px`);
-    }
-
-    function formatBlockLabel(start, end) {
-      return `${formatHourMinute(Math.floor(start / 60), start % 60)}-${formatHourMinute(Math.floor(end / 60), end % 60)}`;
     }
 
     function handleTaskKeydown(event, entry) {
@@ -418,38 +327,62 @@
       return marker;
     }
 
-    function attachDropZone(slot, hour) {
-      if (!ctx.moveTaskTime) return;
-
-      slot.addEventListener("dragover", (event) => {
-        if (!readDragData(event.dataTransfer)) return;
-        event.preventDefault();
-        event.dataTransfer.dropEffect = "move";
-        slot.classList.add("is-drop-target");
-      });
-
-      slot.addEventListener("dragleave", (event) => {
-        if (!slot.contains(event.relatedTarget)) slot.classList.remove("is-drop-target");
-      });
-
-      slot.addEventListener("drop", (event) => {
-        const dragData = readDragData(event.dataTransfer);
-        if (!dragData?.taskId) return;
-        event.preventDefault();
-        slot.classList.remove("is-drop-target");
-        const minutes = minuteFromPointer(event, slot, hour);
-        ctx.moveTaskTime(dragData.taskId, formatHourMinute(Math.floor(minutes / 60), minutes % 60));
-      });
-    }
-
     function attachSlotCreate(slot, hour) {
       if (!ctx.createTaskAtTime) return;
+      slot.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0 || event.target.closest(".timeline-task") || event.target.closest(".timeline-now-line")) return;
+        const startMinutes = minuteFromPointerFree(event, slot, hour);
+        let latestEnd = Math.min(23 * 60 + 59, startMinutes + DEFAULT_BLOCK_MINUTES);
+        let didMove = false;
+        const startY = event.clientY;
+        const preview = document.createElement("span");
+        preview.className = "timeline-create-preview";
+        slot.appendChild(preview);
+        updateCreatePreview(preview, startMinutes, latestEnd);
+        slot.setPointerCapture?.(event.pointerId);
+
+        const onMove = (moveEvent) => {
+          moveEvent.preventDefault();
+          if (Math.abs(moveEvent.clientY - startY) > 4) didMove = true;
+          const rawEnd = minuteFromPointerFree(moveEvent, slot, hour);
+          latestEnd = Math.max(startMinutes + TIMELINE_SLOT_MINUTES, rawEnd);
+          updateCreatePreview(preview, startMinutes, latestEnd);
+          timelineDrag.showPointerHint(formatBlockLabel(startMinutes, latestEnd), moveEvent);
+        };
+
+        const onUp = (upEvent) => {
+          cleanup(upEvent);
+          if (!didMove) return;
+          slot.dataset.suppressClick = "true";
+          window.setTimeout(() => {
+            delete slot.dataset.suppressClick;
+          }, 0);
+          ctx.createTaskAtTime(formatMinutes(startMinutes), formatMinutes(latestEnd));
+        };
+
+        const onCancel = (cancelEvent) => cleanup(cancelEvent);
+
+        const cleanup = (nextEvent) => {
+          slot.releasePointerCapture?.(nextEvent.pointerId);
+          window.removeEventListener("pointermove", onMove);
+          window.removeEventListener("pointerup", onUp);
+          window.removeEventListener("pointercancel", onCancel);
+          preview.remove();
+          timelineDrag.hidePointerHint();
+        };
+
+        window.addEventListener("pointermove", onMove);
+        window.addEventListener("pointerup", onUp);
+        window.addEventListener("pointercancel", onCancel);
+      });
+
       slot.addEventListener("click", (event) => {
+        if (slot.dataset.suppressClick === "true") return;
         if (event.target.closest(".timeline-task") || event.target.closest(".timeline-now-line")) return;
         const minutes = minuteFromPointer(event, slot, hour);
-        const startTime = formatHourMinute(Math.floor(minutes / 60), minutes % 60);
+        const startTime = formatMinutes(minutes);
         const end = Math.min(23 * 60 + 59, minutes + DEFAULT_BLOCK_MINUTES);
-        const endTime = formatHourMinute(Math.floor(end / 60), end % 60);
+        const endTime = formatMinutes(end);
         ctx.createTaskAtTime(startTime, endTime);
       });
     }
@@ -461,197 +394,25 @@
       return Math.min(23 * 60 + 59, hour * 60 + minutesInHour);
     }
 
-    function readDragData(dataTransfer) {
-      if (!dataTransfer) return null;
-      const typed = dataTransfer.getData(TASK_DRAG_MIME);
-      if (typed) {
-        try {
-          return JSON.parse(typed);
-        } catch {
-          return null;
-        }
-      }
-      const taskId = dataTransfer.getData("text/plain");
-      return taskId ? { minute: 0, taskId } : null;
+    function minuteFromPointerFree(event, slot, hour) {
+      const rect = slot.getBoundingClientRect();
+      const rawMinutes = hour * 60 + snapMinutes(((event.clientY - rect.top) / getSlotHeight(slot)) * 60);
+      return Math.max(0, Math.min(23 * 60 + 59, rawMinutes));
+    }
+
+    function updateCreatePreview(preview, startMinutes, endMinutes) {
+      const top = `${((startMinutes % 60) / 60) * 100}%`;
+      const height = `${Math.max(20, minutesToPx(endMinutes - startMinutes) - 4)}px`;
+      preview.style.setProperty("--create-preview-top", top);
+      preview.style.setProperty("--create-preview-height", height);
+      preview.textContent = formatBlockLabel(startMinutes, endMinutes);
+    }
+
+    function formatMinutes(minutes) {
+      return formatHourMinute(Math.floor(minutes / 60), minutes % 60);
     }
 
     return { renderTimeline };
-  }
-
-  function getSlotHeight(slot) {
-    return Math.max(60, slot?.clientHeight || TIMELINE_HOUR_HEIGHT);
-  }
-
-  function snapMinutes(value) {
-    return Math.round(value / TIMELINE_SLOT_MINUTES) * TIMELINE_SLOT_MINUTES;
-  }
-
-  function minutesToPx(minutes) {
-    return (minutes / 60) * TIMELINE_HOUR_HEIGHT;
-  }
-
-  function minuteOffsetToPx(minutes) {
-    return minutesToPx(minutes % 60);
-  }
-
-  function buildTimelineModel({ activeDate, formatTime, getCategory, isTaskDone, now = new Date(), priorityLabels, tasks, todayKey }) {
-    const timedTasks = [];
-    const unscheduledTasks = [];
-    const resolvedTodayKey = todayKey || dateKeyFromDate(now);
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
-
-    tasks.forEach((task) => {
-      const block = parseTaskBlock(task);
-      const minutes = Number.isFinite(block.start) ? block.start : parseTimeToMinutes(task.time);
-      const endMinutes = Number.isFinite(block.end) ? block.end : Number.isFinite(minutes) ? minutes + 30 : minutes;
-      const visualDuration = Number.isFinite(minutes) ? Math.max(TIMELINE_SLOT_MINUTES, endMinutes - minutes) : NaN;
-      const category = getCategory(task.categoryId);
-      const done = isTaskDone(task, activeDate);
-      const entry = {
-        categoryColor: category?.color || "",
-        columnCount: 1,
-        columnIndex: 0,
-        done,
-        endMinutes,
-        hour: Number.isFinite(minutes) ? Math.floor(minutes / 60) : null,
-        isOverdue: Number.isFinite(endMinutes) && !done && isTaskTimeOverdue(activeDate, endMinutes, resolvedTodayKey, currentMinutes),
-        isTimeBlock: Number.isFinite(block.start) && Number.isFinite(block.end),
-        metaLabel: category?.name || priorityLabels[task.priority] || "Задача",
-        minutes,
-        task,
-        timeLabel:
-          Number.isFinite(block.start) && Number.isFinite(block.end)
-            ? `${formatTime(task.startTime)}-${formatTime(task.endTime)}`
-            : Number.isFinite(minutes)
-              ? formatTime(task.time)
-              : "",
-        title: task.title,
-        visualDuration,
-      };
-
-      if (Number.isFinite(minutes)) {
-        timedTasks.push(entry);
-      } else {
-        unscheduledTasks.push(entry);
-      }
-    });
-
-    timedTasks.sort((a, b) => a.minutes - b.minutes || priorityRank(a.task.priority) - priorityRank(b.task.priority) || a.title.localeCompare(b.title));
-    assignTimelineColumns(timedTasks);
-    unscheduledTasks.sort((a, b) => priorityRank(a.task.priority) - priorityRank(b.task.priority) || a.title.localeCompare(b.title));
-
-    const currentHour = activeDate === resolvedTodayKey ? Math.floor(currentMinutes / 60) : null;
-    const earliestHour = timedTasks.length ? Math.min(...timedTasks.map((entry) => Math.floor(entry.minutes / 60))) : 8;
-    const latestHour = timedTasks.length ? Math.max(...timedTasks.map((entry) => Math.floor((entry.endMinutes || entry.minutes) / 60))) : 18;
-    const startHour = Math.min(8, earliestHour, Number.isFinite(currentHour) ? currentHour : 8);
-    const endHour = Math.max(20, latestHour, Number.isFinite(currentHour) ? currentHour : 20);
-    const hourRows = [];
-
-    for (let hour = startHour; hour <= endHour; hour += 1) {
-      hourRows.push({
-        hour,
-        label: formatTime(`${String(hour).padStart(2, "0")}:00`),
-        tasks: timedTasks.filter((entry) => entry.hour === hour),
-      });
-    }
-
-    return {
-      hourRows,
-      nowLine:
-        Number.isFinite(currentHour) && currentHour >= startHour && currentHour <= endHour
-          ? {
-              hour: currentHour,
-              offsetPercent: Math.round(((currentMinutes % 60) / 60) * 100),
-            }
-          : null,
-      timedTasks,
-      unscheduledTasks,
-    };
-  }
-
-  function parseTimeToMinutes(value) {
-    const match = /^(\d{2}):(\d{2})$/.exec(String(value || ""));
-    if (!match) return NaN;
-    const hours = Number(match[1]);
-    const minutes = Number(match[2]);
-    if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return NaN;
-    return hours * 60 + minutes;
-  }
-
-  function assignTimelineColumns(entries) {
-    let cluster = [];
-    let clusterEnd = -Infinity;
-
-    entries.forEach((entry) => {
-      const start = entry.minutes;
-      const end = entryLayoutEnd(entry);
-      if (!cluster.length || start < clusterEnd) {
-        cluster.push(entry);
-        clusterEnd = Math.max(clusterEnd, end);
-        return;
-      }
-      assignClusterColumns(cluster);
-      cluster = [entry];
-      clusterEnd = end;
-    });
-
-    if (cluster.length) assignClusterColumns(cluster);
-  }
-
-  function assignClusterColumns(cluster) {
-    const columns = [];
-    cluster.forEach((entry) => {
-      const start = entry.minutes;
-      const end = entryLayoutEnd(entry);
-      let columnIndex = columns.findIndex((columnEnd) => columnEnd <= start);
-      if (columnIndex === -1) {
-        columnIndex = columns.length;
-        columns.push(end);
-      } else {
-        columns[columnIndex] = end;
-      }
-      entry.columnIndex = columnIndex;
-    });
-
-    const columnCount = Math.max(1, columns.length);
-    cluster.forEach((entry) => {
-      entry.columnCount = columnCount;
-    });
-  }
-
-  function entryLayoutEnd(entry) {
-    return Math.min(24 * 60, entry.minutes + Math.max(TIMELINE_SLOT_MINUTES, entry.visualDuration || TIMELINE_SLOT_MINUTES));
-  }
-
-  function priorityRank(priority) {
-    return { high: 0, medium: 1, low: 2 }[priority] ?? 1;
-  }
-
-  function isTaskTimeOverdue(activeDate, minutes, todayKey, currentMinutes) {
-    if (activeDate < todayKey) return true;
-    if (activeDate > todayKey) return false;
-    return minutes < currentMinutes;
-  }
-
-  function parseTaskBlock(task) {
-    if (task?.scheduleMode !== "block") return { start: NaN, end: NaN };
-    const start = parseTimeToMinutes(task.startTime);
-    const end = parseTimeToMinutes(task.endTime);
-    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return { start: NaN, end: NaN };
-    return { start, end };
-  }
-
-  function formatHourMinute(hour, minute = 0) {
-    const safeHour = Math.max(0, Math.min(23, Number(hour) || 0));
-    const safeMinute = Math.max(0, Math.min(59, Number(minute) || 0));
-    return `${String(safeHour).padStart(2, "0")}:${String(safeMinute).padStart(2, "0")}`;
-  }
-
-  function dateKeyFromDate(date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
   }
 
   const api = { buildTimelineModel, createTimelineView };

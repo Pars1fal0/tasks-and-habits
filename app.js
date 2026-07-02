@@ -152,6 +152,7 @@ const els = {
   quickTaskInput: document.querySelector("#quickTaskInput"),
   quickTaskPreview: document.querySelector("#quickTaskPreview"),
   remoteSyncAnonKey: document.querySelector("#remoteSyncAnonKey"),
+  remoteSyncCheckButton: document.querySelector("#remoteSyncCheckButton"),
   remoteSyncEnabled: document.querySelector("#remoteSyncEnabled"),
   remoteSyncPullButton: document.querySelector("#remoteSyncPullButton"),
   remoteSyncPushButton: document.querySelector("#remoteSyncPushButton"),
@@ -538,9 +539,11 @@ const settingsController = window.RhythmSettingsController.createSettingsControl
   getSettings: getUiSettings,
   importSettings,
   openBackupFolder,
+  checkRemoteConnection,
   pullRemoteState,
   pushRemoteState,
   renderBackupStatus: renderSettingsBackupStatus,
+  renderRemoteSyncStatus,
   requestNotifications,
   resetInterfaceSettings,
   restoreBackup,
@@ -2077,22 +2080,26 @@ function isRemoteSyncReady() {
 function renderRemoteSyncStatus() {
   if (!els.remoteSyncStatus) return;
   if (remoteSyncEnabled !== "on") {
-    els.remoteSyncStatus.textContent = "Удаленная БД выключена";
+    els.remoteSyncStatus.textContent = "БД: не настроено · синхронизация выключена";
     return;
   }
   if (!isRemoteSyncReady()) {
-    els.remoteSyncStatus.textContent = "Заполни Supabase URL, anon key и ключ пользователя";
+    els.remoteSyncStatus.textContent = "БД: не настроено · заполни Supabase URL, anon key и ключ пользователя";
     return;
   }
   if (remoteSyncLastError) {
-    els.remoteSyncStatus.textContent = `Ошибка синхронизации: ${remoteSyncLastError}`;
+    els.remoteSyncStatus.textContent = `БД: ошибка · ${remoteSyncLastError}`;
+    return;
+  }
+  if (remoteSyncInFlight) {
+    els.remoteSyncStatus.textContent = "БД: синхронизация...";
     return;
   }
   const pushed = remoteSyncLastPushedAt ? formatBackupDate(remoteSyncLastPushedAt) : "еще не сохранялось";
   const pulled = remoteSyncLastPulledAt ? formatBackupDate(remoteSyncLastPulledAt) : "еще не загружалось";
-  els.remoteSyncStatus.textContent = remoteSyncInFlight
-    ? "Синхронизация с БД..."
-    : `БД подключена · сохранено: ${pushed} · загружено: ${pulled}`;
+  const latestSync = latestIsoDate(remoteSyncLastPushedAt, remoteSyncLastPulledAt);
+  const latest = latestSync ? formatBackupDate(latestSync) : "еще не было";
+  els.remoteSyncStatus.textContent = `БД: подключена · последняя синхронизация: ${latest} · сохранено: ${pushed} · загружено: ${pulled}`;
 }
 
 function scheduleRemotePush() {
@@ -2132,8 +2139,33 @@ async function pushRemoteState(options = {}) {
     saveUiState();
     if (manual) showToast("Данные сохранены в БД");
   } catch (error) {
-    remoteSyncLastError = error.message || "неизвестная ошибка";
+    remoteSyncLastError = describeRemoteSyncError(error);
     if (manual) showToast("Не удалось сохранить данные в БД");
+  } finally {
+    remoteSyncInFlight = false;
+    settingsController.syncControls();
+    renderRemoteSyncStatus();
+  }
+}
+
+async function checkRemoteConnection(options = {}) {
+  if (options?.preventDefault) options.preventDefault();
+  if (!isRemoteSyncReady()) {
+    renderRemoteSyncStatus();
+    showToast("Заполни настройки удаленной БД");
+    return;
+  }
+  if (remoteSyncInFlight) return;
+
+  remoteSyncInFlight = true;
+  remoteSyncLastError = "";
+  renderRemoteSyncStatus();
+  try {
+    const result = await remoteSync.checkConnection(getRemoteSyncConfig());
+    showToast(result.found ? "Подключение к БД работает" : "Подключение работает, сохранений пока нет");
+  } catch (error) {
+    remoteSyncLastError = describeRemoteSyncError(error);
+    showToast("Подключение к БД не прошло проверку");
   } finally {
     remoteSyncInFlight = false;
     settingsController.syncControls();
@@ -2175,13 +2207,25 @@ async function pullRemoteState(options = {}) {
     render();
     showToast("Данные загружены из БД", { undo });
   } catch (error) {
-    remoteSyncLastError = error.message || "неизвестная ошибка";
+    remoteSyncLastError = describeRemoteSyncError(error);
     showToast("Не удалось загрузить данные из БД");
   } finally {
     remoteSyncInFlight = false;
     settingsController.syncControls();
     renderRemoteSyncStatus();
   }
+}
+
+function latestIsoDate(...values) {
+  return values.filter(Boolean).sort().at(-1) || "";
+}
+
+function describeRemoteSyncError(error) {
+  if (error?.status === 401 || error?.status === 403) return "неверный anon key или доступ запрещен";
+  if (error?.status === 404) return "таблица rhythm_states не создана";
+  const message = String(error?.message || "").trim();
+  if (/failed to fetch|network|load failed/i.test(message)) return "нет сети или Supabase URL недоступен";
+  return message || "неизвестная ошибка";
 }
 
 function scheduleAutoBackup() {
