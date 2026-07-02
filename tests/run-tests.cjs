@@ -13,19 +13,21 @@ const tests = testFiles.flatMap((file) => {
 
 let failed = 0;
 
-for (const item of tests) {
-  try {
-    item.fn();
-    console.log(`ok - ${item.file} - ${item.name}`);
-  } catch (error) {
-    failed += 1;
-    console.error(`not ok - ${item.file} - ${item.name}`);
-    console.error(error);
+(async () => {
+  for (const item of tests) {
+    try {
+      await item.fn();
+      console.log(`ok - ${item.file} - ${item.name}`);
+    } catch (error) {
+      failed += 1;
+      console.error(`not ok - ${item.file} - ${item.name}`);
+      console.error(error);
+    }
   }
-}
 
-if (failed) {
-  process.exitCode = 1;
-} else {
-  console.log(`\n${tests.length} tests passed`);
-}
+  if (failed) {
+    process.exitCode = 1;
+  } else {
+    console.log(`\n${tests.length} tests passed`);
+  }
+})();

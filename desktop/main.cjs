@@ -349,15 +349,81 @@ function createWindow() {
         );
         const smokeQuickTask = state.tasks.find((task) => task.title === "Smoke Quick");
         const smokeQuickTimeBefore = smokeQuickTask?.time;
-        document.querySelector('.timeline-task[data-task-id="' + smokeQuickTask?.id + '"] .timeline-time-action')?.click();
-        const timelineQuickActionWorks =
-          smokeQuickTask && smokeQuickTimeBefore && state.tasks.find((task) => task.id === smokeQuickTask.id)?.time !== smokeQuickTimeBefore;
-        const smokeQuickTimeAfterAction = state.tasks.find((task) => task.id === smokeQuickTask?.id)?.time;
+        const timelineQuickActionsRemoved = document.querySelectorAll(".timeline-time-action").length === 0;
         document.querySelector('.timeline-task[data-task-id="' + smokeQuickTask?.id + '"] .timeline-task-main')?.dispatchEvent(
           new KeyboardEvent("keydown", { altKey: true, bubbles: true, cancelable: true, key: "ArrowRight" }),
         );
         const timelineKeyboardMoveWorks =
-          smokeQuickTimeAfterAction && state.tasks.find((task) => task.id === smokeQuickTask?.id)?.time !== smokeQuickTimeAfterAction;
+          smokeQuickTimeBefore && state.tasks.find((task) => task.id === smokeQuickTask?.id)?.time !== smokeQuickTimeBefore;
+        const createSlot = document.querySelector('.timeline-hour-slot[data-hour="10"]');
+        createSlot?.dispatchEvent(new MouseEvent("click", { bubbles: true, clientY: createSlot.getBoundingClientRect().top + 24 }));
+        const timelineSlotCreateWorks =
+          document.querySelector("#taskScheduleBlock")?.checked &&
+          document.querySelector("#taskStartTime")?.value === "10:15" &&
+          document.querySelector("#taskEndTime")?.value === "11:15";
+        const unscheduledTimelineTask = {
+          id: "smoke-unscheduled-timeline",
+          title: "Smoke Unscheduled Timeline",
+          date: activeDate,
+          time: "",
+          categoryId: categoryOption?.value || "",
+          priority: "medium",
+          repeat: "none",
+          reminderOffset: "none",
+          completed: {},
+          excludedDates: {},
+          notified: {},
+          createdAt: new Date().toISOString(),
+        };
+        state.tasks.push(unscheduledTimelineTask);
+        saveState({ skipBackup: true });
+        render();
+        click('[data-view="timeline"]');
+        const unscheduledTimelineCard = document.querySelector('.timeline-task.is-unscheduled[data-task-id="smoke-unscheduled-timeline"]');
+        const timelineUnscheduledDragEnabled =
+          unscheduledTimelineCard?.draggable === true &&
+          unscheduledTimelineCard?.getAttribute("aria-grabbed") === "false";
+        const dropSlot = document.querySelector('.timeline-hour-slot[data-hour="9"]');
+        const transfer = new DataTransfer();
+        unscheduledTimelineCard?.dispatchEvent(new DragEvent("dragstart", { bubbles: true, cancelable: true, dataTransfer: transfer }));
+        dropSlot?.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer: transfer }));
+        dropSlot?.dispatchEvent(
+          new DragEvent("drop", {
+            bubbles: true,
+            cancelable: true,
+            clientY: dropSlot.getBoundingClientRect().top + 24,
+            dataTransfer: transfer,
+          }),
+        );
+        unscheduledTimelineCard?.dispatchEvent(new DragEvent("dragend", { bubbles: true, cancelable: true, dataTransfer: transfer }));
+        const timelineUnscheduledDropWorks = state.tasks.find((task) => task.id === "smoke-unscheduled-timeline")?.time === "09:15";
+        const openTimelineTaskMenu = (taskId) => {
+          const card = document.querySelector('.timeline-task[data-task-id="' + taskId + '"]');
+          card?.querySelector(".timeline-menu-button")?.click();
+          return card;
+        };
+        let movedTimelineCard = openTimelineTaskMenu("smoke-unscheduled-timeline");
+        const timelineMenuButtonVisible =
+          Boolean(movedTimelineCard?.querySelector(".timeline-menu-button")) &&
+          movedTimelineCard?.querySelector(".timeline-menu-button")?.getAttribute("aria-expanded") === "true" &&
+          !movedTimelineCard?.querySelector(".timeline-task-menu")?.hidden;
+        movedTimelineCard?.querySelector('.timeline-menu-item[data-action="complete"]')?.click();
+        const timelineMenuCompleteWorks =
+          state.tasks.find((task) => task.id === "smoke-unscheduled-timeline")?.completed?.[activeDate] === true;
+        movedTimelineCard = openTimelineTaskMenu("smoke-unscheduled-timeline");
+        movedTimelineCard?.querySelector('.timeline-menu-item[data-action="duplicate"]')?.click();
+        const timelineMenuDuplicateWorks = state.tasks.some(
+          (task) => task.title === "Smoke Unscheduled Timeline копия" && task.id !== "smoke-unscheduled-timeline",
+        );
+        movedTimelineCard = openTimelineTaskMenu("smoke-unscheduled-timeline");
+        movedTimelineCard?.querySelector('.timeline-menu-item[data-action="details"]')?.click();
+        const timelineMenuDetailsWorks =
+          document.querySelector("#taskId")?.value === "smoke-unscheduled-timeline" &&
+          document.querySelector("#taskTitle")?.value === "Smoke Unscheduled Timeline";
+        document.querySelector("#closeTaskForm")?.click();
+        movedTimelineCard = openTimelineTaskMenu("smoke-unscheduled-timeline");
+        movedTimelineCard?.querySelector('.timeline-menu-item[data-action="delete"]')?.click();
+        const timelineDeleteWorks = !state.tasks.some((task) => task.id === "smoke-unscheduled-timeline");
         const timelineDropZonesWork = document.querySelectorAll(".timeline-hour-slot[data-hour]").length >= 8;
         const backupScheduleSelect = document.querySelector("#backupSchedule");
         document.querySelector('[data-view="settings"]').click();
@@ -430,6 +496,11 @@ function createWindow() {
             document.querySelectorAll(".heatmap-cell").length === 365 &&
             Boolean(document.querySelector(".heatmap-cell[data-tooltip]")),
           hasSettings: Boolean(document.querySelector("#settingsView")) && Boolean(document.querySelector("#themePreference")),
+          hasRemoteSyncSettings:
+            Boolean(document.querySelector("#remoteSyncEnabled")) &&
+            Boolean(document.querySelector("#remoteSyncUrl")) &&
+            Boolean(document.querySelector("#remoteSyncPushButton")) &&
+            Boolean(document.querySelector("#remoteSyncPullButton")),
           hasMonthCalendar: document.querySelectorAll(".month-day").length === 42,
           hasWeekBoard,
           hasTodayButton: Boolean(document.querySelector("#todayButton")),
@@ -449,6 +520,7 @@ function createWindow() {
               window.RhythmImportExport &&
               window.RhythmNotifications &&
               window.RhythmRecurrence &&
+              window.RhythmRemoteSync &&
               window.RhythmStateNormalizer &&
               window.RhythmStorage &&
               window.RhythmTaskForm &&
@@ -504,7 +576,15 @@ function createWindow() {
           timelineDropZonesWork,
           timelineAccessibilityWorks,
           timelineKeyboardMoveWorks,
-          timelineQuickActionWorks,
+          timelineQuickActionsRemoved,
+          timelineMenuButtonVisible,
+          timelineMenuCompleteWorks,
+          timelineMenuDuplicateWorks,
+          timelineMenuDetailsWorks,
+          timelineDeleteWorks,
+          timelineSlotCreateWorks,
+          timelineUnscheduledDragEnabled,
+          timelineUnscheduledDropWorks,
           timelineSummaryWorks,
           timelineVisible,
           timelineBlockVisible,

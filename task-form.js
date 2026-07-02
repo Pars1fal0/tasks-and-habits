@@ -38,6 +38,7 @@
       ctx.saveState();
       ctx.render();
       ctx.showToast(existing ? "Задача обновлена" : "Задача создана", { undo });
+      ctx.afterSave?.(task, existing);
     }
 
     function fillTaskForm(task) {

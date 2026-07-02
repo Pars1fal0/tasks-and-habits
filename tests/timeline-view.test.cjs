@@ -75,4 +75,53 @@ module.exports = [
       assert.equal(model.hourRows.some((row) => row.hour === 15), true);
     },
   },
+  {
+    name: "keeps short block duration and splits overlapping tasks into columns",
+    fn() {
+      const tasks = [
+        { id: "a", title: "A", scheduleMode: "block", startTime: "10:00", endTime: "10:15", time: "10:15", priority: "medium", categoryId: "" },
+        { id: "b", title: "B", scheduleMode: "block", startTime: "10:00", endTime: "10:30", time: "10:30", priority: "medium", categoryId: "" },
+        { id: "c", title: "C", scheduleMode: "block", startTime: "10:15", endTime: "10:45", time: "10:45", priority: "medium", categoryId: "" },
+      ];
+      const model = buildTimelineModel({
+        activeDate: "2026-06-30",
+        formatTime: (value) => value,
+        getCategory: () => null,
+        isTaskDone: () => false,
+        priorityLabels: { medium: "Medium" },
+        tasks,
+      });
+
+      const byId = new Map(model.timedTasks.map((entry) => [entry.task.id, entry]));
+      assert.equal(byId.get("a").visualDuration, 15);
+      assert.equal(byId.get("b").visualDuration, 30);
+      assert.equal(byId.get("c").visualDuration, 30);
+      assert.equal(byId.get("a").columnCount, 2);
+      assert.equal(byId.get("b").columnCount, 2);
+      assert.equal(byId.get("c").columnCount, 2);
+      assert.notEqual(byId.get("a").columnIndex, byId.get("b").columnIndex);
+      assert.equal(byId.get("c").columnIndex, byId.get("a").columnIndex);
+    },
+  },
+  {
+    name: "uses three columns when three tasks overlap at once",
+    fn() {
+      const tasks = [
+        { id: "a", title: "A", scheduleMode: "block", startTime: "10:00", endTime: "11:00", time: "11:00", priority: "medium", categoryId: "" },
+        { id: "b", title: "B", scheduleMode: "block", startTime: "10:15", endTime: "10:45", time: "10:45", priority: "medium", categoryId: "" },
+        { id: "c", title: "C", scheduleMode: "block", startTime: "10:30", endTime: "11:15", time: "11:15", priority: "medium", categoryId: "" },
+      ];
+      const model = buildTimelineModel({
+        activeDate: "2026-06-30",
+        formatTime: (value) => value,
+        getCategory: () => null,
+        isTaskDone: () => false,
+        priorityLabels: { medium: "Medium" },
+        tasks,
+      });
+
+      assert.deepEqual(model.timedTasks.map((entry) => entry.columnCount), [3, 3, 3]);
+      assert.deepEqual(new Set(model.timedTasks.map((entry) => entry.columnIndex)).size, 3);
+    },
+  },
 ];

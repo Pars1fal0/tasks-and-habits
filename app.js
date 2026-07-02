@@ -42,10 +42,19 @@ let firstDayOfWeek = normalizeFirstDayOfWeek(initialUiState.firstDayOfWeek);
 let densityPreference = normalizeDensityPreference(initialUiState.densityPreference);
 let interfaceMode = normalizeInterfaceMode(initialUiState.interfaceMode);
 let timeFormat = normalizeTimeFormat(initialUiState.timeFormat);
+let remoteSyncEnabled = normalizeRemoteSyncEnabled(initialUiState.remoteSyncEnabled);
+let remoteSyncUrl = cleanText(initialUiState.remoteSyncUrl || "");
+let remoteSyncAnonKey = cleanText(initialUiState.remoteSyncAnonKey || "");
+let remoteSyncUserKey = normalizeRemoteUserKey(initialUiState.remoteSyncUserKey || "");
+let remoteSyncLastPushedAt = initialUiState.remoteSyncLastPushedAt || "";
+let remoteSyncLastPulledAt = initialUiState.remoteSyncLastPulledAt || "";
+let remoteSyncLastError = "";
 let draggedTaskId = null;
 let draggedTaskDate = "";
 let pointerDragTask = null;
 let autoBackupTimerId = null;
+let remoteSyncTimerId = null;
+let remoteSyncInFlight = false;
 let lastAutoBackupAt = "";
 let nextAutoBackupAt = "";
 
@@ -142,6 +151,13 @@ const els = {
   quickTaskForm: document.querySelector("#quickTaskForm"),
   quickTaskInput: document.querySelector("#quickTaskInput"),
   quickTaskPreview: document.querySelector("#quickTaskPreview"),
+  remoteSyncAnonKey: document.querySelector("#remoteSyncAnonKey"),
+  remoteSyncEnabled: document.querySelector("#remoteSyncEnabled"),
+  remoteSyncPullButton: document.querySelector("#remoteSyncPullButton"),
+  remoteSyncPushButton: document.querySelector("#remoteSyncPushButton"),
+  remoteSyncStatus: document.querySelector("#remoteSyncStatus"),
+  remoteSyncUrl: document.querySelector("#remoteSyncUrl"),
+  remoteSyncUserKey: document.querySelector("#remoteSyncUserKey"),
   resetHabitForm: document.querySelector("#resetHabitForm"),
   resetGoalForm: document.querySelector("#resetGoalForm"),
   resetTaskForm: document.querySelector("#resetTaskForm"),
@@ -216,6 +232,11 @@ const toastController = window.RhythmToast.createToastController({
 });
 
 const confirmDialog = window.RhythmConfirmDialog.createConfirmDialog({ els });
+const remoteSync = window.RhythmRemoteSync.createRemoteSync();
+const taskFormHome = {
+  next: els.taskFormPanel?.nextSibling || null,
+  parent: els.taskFormPanel?.parentNode || null,
+};
 
 const priorityLabels = {
   high: "Высокий",
@@ -337,6 +358,9 @@ const calendarView = window.RhythmCalendarView.createCalendarView({
 
 const timelineView = window.RhythmTimelineView.createTimelineView({
   els,
+  createTaskAtTime,
+  deleteTask: deleteTimelineTask,
+  duplicateTask: duplicateTimelineTask,
   fillTaskForm,
   formatTime,
   getActiveDate: () => activeDate,
@@ -348,6 +372,7 @@ const timelineView = window.RhythmTimelineView.createTimelineView({
   resizeTaskBlockTime,
   setTaskTime,
   shiftTaskTime,
+  toggleTaskDone: toggleTimelineTaskDone,
   toDateKey,
 });
 
@@ -370,6 +395,12 @@ const archiveView = window.RhythmArchiveView.createArchiveView({
 
 const taskFormController = window.RhythmTaskForm.createTaskForm({
   els,
+  afterSave: () => {
+    if (activeView === "timeline") {
+      els.taskFormPanel.classList.add("is-collapsed");
+      closeFloatingTaskForm();
+    }
+  },
   cleanText,
   cleanTimeValue,
   createId,
@@ -469,6 +500,8 @@ const settingsController = window.RhythmSettingsController.createSettingsControl
   getSettings: getUiSettings,
   importSettings,
   openBackupFolder,
+  pullRemoteState,
+  pushRemoteState,
   renderBackupStatus: renderSettingsBackupStatus,
   requestNotifications,
   resetInterfaceSettings,
@@ -511,6 +544,7 @@ function init() {
   updateNotificationButton();
   updateBackupStatus();
   renderSettingsBackupStatus();
+  renderRemoteSyncStatus();
   updateFileBackupStatus();
   render();
   syncDesktopReminders();
@@ -577,8 +611,10 @@ function bindEvents() {
 
   document.querySelector("#closeTaskForm").addEventListener("click", () => {
     els.taskFormPanel.classList.add("is-collapsed");
+    closeFloatingTaskForm();
   });
   els.openTaskForm.addEventListener("click", () => {
+    restoreTaskFormPanel();
     resetTaskForm();
     els.taskTitle.focus();
   });
@@ -691,6 +727,7 @@ function bindEvents() {
 }
 
 function render() {
+  if (activeView !== "timeline") restoreTaskFormPanel();
   els.activeDate.value = activeDate;
   els.todayLabel.textContent = formatLongDate(activeDate);
   els.pageTitle.textContent = {
@@ -815,6 +852,55 @@ function deleteTask(taskId) {
   Object.keys(state.taskOrder).forEach((dateKey) => {
     state.taskOrder[dateKey] = state.taskOrder[dateKey].filter((id) => id !== taskId);
   });
+}
+
+function deleteTimelineTask(taskId) {
+  const task = state.tasks.find((item) => item.id === taskId);
+  if (!task) return;
+  const undo = createUndoSnapshot();
+  deleteTask(taskId);
+  saveState();
+  render();
+  showToast("Задача удалена", { undo });
+}
+
+function toggleTimelineTaskDone(taskId) {
+  const task = state.tasks.find((item) => item.id === taskId);
+  if (!task) return;
+  const undo = createUndoSnapshot();
+  const done = isTaskDone(task, activeDate);
+  task.completed = task.completed || {};
+  task.completed[activeDate] = !done;
+  saveState();
+  render();
+  showToast(done ? "Задача снова активна" : "Задача выполнена", { undo });
+}
+
+function duplicateTimelineTask(taskId) {
+  const task = state.tasks.find((item) => item.id === taskId);
+  if (!task) return;
+  const undo = createUndoSnapshot();
+  const source = typeof structuredClone === "function" ? structuredClone(task) : JSON.parse(JSON.stringify(task));
+  const duplicate = {
+    ...source,
+    id: createId(),
+    title: `${task.title} копия`,
+    date: activeDate,
+    completed: {},
+    excludedDates: {},
+    notified: {},
+    createdAt: new Date().toISOString(),
+  };
+  state.tasks.push(duplicate);
+  state.taskOrder[activeDate] = getOrderedTasksForDate(activeDate).map((item) => item.id);
+  const sourceIndex = state.taskOrder[activeDate].indexOf(task.id);
+  if (sourceIndex >= 0) {
+    state.taskOrder[activeDate] = state.taskOrder[activeDate].filter((id) => id !== duplicate.id);
+    state.taskOrder[activeDate].splice(sourceIndex + 1, 0, duplicate.id);
+  }
+  saveState();
+  render();
+  showToast("Задача продублирована", { undo });
 }
 
 function deleteHabit(habitId) {
@@ -1281,6 +1367,7 @@ function syncTaskScheduleMode() {
 }
 
 function fillTaskForm(task) {
+  if (activeView === "timeline") openFloatingTaskForm();
   taskFormController.fillTaskForm(task);
 }
 
@@ -1366,6 +1453,42 @@ function resizeTaskBlockTime(taskId, startTime, endTime) {
   saveState();
   render();
   showToast(`Блок обновлен: ${formatTaskWindow(task)}`, { undo });
+}
+
+function createTaskAtTime(startTime, endTime) {
+  resetTaskForm();
+  openFloatingTaskForm();
+  setTaskScheduleMode("block");
+  els.taskDate.value = activeDate;
+  els.taskStartTime.value = cleanTimeValue(startTime);
+  els.taskEndTime.value = cleanTimeValue(endTime);
+  els.taskTime.value = "";
+  els.taskReminder.value = "15";
+  syncTaskScheduleMode();
+  syncTaskTimePresets();
+  els.taskFormPanel.classList.remove("is-collapsed");
+  els.taskTitle.focus();
+}
+
+function openFloatingTaskForm() {
+  if (!els.taskFormPanel || !taskFormHome.parent) return;
+  if (!els.taskFormPanel.classList.contains("is-floating-panel")) {
+    document.body.appendChild(els.taskFormPanel);
+    els.taskFormPanel.classList.add("is-floating-panel");
+  }
+  document.body.classList.add("has-floating-task-form");
+  els.taskFormPanel.classList.remove("is-collapsed");
+}
+
+function closeFloatingTaskForm() {
+  document.body.classList.remove("has-floating-task-form");
+}
+
+function restoreTaskFormPanel() {
+  if (!els.taskFormPanel || !taskFormHome.parent || !els.taskFormPanel.classList.contains("is-floating-panel")) return;
+  taskFormHome.parent.insertBefore(els.taskFormPanel, taskFormHome.next);
+  els.taskFormPanel.classList.remove("is-floating-panel");
+  document.body.classList.remove("has-floating-task-form");
 }
 
 function exportData() {
@@ -1736,6 +1859,12 @@ function saveUiState() {
     firstDayOfWeek,
     interfaceMode,
     notificationSetting,
+    remoteSyncAnonKey,
+    remoteSyncEnabled,
+    remoteSyncLastPulledAt,
+    remoteSyncLastPushedAt,
+    remoteSyncUrl,
+    remoteSyncUserKey,
     taskCategoryFilter,
     taskSearchQuery,
     themePreference,
@@ -1772,6 +1901,14 @@ function normalizeTimeFormat(value) {
   return value === "12" ? "12" : "24";
 }
 
+function normalizeRemoteSyncEnabled(value) {
+  return value === true || value === "on" ? "on" : "off";
+}
+
+function normalizeRemoteUserKey(value) {
+  return window.RhythmRemoteSync.normalizeUserKey(value);
+}
+
 function applyThemePreference() {
   const prefersLight = window.matchMedia?.("(prefers-color-scheme: light)")?.matches;
   const resolvedTheme = themePreference === "system" ? (prefersLight ? "light" : "dark") : themePreference;
@@ -1789,6 +1926,10 @@ function applySettingsPreferences() {
   if (els.densityPreference) els.densityPreference.value = densityPreference;
   if (els.interfaceMode) els.interfaceMode.value = interfaceMode;
   if (els.timeFormat) els.timeFormat.value = timeFormat;
+  if (els.remoteSyncEnabled) els.remoteSyncEnabled.value = remoteSyncEnabled;
+  if (els.remoteSyncUrl) els.remoteSyncUrl.value = remoteSyncUrl;
+  if (els.remoteSyncAnonKey) els.remoteSyncAnonKey.value = remoteSyncAnonKey;
+  if (els.remoteSyncUserKey) els.remoteSyncUserKey.value = remoteSyncUserKey;
   syncCustomRepeatPanel();
   syncHabitCustomRepeatPanel();
   if (els.goalAdvancedPanel && !els.goalId?.value) {
@@ -1803,6 +1944,12 @@ function getUiSettings() {
     firstDayOfWeek,
     interfaceMode,
     notificationSetting,
+    remoteSyncAnonKey,
+    remoteSyncEnabled,
+    remoteSyncLastPulledAt,
+    remoteSyncLastPushedAt,
+    remoteSyncUrl,
+    remoteSyncUserKey,
     themePreference,
     timeFormat,
   };
@@ -1861,6 +2008,40 @@ function updateSetting(name, value) {
       settingsController.syncControls();
       render();
       showToast("Формат времени обновлен");
+      break;
+    case "remoteSyncEnabled":
+      remoteSyncEnabled = normalizeRemoteSyncEnabled(value);
+      remoteSyncLastError = "";
+      applySettingsPreferences();
+      saveUiState();
+      settingsController.syncControls();
+      renderRemoteSyncStatus();
+      if (isRemoteSyncReady()) scheduleRemotePush();
+      showToast(remoteSyncEnabled === "on" ? "Синхронизация с БД включена" : "Синхронизация с БД выключена");
+      break;
+    case "remoteSyncUrl":
+      remoteSyncUrl = cleanText(value);
+      remoteSyncLastError = "";
+      applySettingsPreferences();
+      saveUiState();
+      settingsController.syncControls();
+      renderRemoteSyncStatus();
+      break;
+    case "remoteSyncAnonKey":
+      remoteSyncAnonKey = cleanText(value);
+      remoteSyncLastError = "";
+      applySettingsPreferences();
+      saveUiState();
+      settingsController.syncControls();
+      renderRemoteSyncStatus();
+      break;
+    case "remoteSyncUserKey":
+      remoteSyncUserKey = normalizeRemoteUserKey(value);
+      remoteSyncLastError = "";
+      applySettingsPreferences();
+      saveUiState();
+      settingsController.syncControls();
+      renderRemoteSyncStatus();
       break;
   }
 }
@@ -1932,10 +2113,18 @@ function applyImportedSettings(settings = {}) {
   densityPreference = normalizeDensityPreference(settings.densityPreference);
   interfaceMode = normalizeInterfaceMode(settings.interfaceMode);
   timeFormat = normalizeTimeFormat(settings.timeFormat);
+  remoteSyncEnabled = normalizeRemoteSyncEnabled(settings.remoteSyncEnabled);
+  remoteSyncUrl = cleanText(settings.remoteSyncUrl || "");
+  remoteSyncAnonKey = cleanText(settings.remoteSyncAnonKey || "");
+  remoteSyncUserKey = normalizeRemoteUserKey(settings.remoteSyncUserKey || "");
+  remoteSyncLastPulledAt = settings.remoteSyncLastPulledAt || "";
+  remoteSyncLastPushedAt = settings.remoteSyncLastPushedAt || "";
+  remoteSyncLastError = "";
   applyThemePreference();
   applySettingsPreferences();
   scheduleAutoBackup();
   settingsController.syncControls();
+  renderRemoteSyncStatus();
   updateNotificationButton();
   syncDesktopReminders();
 }
@@ -1949,6 +2138,129 @@ function renderSettingsBackupStatus() {
   const last = lastAutoBackupAt ? formatBackupDate(lastAutoBackupAt) : "еще не запускался";
   const next = nextAutoBackupAt ? formatBackupDate(nextAutoBackupAt) : "ожидает расписание";
   els.settingsBackupStatus.textContent = `Последний авто-бэкап: ${last} · следующий: ${next}`;
+}
+
+function getRemoteSyncConfig() {
+  return remoteSync.normalizeConfig({
+    anonKey: remoteSyncAnonKey,
+    enabled: remoteSyncEnabled === "on",
+    supabaseUrl: remoteSyncUrl,
+    userKey: remoteSyncUserKey,
+  });
+}
+
+function isRemoteSyncReady() {
+  return remoteSync.isConfigured(getRemoteSyncConfig());
+}
+
+function renderRemoteSyncStatus() {
+  if (!els.remoteSyncStatus) return;
+  if (remoteSyncEnabled !== "on") {
+    els.remoteSyncStatus.textContent = "Удаленная БД выключена";
+    return;
+  }
+  if (!isRemoteSyncReady()) {
+    els.remoteSyncStatus.textContent = "Заполни Supabase URL, anon key и ключ пользователя";
+    return;
+  }
+  if (remoteSyncLastError) {
+    els.remoteSyncStatus.textContent = `Ошибка синхронизации: ${remoteSyncLastError}`;
+    return;
+  }
+  const pushed = remoteSyncLastPushedAt ? formatBackupDate(remoteSyncLastPushedAt) : "еще не сохранялось";
+  const pulled = remoteSyncLastPulledAt ? formatBackupDate(remoteSyncLastPulledAt) : "еще не загружалось";
+  els.remoteSyncStatus.textContent = remoteSyncInFlight
+    ? "Синхронизация с БД..."
+    : `БД подключена · сохранено: ${pushed} · загружено: ${pulled}`;
+}
+
+function scheduleRemotePush() {
+  if (!isRemoteSyncReady()) {
+    renderRemoteSyncStatus();
+    return;
+  }
+  if (remoteSyncTimerId) clearTimeout(remoteSyncTimerId);
+  remoteSyncTimerId = setTimeout(() => {
+    remoteSyncTimerId = null;
+    pushRemoteState({ silent: true });
+  }, 1200);
+}
+
+async function pushRemoteState(options = {}) {
+  if (options?.preventDefault) options.preventDefault();
+  const manual = !options?.silent;
+  if (!isRemoteSyncReady()) {
+    renderRemoteSyncStatus();
+    if (manual) showToast("Заполни настройки удаленной БД");
+    return;
+  }
+  if (remoteSyncInFlight) return;
+
+  remoteSyncInFlight = true;
+  remoteSyncLastError = "";
+  renderRemoteSyncStatus();
+  try {
+    const pushedAt = new Date().toISOString();
+    await remoteSync.pushState(getRemoteSyncConfig(), {
+      clientUpdatedAt: pushedAt,
+      schemaVersion: SCHEMA_VERSION,
+      state,
+      uiState: { ...getUiSettings(), remoteSyncLastPushedAt: pushedAt },
+    });
+    remoteSyncLastPushedAt = pushedAt;
+    saveUiState();
+    if (manual) showToast("Данные сохранены в БД");
+  } catch (error) {
+    remoteSyncLastError = error.message || "неизвестная ошибка";
+    if (manual) showToast("Не удалось сохранить данные в БД");
+  } finally {
+    remoteSyncInFlight = false;
+    settingsController.syncControls();
+    renderRemoteSyncStatus();
+  }
+}
+
+async function pullRemoteState(options = {}) {
+  if (options?.preventDefault) options.preventDefault();
+  if (!isRemoteSyncReady()) {
+    renderRemoteSyncStatus();
+    showToast("Заполни настройки удаленной БД");
+    return;
+  }
+
+  const confirmed = await confirmAction({
+    confirmLabel: "Загрузить",
+    message: "Локальные данные будут заменены состоянием из БД. Перед заменой приложение создаст safety backup.",
+    tone: "danger",
+    title: "Загрузить данные из БД?",
+  });
+  if (!confirmed || remoteSyncInFlight) return;
+
+  remoteSyncInFlight = true;
+  remoteSyncLastError = "";
+  renderRemoteSyncStatus();
+  try {
+    const pulled = await remoteSync.pullState(getRemoteSyncConfig());
+    if (!pulled.found || !pulled.state) {
+      showToast("В БД пока нет сохраненных данных");
+      return;
+    }
+    const undo = createUndoSnapshot();
+    createImportSafetyBackup({ state: JSON.stringify(state) });
+    replaceState(pulled.state);
+    saveState({ skipBackup: true, skipRemote: true });
+    remoteSyncLastPulledAt = new Date().toISOString();
+    saveUiState();
+    render();
+    showToast("Данные загружены из БД", { undo });
+  } catch (error) {
+    remoteSyncLastError = error.message || "неизвестная ошибка";
+    showToast("Не удалось загрузить данные из БД");
+  } finally {
+    remoteSyncInFlight = false;
+    settingsController.syncControls();
+    renderRemoteSyncStatus();
+  }
 }
 
 function scheduleAutoBackup() {
@@ -2115,6 +2427,7 @@ function saveState(options = {}) {
   if (!options.skipBackup) updateBackupStatus();
   syncDesktopReminders();
   if (!options.skipBackup) syncDesktopBackup();
+  if (!options.skipBackup && !options.skipRemote) scheduleRemotePush();
 }
 
 function createBackup(options = {}) {

@@ -188,6 +188,8 @@ input[type="date"],
 input[type="time"],
 input[type="search"],
 input[type="text"],
+input[type="url"],
+input[type="password"],
 input[type="number"],
 textarea {
   appearance: none;
@@ -221,6 +223,8 @@ textarea {
 :root[data-theme="light"] input[type="time"],
 :root[data-theme="light"] input[type="search"],
 :root[data-theme="light"] input[type="text"],
+:root[data-theme="light"] input[type="url"],
+:root[data-theme="light"] input[type="password"],
 :root[data-theme="light"] input[type="number"],
 :root[data-theme="light"] textarea {
   color-scheme: light;
@@ -760,6 +764,7 @@ select:focus-visible {
 .stack-form input:focus,
 .stack-form select:focus,
 .stack-form textarea:focus,
+.settings-row input:focus,
 .category-form input:focus,
 .habit-number-row input:focus,
 .sort-control select:focus,
@@ -961,6 +966,30 @@ select:focus-visible {
   line-height: 1.45;
   margin: 0;
   padding: 11px 12px;
+}
+
+.form-panel.is-floating-panel {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 80;
+  width: min(420px, calc(100vw - 36px));
+  max-height: calc(100vh - 36px);
+  overflow: auto;
+  box-shadow: var(--shadow-lg);
+}
+
+.form-panel.is-floating-panel.is-collapsed {
+  display: none;
+}
+
+body.has-floating-task-form::before {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: rgba(0, 0, 0, 0.22);
+  content: "";
+  pointer-events: none;
 }
 
 .smart-card {
@@ -2016,13 +2045,18 @@ select:focus-visible {
 }
 
 .timeline-hour-slot {
-  display: grid;
+  display: block;
   position: relative;
   align-content: start;
   gap: 8px;
-  min-height: 68px;
+  min-height: 96px;
   min-width: 0;
-  padding: 10px 0 10px 14px;
+  overflow: visible;
+  padding: 0 0 0 14px;
+  background-image:
+    linear-gradient(to bottom, transparent calc(25% - 1px), color-mix(in srgb, var(--line) 50%, transparent) 25%, transparent calc(25% + 1px)),
+    linear-gradient(to bottom, transparent calc(50% - 1px), color-mix(in srgb, var(--line) 55%, transparent) 50%, transparent calc(50% + 1px)),
+    linear-gradient(to bottom, transparent calc(75% - 1px), color-mix(in srgb, var(--line) 50%, transparent) 75%, transparent calc(75% + 1px));
   transition:
     background 160ms var(--ease),
     box-shadow 160ms var(--ease);
@@ -2034,7 +2068,9 @@ select:focus-visible {
 }
 
 .timeline-slot-empty {
-  align-self: center;
+  position: absolute;
+  top: 50%;
+  left: 14px;
   width: fit-content;
   border: 1px dashed var(--line);
   border-radius: var(--radius-xs);
@@ -2042,6 +2078,8 @@ select:focus-visible {
   font-size: 12px;
   font-weight: 620;
   padding: 6px 9px;
+  transform: translateY(-50%);
+  pointer-events: none;
 }
 
 .timeline-task {
@@ -2049,11 +2087,12 @@ select:focus-visible {
   position: relative;
   gap: 5px;
   min-width: 0;
-  border: 1px solid var(--line);
-  border-left: 4px solid var(--category-color, var(--teal));
+  border: 1px solid color-mix(in srgb, var(--timeline-color, var(--teal)) 34%, var(--line));
+  border-left: 4px solid var(--timeline-color, var(--teal));
   border-radius: var(--radius-sm);
-  background: var(--surface-soft);
+  background: color-mix(in srgb, var(--timeline-color, var(--teal)) 8%, var(--surface-soft));
   color: var(--text);
+  cursor: pointer;
   padding: 10px 12px;
   text-align: left;
   transition:
@@ -2063,22 +2102,43 @@ select:focus-visible {
     transform 160ms var(--ease);
 }
 
+.timeline-task.is-scheduled {
+  position: absolute;
+  top: var(--timeline-task-top, 0);
+  right: 0;
+  left: calc(14px + var(--timeline-column-left, 0%));
+  z-index: 1;
+  width: calc(var(--timeline-column-width, 100%) - 14px - var(--timeline-column-gap, 0px));
+}
+
+.timeline-task.has-open-menu {
+  z-index: 30;
+}
+
 .timeline-task:hover {
-  border-color: var(--line-strong);
-  background: var(--surface);
-  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--timeline-color, var(--teal)) 54%, var(--line-strong));
+  background: color-mix(in srgb, var(--timeline-color, var(--teal)) 12%, var(--surface));
+  transform: translateY(calc(var(--timeline-drag-y, 0px) - 1px));
+}
+
+.timeline-task:hover .timeline-delete-button,
+.timeline-task:focus-within .timeline-delete-button,
+.timeline-task:hover .timeline-menu-button,
+.timeline-task:focus-within .timeline-menu-button,
+.timeline-task-menu-wrap.is-open .timeline-menu-button {
+  opacity: 1;
 }
 
 .timeline-task.priority-high {
-  border-left-color: var(--coral);
+  border-left-color: var(--timeline-color, var(--teal));
 }
 
 .timeline-task.priority-medium {
-  border-left-color: var(--amber);
+  border-left-color: var(--timeline-color, var(--teal));
 }
 
 .timeline-task.priority-low {
-  border-left-color: var(--teal);
+  border-left-color: var(--timeline-color, var(--teal));
 }
 
 .timeline-task.is-done {
@@ -2086,14 +2146,86 @@ select:focus-visible {
 }
 
 .timeline-task.is-overdue {
-  border-color: color-mix(in srgb, var(--coral) 62%, var(--line));
-  background: color-mix(in srgb, var(--coral) 9%, var(--surface-soft));
+  border-color: color-mix(in srgb, var(--timeline-color, var(--coral)) 58%, var(--line));
+  background: color-mix(in srgb, var(--timeline-color, var(--coral)) 11%, var(--surface-soft));
 }
 
 .timeline-task.is-time-block {
   min-height: var(--block-min-height, 72px);
-  background: color-mix(in srgb, var(--teal) 10%, var(--surface-soft));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--teal) 18%, transparent);
+  background: color-mix(in srgb, var(--timeline-color, var(--teal)) 13%, var(--surface-soft));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--timeline-color, var(--teal)) 22%, transparent);
+}
+
+.timeline-task.is-short-block {
+  gap: 2px;
+  padding: 5px 8px;
+}
+
+.timeline-task.is-short-block .timeline-task-main {
+  gap: 1px;
+  padding-right: 24px;
+}
+
+.timeline-task.is-short-block .timeline-delete-button {
+  top: 50%;
+  right: 6px;
+  width: 18px;
+  height: 18px;
+  font-size: 13px;
+  transform: translateY(-50%);
+}
+
+.timeline-task.is-tiny-block .timeline-delete-button {
+  right: 5px;
+  width: 16px;
+  height: 16px;
+  font-size: 12px;
+}
+
+.timeline-task.is-tiny-block .timeline-task-main {
+  padding-right: 20px;
+}
+
+.timeline-task.is-short-block .timeline-task-menu-wrap {
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+}
+
+.timeline-task.is-short-block .timeline-menu-button {
+  width: 18px;
+  height: 18px;
+  font-size: 13px;
+}
+
+.timeline-task.is-tiny-block .timeline-task-menu-wrap {
+  right: 5px;
+}
+
+.timeline-task.is-tiny-block .timeline-menu-button {
+  width: 16px;
+  height: 16px;
+  font-size: 11px;
+}
+
+.timeline-task.is-short-block .timeline-task-top {
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px;
+}
+
+.timeline-task.is-short-block strong,
+.timeline-task.is-short-block span:not(.timeline-task-top) {
+  font-size: 11px;
+  line-height: 1.1;
+}
+
+.timeline-task.is-short-block small {
+  display: none;
+}
+
+.timeline-task.is-tiny-block {
+  padding-top: 3px;
+  padding-bottom: 3px;
 }
 
 .timeline-task.is-time-block:hover .timeline-resize-handle,
@@ -2104,12 +2236,12 @@ select:focus-visible {
 
 .timeline-task.is-resizing {
   z-index: 3;
-  border-color: color-mix(in srgb, var(--teal) 56%, var(--line));
-  background: color-mix(in srgb, var(--teal) 16%, var(--surface-soft));
+  border-color: color-mix(in srgb, var(--timeline-color, var(--teal)) 62%, var(--line));
+  background: color-mix(in srgb, var(--timeline-color, var(--teal)) 18%, var(--surface-soft));
   box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--teal) 32%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--timeline-color, var(--teal)) 34%, transparent),
     0 16px 34px rgba(0, 0, 0, 0.22);
-  transform: none;
+  transform: translateY(var(--timeline-drag-y, 0px));
   transition: none;
   user-select: none;
 }
@@ -2119,7 +2251,7 @@ select:focus-visible {
   top: 50%;
   right: 12px;
   z-index: 2;
-  border: 1px solid color-mix(in srgb, var(--teal) 58%, var(--line));
+  border: 1px solid color-mix(in srgb, var(--timeline-color, var(--teal)) 58%, var(--line));
   border-radius: 999px;
   background: var(--surface);
   color: var(--text-strong);
@@ -2133,8 +2265,33 @@ select:focus-visible {
 }
 
 .timeline-task.is-dragging {
-  opacity: 0.45;
-  transform: scale(0.99);
+  z-index: 4;
+  opacity: 0.96;
+  border-color: color-mix(in srgb, var(--timeline-color, var(--teal)) 62%, var(--line));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--timeline-color, var(--teal)) 30%, transparent),
+    0 18px 40px rgba(0, 0, 0, 0.28);
+  transform: translateY(var(--timeline-drag-y, 0px));
+  transition: none;
+  user-select: none;
+}
+
+.timeline-task.is-dragging::after {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  z-index: 2;
+  border: 1px solid color-mix(in srgb, var(--timeline-color, var(--teal)) 58%, var(--line));
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-strong);
+  content: attr(data-drag-label);
+  font-size: 11px;
+  font-weight: 760;
+  line-height: 1;
+  padding: 6px 9px;
+  transform: translateY(-50%);
+  pointer-events: none;
 }
 
 .timeline-task-main {
@@ -2146,8 +2303,132 @@ select:focus-visible {
   color: inherit;
   cursor: pointer;
   font: inherit;
-  padding: 0;
+  padding: 0 28px 0 0;
   text-align: left;
+}
+
+.timeline-delete-button {
+  position: absolute;
+  top: 6px;
+  right: 7px;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  min-height: 0;
+  border: 1px solid color-mix(in srgb, var(--coral) 38%, var(--line));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  color: var(--coral);
+  cursor: pointer;
+  font-size: 17px;
+  font-weight: 760;
+  line-height: 1;
+  opacity: 0;
+  padding: 0;
+  transition:
+    opacity 140ms var(--ease),
+    background 140ms var(--ease),
+    border-color 140ms var(--ease);
+}
+
+.timeline-delete-button:hover,
+.timeline-delete-button:focus-visible {
+  border-color: color-mix(in srgb, var(--coral) 72%, var(--line));
+  background: color-mix(in srgb, var(--coral) 14%, var(--surface));
+  opacity: 1;
+  outline: 0;
+}
+
+.timeline-task-menu-wrap {
+  position: absolute;
+  top: 6px;
+  right: 7px;
+  z-index: 8;
+}
+
+.timeline-menu-button {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  min-height: 0;
+  border: 1px solid color-mix(in srgb, var(--timeline-color, var(--teal)) 38%, var(--line));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  color: var(--text-strong);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 760;
+  line-height: 1;
+  opacity: 0;
+  padding: 0;
+  transition:
+    opacity 140ms var(--ease),
+    background 140ms var(--ease),
+    border-color 140ms var(--ease),
+    transform 140ms var(--ease);
+}
+
+.timeline-menu-button:hover,
+.timeline-menu-button:focus-visible,
+.timeline-task-menu-wrap.is-open .timeline-menu-button {
+  border-color: color-mix(in srgb, var(--timeline-color, var(--teal)) 62%, var(--line));
+  background: color-mix(in srgb, var(--timeline-color, var(--teal)) 14%, var(--surface));
+  opacity: 1;
+  outline: 0;
+}
+
+.timeline-task-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 12;
+  display: grid;
+  min-width: 164px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface) 96%, black);
+  box-shadow: var(--shadow-lg);
+  padding: 5px;
+}
+
+.timeline-task-menu[hidden] {
+  display: none;
+}
+
+.timeline-menu-item {
+  width: 100%;
+  min-height: 32px;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 680;
+  padding: 7px 9px;
+  text-align: left;
+}
+
+.timeline-menu-item:hover,
+.timeline-menu-item:focus-visible {
+  background: color-mix(in srgb, var(--timeline-color, var(--teal)) 12%, var(--surface-soft));
+  color: var(--text-strong);
+  outline: 0;
+}
+
+.timeline-menu-item.is-danger {
+  color: var(--coral);
+}
+
+.timeline-menu-item.is-danger:hover,
+.timeline-menu-item.is-danger:focus-visible {
+  background: color-mix(in srgb, var(--coral) 13%, var(--surface-soft));
+  color: color-mix(in srgb, var(--coral) 88%, white);
 }
 
 .timeline-task-top {
@@ -2159,7 +2440,7 @@ select:focus-visible {
 }
 
 .timeline-task strong {
-  color: var(--teal-deep);
+  color: color-mix(in srgb, var(--timeline-color, var(--teal)) 82%, white);
   font-size: 12px;
   font-weight: 760;
   white-space: nowrap;
@@ -2895,7 +3176,7 @@ select:focus-visible {
 }
 
 :root[data-density="compact"] .timeline-hour-slot {
-  min-height: 56px;
+  min-height: 96px;
 }
 
 @media (max-width: 1280px) {
@@ -3091,6 +3372,11 @@ select:focus-visible {
 
   .timeline-hour-slot {
     padding-left: 10px;
+  }
+
+  .timeline-task.is-scheduled {
+    left: calc(10px + var(--timeline-column-left, 0%));
+    width: calc(var(--timeline-column-width, 100%) - 10px - var(--timeline-column-gap, 0px));
   }
 
   .timeline-task-top {

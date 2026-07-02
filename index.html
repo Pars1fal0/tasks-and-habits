@@ -827,6 +827,42 @@
                 <button class="ghost-button compact-button" id="settingsOpenBackupFolderButton" type="button">Папка бэкапов</button>
               </div>
               <p class="settings-status" id="settingsBackupStatus" aria-live="polite" aria-atomic="true">Авто-бэкап ожидает расписание</p>
+              <label class="settings-row">
+                <span>
+                  <strong>Удаленная БД</strong>
+                  <small>Сохраняет текущее состояние в Supabase. Локальная копия остается для офлайн-работы.</small>
+                </span>
+                <select id="remoteSyncEnabled" aria-label="Синхронизация с базой данных">
+                  <option value="off">Выключена</option>
+                  <option value="on">Включена</option>
+                </select>
+              </label>
+              <label class="settings-row">
+                <span>
+                  <strong>Supabase URL</strong>
+                  <small>Адрес проекта вида https://xxxx.supabase.co.</small>
+                </span>
+                <input id="remoteSyncUrl" type="url" inputmode="url" autocomplete="off" placeholder="https://project.supabase.co">
+              </label>
+              <label class="settings-row">
+                <span>
+                  <strong>Anon key</strong>
+                  <small>Публичный anon key из API settings проекта.</small>
+                </span>
+                <input id="remoteSyncAnonKey" type="password" autocomplete="off" placeholder="eyJ...">
+              </label>
+              <label class="settings-row">
+                <span>
+                  <strong>Ключ пользователя</strong>
+                  <small>Любой стабильный идентификатор, например email или main-device.</small>
+                </span>
+                <input id="remoteSyncUserKey" type="text" maxlength="120" autocomplete="username" placeholder="me@example.com">
+              </label>
+              <p class="settings-status" id="remoteSyncStatus" aria-live="polite" aria-atomic="true">Удаленная БД не настроена</p>
+              <div class="settings-actions">
+                <button class="ghost-button compact-button" id="remoteSyncPushButton" type="button">Сохранить в БД</button>
+                <button class="ghost-button compact-button" id="remoteSyncPullButton" type="button">Загрузить из БД</button>
+              </div>
               <div class="settings-actions">
                 <button class="ghost-button compact-button" id="settingsExportSettingsButton" type="button">Экспорт настроек</button>
                 <button class="ghost-button compact-button" id="settingsImportSettingsButton" type="button">Импорт настроек</button>
@@ -931,6 +967,7 @@
 
     <script src="quick-input.js?v=2" defer></script>
     <script src="recurrence.js?v=1" defer></script>
+    <script src="remote-sync.js?v=1" defer></script>
     <script src="state-normalizer.js?v=2" defer></script>
     <script src="storage.js?v=1" defer></script>
     <script src="archive-view.js?v=1" defer></script>
