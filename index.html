@@ -7,7 +7,7 @@
     <title>Ритм дня</title>
     <link rel="icon" href="data:,">
     <link rel="manifest" href="manifest.webmanifest">
-    <link rel="stylesheet" href="styles.css?v=18">
+    <link rel="stylesheet" href="styles.css?v=19">
   </head>
   <body>
     <svg class="icon-sprite" aria-hidden="true">
@@ -209,10 +209,13 @@
               </label>
               <button class="ghost-button compact-button" id="clearTaskSearch" type="button">Сбросить</button>
             </div>
-            <button class="primary-button icon-text-button" id="openTaskForm" type="button">
-              <svg class="ui-icon"><use href="#icon-plus"></use></svg>
-              Новая задача
-            </button>
+            <div class="toolbar-actions">
+              <button class="ghost-button compact-button" id="overdueToggle" type="button" aria-expanded="true" hidden>Скрыть просрочки</button>
+              <button class="primary-button icon-text-button" id="openTaskForm" type="button">
+                <svg class="ui-icon"><use href="#icon-plus"></use></svg>
+                Новая задача
+              </button>
+            </div>
           </div>
 
           <form class="quick-task-form" id="quickTaskForm">
@@ -248,7 +251,6 @@
                   <span class="metric-label">Просроченные</span>
                   <p id="overdueCounter"></p>
                 </div>
-                <button class="ghost-button compact-button" id="overdueToggle" type="button" aria-expanded="true">Скрыть</button>
               </div>
                 <div class="overdue-list" id="overdueList"></div>
               </div>
@@ -1042,9 +1044,9 @@
     <script src="habits-view.js?v=1" defer></script>
     <script src="import-export.js?v=3" defer></script>
     <script src="notifications.js?v=1" defer></script>
-    <script src="overdue-controller.js?v=2" defer></script>
+    <script src="overdue-controller.js?v=3" defer></script>
     <script src="task-form.js?v=3" defer></script>
-    <script src="tasks-view.js?v=6" defer></script>
+    <script src="tasks-view.js?v=7" defer></script>
     <script src="task-moves.js?v=4" defer></script>
     <script src="task-state.js?v=2" defer></script>
     <script src="settings-sync.js?v=1" defer></script>
@@ -1056,6 +1058,6 @@
     <script src="timeline-controller.js?v=3" defer></script>
     <script src="view-renderer.js?v=1" defer></script>
     <script src="toast.js?v=1" defer></script>
-    <script src="app.js?v=21" defer></script>
+    <script src="app.js?v=22" defer></script>
   </body>
 </html>

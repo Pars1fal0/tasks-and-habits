@@ -163,10 +163,11 @@
       const visibleEntries = overdueEntries.slice(0, overdueVisibleCount);
       const isHidden = ctx.getOverdueHidden?.() === true;
       ctx.els.overdueList.replaceChildren();
-      ctx.els.overduePanel.classList.toggle("is-visible", overdueEntries.length > 0);
-      ctx.els.overduePanel.classList.toggle("is-collapsed", isHidden);
+      ctx.els.overduePanel.hidden = isHidden || overdueEntries.length === 0;
+      ctx.els.overduePanel.classList.toggle("is-visible", overdueEntries.length > 0 && !isHidden);
       if (ctx.els.overdueToggle) {
-        ctx.els.overdueToggle.textContent = isHidden ? "Показать" : "Скрыть";
+        ctx.els.overdueToggle.hidden = overdueEntries.length === 0;
+        ctx.els.overdueToggle.textContent = isHidden ? "Показать просрочки" : "Скрыть просрочки";
         ctx.els.overdueToggle.setAttribute("aria-expanded", String(!isHidden));
       }
       ctx.els.overdueCounter.textContent = overdueEntries.length

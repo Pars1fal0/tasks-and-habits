@@ -89,7 +89,7 @@ function createWindow() {
         state.tasks.push({
           id: "smoke-overdue-toggle",
           title: "Smoke hidden overdue",
-          date: "2025-01-01",
+          date: addDays(toDateKey(new Date()), -1),
           time: "",
           priority: "medium",
           repeat: "none",
@@ -97,7 +97,7 @@ function createWindow() {
         });
         render();
         document.querySelector("#overdueToggle")?.click();
-        const overdueHideWorks = document.querySelector("#overduePanel")?.classList.contains("is-collapsed") && overdueHidden === true;
+        const overdueHideWorks = document.querySelector("#overduePanel")?.hidden === true && overdueHidden === true;
         document.querySelector("#overdueToggle")?.click();
         state.tasks = state.tasks.filter((task) => task.id !== "smoke-overdue-toggle");
         state.tasks.push({

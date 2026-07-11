@@ -3,7 +3,7 @@ const { createOverdueController } = require("../overdue-controller.js");
 
 module.exports = [
   {
-    name: "reuses overdue calculations until state or minute changes",
+    name: "reuses yesterday calculations until state or day changes",
     fn() {
       let taskReads = 0;
       const controller = createOverdueController({
@@ -22,9 +22,12 @@ module.exports = [
     },
   },
   {
-    name: "keeps overdue occurrences older than sixty days",
+    name: "shows only tasks from the previous calendar day",
     fn() {
-      const tasks = [{ id: "old", title: "Old", date: "2026-01-01", time: "", repeat: "none", completed: {} }];
+      const tasks = [
+        { id: "yesterday", title: "Yesterday", date: "2026-07-10", time: "", repeat: "none", completed: {} },
+        { id: "old", title: "Old", date: "2026-01-01", time: "", repeat: "none", completed: {} },
+      ];
       const controller = createOverdueController({
         getTaskDeadlineDate: (_task, dateKey) => new Date(`${dateKey}T23:59:59`),
         getTasks: () => tasks,
@@ -33,7 +36,8 @@ module.exports = [
         taskScheduledOn: () => true,
         toDateKey: (date) => date.toISOString().slice(0, 10),
       });
-      assert.equal(controller.list(new Date("2026-07-11T12:00:00")).length, 1);
+      const entries = controller.list(new Date("2026-07-11T12:00:00"));
+      assert.deepEqual(entries.map((entry) => entry.task.id), ["yesterday"]);
     },
   },
 ];

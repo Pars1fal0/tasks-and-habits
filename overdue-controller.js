@@ -4,26 +4,21 @@
     let cachedKey = "";
 
     function list(now = new Date()) {
-      const minuteKey = now.toISOString().slice(0, 16);
-      const nextKey = `${ctx.getCacheKey?.() || ""}:${minuteKey}`;
+      const yesterday = new Date(now);
+      yesterday.setHours(12, 0, 0, 0);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayKey = ctx.toDateKey(yesterday);
+      const nextKey = `${ctx.getCacheKey?.() || ""}:${yesterdayKey}`;
       if (nextKey === cachedKey) return cachedEntries;
-      const todayKey = ctx.toDateKey(now);
       const entries = [];
 
       ctx.getTasks().forEach((task) => {
         if (task.repeat === "none") {
-          addEntry(entries, task, task.date, now);
+          if (task.date === yesterdayKey) addEntry(entries, task, yesterdayKey, now);
           return;
         }
-
-        const firstDate = parseDate(task.date);
-        if (Number.isNaN(firstDate.getTime())) return;
-        const finalKey = task.repeatUntil && task.repeatUntil < todayKey ? task.repeatUntil : todayKey;
-        const finalDate = parseDate(finalKey);
-        for (let cursor = firstDate; cursor <= finalDate; cursor.setDate(cursor.getDate() + 1)) {
-          const dateKey = ctx.toDateKey(cursor);
-          if (!ctx.taskScheduledOn(task, dateKey) || ctx.isTaskExcluded(task, dateKey)) continue;
-          addEntry(entries, task, dateKey, now);
+        if (ctx.taskScheduledOn(task, yesterdayKey) && !ctx.isTaskExcluded(task, yesterdayKey)) {
+          addEntry(entries, task, yesterdayKey, now);
         }
       });
 
@@ -39,11 +34,6 @@
     }
 
     return { list };
-  }
-
-  function parseDate(dateKey) {
-    const [year, month, day] = String(dateKey || "").split("-").map(Number);
-    return new Date(year, month - 1, day);
   }
 
   global.RhythmOverdueController = { createOverdueController };

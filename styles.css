@@ -1704,9 +1704,7 @@ body.has-floating-task-form::before {
   gap: 12px;
 }
 
-.overdue-panel.is-collapsed .overdue-list {
-  display: none;
-}
+.toolbar-actions { display: flex; gap: 8px; align-items: center; }
 
 .overdue-heading,
 .excluded-heading {
