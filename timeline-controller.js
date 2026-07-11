@@ -109,6 +109,7 @@
         sourceTaskId: "",
         movedFromDate: "",
         completed: {},
+        acknowledgedOverdue: {},
         excludedDates: {},
         notified: {},
         createdAt: new Date().toISOString(),

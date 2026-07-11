@@ -66,6 +66,7 @@
               customRepeat: config.recurrence.normalizeCustomRepeat(task.customRepeat),
               reminderOffset: config.normalizeReminderOffset(task.reminderOffset, Boolean(normalizedTime)),
               completed: config.normalizeTaskFlags(task.completed),
+              acknowledgedOverdue: config.normalizeTaskFlags(task.acknowledgedOverdue),
               excludedDates: config.normalizeTaskFlags(task.excludedDates),
               notified: config.normalizeTaskFlags(task.notified),
               createdAt: task.createdAt || new Date().toISOString(),

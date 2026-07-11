@@ -201,6 +201,7 @@
           ? null
           : createButton("ghost-button compact-button overdue-delete-future", "Этот и последующие");
         const goButton = createButton("ghost-button compact-button overdue-go", "К дню");
+        const acknowledgeButton = createButton("ghost-button compact-button overdue-acknowledge", "Пометить просмотренной");
         const todayButton = createButton("ghost-button compact-button overdue-today", "Сегодня");
         const doneButton = createButton("primary-button compact-button overdue-done", "Готово");
 
@@ -213,7 +214,7 @@
         moreSummary.setAttribute("aria-label", "Еще действия");
         moreSummary.textContent = "...";
         moreMenu.className = "overdue-more-menu";
-        moreMenu.append(goButton, deleteButton);
+        moreMenu.append(goButton, acknowledgeButton, deleteButton);
         if (deleteFutureButton) moreMenu.appendChild(deleteFutureButton);
         more.append(moreSummary, moreMenu);
         actions.append(todayButton, doneButton, more);
@@ -222,6 +223,11 @@
         goButton.addEventListener("click", () => {
           more.open = false;
           ctx.openDate(entry.dateKey);
+        });
+
+        acknowledgeButton.addEventListener("click", () => {
+          more.open = false;
+          ctx.acknowledgeOverdueTask(entry.task, entry.dateKey);
         });
 
         todayButton.addEventListener("click", () => {

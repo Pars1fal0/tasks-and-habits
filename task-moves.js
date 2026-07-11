@@ -23,6 +23,7 @@
       task.endTime = "";
     }
     delete task.completed?.[sourceDateKey];
+    delete task.acknowledgedOverdue?.[sourceDateKey];
     delete task.notified?.[sourceDateKey];
     removeTaskFromOrder(state, task.id, sourceDateKey);
     if (wasDone) task.completed[targetDateKey] = true;
@@ -32,6 +33,7 @@
     task.excludedDates = task.excludedDates || {};
     task.excludedDates[sourceDateKey] = true;
     delete task.completed?.[sourceDateKey];
+    delete task.acknowledgedOverdue?.[sourceDateKey];
     delete task.notified?.[sourceDateKey];
     removeTaskFromOrder(state, task.id, sourceDateKey);
 
@@ -58,6 +60,7 @@
       customRepeat: {},
       reminderOffset: task.reminderOffset,
       completed: {},
+      acknowledgedOverdue: {},
       excludedDates: {},
       notified: {},
       createdAt: new Date().toISOString(),

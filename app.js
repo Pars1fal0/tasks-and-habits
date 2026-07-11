@@ -64,6 +64,7 @@ const overdueController = window.RhythmOverdueController.createOverdueController
   getCacheKey: () => localStateUpdatedAt,
   getTaskDeadlineDate,
   getTasks: () => state.tasks,
+  isAcknowledged: (task, dateKey) => task.acknowledgedOverdue?.[dateKey] === true,
   isTaskDone,
   isTaskExcluded,
   taskScheduledOn,
@@ -292,6 +293,7 @@ const tasksView = window.RhythmTasksView.createTasksView({
   els,
   priorityLabels,
   addDays,
+  acknowledgeOverdueTask,
   clearTaskDragState,
   createUndoSnapshot,
   confirmAction,
@@ -1005,6 +1007,15 @@ function excludeTaskDate(task, dateKey) {
   showToast("Повтор исключен на выбранный день", { undo });
 }
 
+function acknowledgeOverdueTask(task, dateKey) {
+  const undo = createUndoSnapshot();
+  task.acknowledgedOverdue = task.acknowledgedOverdue || {};
+  task.acknowledgedOverdue[dateKey] = true;
+  saveState();
+  render();
+  showToast("Задача убрана из просроченных", { undo });
+}
+
 function restoreTaskDate(task, dateKey) {
   const undo = createUndoSnapshot();
   if (task.excludedDates) {
@@ -1020,7 +1031,7 @@ function stopTaskSeries(task, dateKey) {
   const undo = createUndoSnapshot();
   const cutoff = addDays(dateKey, -1);
   task.repeatUntil = cutoff;
-  [task.completed, task.excludedDates, task.notified].forEach((flags) => {
+  [task.completed, task.acknowledgedOverdue, task.excludedDates, task.notified].forEach((flags) => {
     Object.keys(flags || {}).forEach((key) => {
       if (key >= dateKey) delete flags[key];
     });

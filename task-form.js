@@ -34,6 +34,7 @@
         customRepeat: ctx.els.taskRepeat.value === "custom" ? ctx.getCustomRepeatFromForm() : {},
         reminderOffset: ctx.els.taskReminder.value,
         completed: existing?.completed || {},
+        acknowledgedOverdue: existing?.acknowledgedOverdue || {},
         excludedDates: existing?.excludedDates || {},
         notified: existing?.notified || {},
         createdAt: existing?.createdAt || new Date().toISOString(),

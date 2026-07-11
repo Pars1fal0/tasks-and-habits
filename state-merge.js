@@ -26,6 +26,7 @@
       ...local,
       ...remote,
       completed: { ...(local.completed || {}), ...(remote.completed || {}) },
+      acknowledgedOverdue: { ...(local.acknowledgedOverdue || {}), ...(remote.acknowledgedOverdue || {}) },
       excludedDates: { ...(local.excludedDates || {}), ...(remote.excludedDates || {}) },
       notified: { ...(local.notified || {}), ...(remote.notified || {}) },
     };

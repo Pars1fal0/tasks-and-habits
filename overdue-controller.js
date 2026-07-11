@@ -28,6 +28,7 @@
     }
 
     function addEntry(entries, task, dateKey, now) {
+      if (ctx.isAcknowledged?.(task, dateKey)) return;
       const dueAt = ctx.getTaskDeadlineDate(task, dateKey);
       if (dueAt >= now || ctx.isTaskDone(task, dateKey)) return;
       entries.push({ task, dateKey, dueAt });

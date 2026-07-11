@@ -95,8 +95,25 @@ function createWindow() {
           repeat: "none",
           completed: {}, excludedDates: {}, notified: {},
         });
+        state.tasks.push({
+          id: "smoke-acknowledge-overdue",
+          title: "Smoke acknowledge overdue",
+          date: addDays(toDateKey(new Date()), -1),
+          time: "",
+          priority: "low",
+          repeat: "none",
+          completed: {}, acknowledgedOverdue: {}, excludedDates: {}, notified: {},
+        });
         saveState({ skipBackup: true, skipRemote: true });
         render();
+        const acknowledgeItem = [...document.querySelectorAll(".overdue-item")].find((item) => item.querySelector("h3")?.textContent === "Smoke acknowledge overdue");
+        acknowledgeItem?.querySelector(".overdue-more-trigger")?.click();
+        acknowledgeItem?.querySelector(".overdue-acknowledge")?.click();
+        const acknowledgedTask = state.tasks.find((task) => task.id === "smoke-acknowledge-overdue");
+        const overdueAcknowledgeWorks =
+          acknowledgedTask?.acknowledgedOverdue?.[addDays(toDateKey(new Date()), -1)] === true &&
+          acknowledgedTask?.completed?.[addDays(toDateKey(new Date()), -1)] !== true &&
+          ![...document.querySelectorAll(".overdue-item h3")].some((item) => item.textContent === "Smoke acknowledge overdue");
         const overdueVisibleOnNextDay = [...document.querySelectorAll(".overdue-item h3")].some((item) => item.textContent === "Smoke hidden overdue");
         activeDate = addDays(activeDate, 1);
         render();
@@ -106,7 +123,7 @@ function createWindow() {
         document.querySelector("#overdueToggle")?.click();
         const overdueHideWorks = document.querySelector("#overduePanel")?.hidden === true && overdueHidden === true;
         document.querySelector("#overdueToggle")?.click();
-        state.tasks = state.tasks.filter((task) => task.id !== "smoke-overdue-toggle");
+        state.tasks = state.tasks.filter((task) => !["smoke-overdue-toggle", "smoke-acknowledge-overdue"].includes(task.id));
         state.tasks.push({
           id: "smoke-ended-series",
           title: "Smoke ended series",
@@ -627,6 +644,7 @@ function createWindow() {
           startsWithoutDemoData,
           formsStartCollapsed,
           overdueHideWorks,
+          overdueAcknowledgeWorks,
           overdueVisibleOnlyNextDay: overdueVisibleOnNextDay && overdueGoneAfterNextDay,
           endedSeriesVisible,
           endedSeriesResumeWorks,

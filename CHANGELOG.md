@@ -6,6 +6,7 @@
 - Added cached overdue history with a persistent hide/show control.
 - Limited the overdue block to the previous calendar day and made hiding remove the entire block.
 - Calculate the one-day overdue window relative to the currently selected date.
+- Added per-occurrence "Пометить просмотренной" without completing, deleting, or moving the task.
 - Added ended-series management with resume-from-today behavior.
 - Added goal-link deletion warnings and direct navigation from goals to linked tasks.
 - Added offline, pending-sync, and synchronized status states plus local/remote state merging.

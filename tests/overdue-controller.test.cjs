@@ -3,6 +3,24 @@ const { createOverdueController } = require("../overdue-controller.js");
 
 module.exports = [
   {
+    name: "hides an acknowledged overdue occurrence without completing it",
+    fn() {
+      const task = { id: "seen", title: "Seen", date: "2026-07-11", repeat: "none", completed: {}, acknowledgedOverdue: { "2026-07-11": true } };
+      const controller = createOverdueController({
+        getCacheKey: () => "seen-state",
+        getTaskDeadlineDate: (_task, dateKey) => new Date(`${dateKey}T23:59:59`),
+        getTasks: () => [task],
+        isAcknowledged: (item, dateKey) => item.acknowledgedOverdue?.[dateKey] === true,
+        isTaskDone: () => false,
+        isTaskExcluded: () => false,
+        taskScheduledOn: () => true,
+        toDateKey: (date) => date.toISOString().slice(0, 10),
+      });
+      assert.equal(controller.list(new Date("2026-07-12T12:00:00")).length, 0);
+      assert.deepEqual(task.completed, {});
+    },
+  },
+  {
     name: "reuses yesterday calculations until state or day changes",
     fn() {
       let taskReads = 0;

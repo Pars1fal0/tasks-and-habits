@@ -20,6 +20,7 @@ module.exports = [
             customRepeat: { type: "interval", every: 4 },
             reminderOffset: "999",
             completed: { "2026-06-26": true, nope: true },
+            acknowledgedOverdue: { "2026-06-25": true, nope: true },
           },
         ],
         habits: [
@@ -64,6 +65,7 @@ module.exports = [
       assert.equal(normalized.tasks[0].customRepeat.every, 4);
       assert.equal(normalized.tasks[0].reminderOffset, "none");
       assert.deepEqual(normalized.tasks[0].completed, { "2026-06-26": true });
+      assert.deepEqual(normalized.tasks[0].acknowledgedOverdue, { "2026-06-25": true });
       assert.equal(normalized.habits[0].title, "Привычка");
       assert.equal(normalized.habits[0].goal, 1);
       assert.deepEqual(normalized.habits[0].logs, { "2026-06-26": 3 });
