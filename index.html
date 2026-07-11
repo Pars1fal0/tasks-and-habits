@@ -7,7 +7,7 @@
     <title>Ритм дня</title>
     <link rel="icon" href="data:,">
     <link rel="manifest" href="manifest.webmanifest">
-    <link rel="stylesheet" href="styles.css?v=15">
+    <link rel="stylesheet" href="styles.css?v=17">
   </head>
   <body>
     <svg class="icon-sprite" aria-hidden="true">
@@ -26,6 +26,7 @@
       <symbol id="icon-habit" viewBox="0 0 24 24"><path d="M7 12a5 5 0 0 1 10 0v6H7v-6Z"/><path d="M9 9V6a3 3 0 0 1 6 0v3"/></symbol>
       <symbol id="icon-heat" viewBox="0 0 24 24"><path d="M4 4h4v4H4V4ZM10 4h4v4h-4V4ZM16 4h4v4h-4V4ZM4 10h4v4H4v-4ZM10 10h4v4h-4v-4ZM16 10h4v4h-4v-4ZM4 16h4v4H4v-4ZM10 16h4v4h-4v-4ZM16 16h4v4h-4v-4Z"/></symbol>
       <symbol id="icon-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 7v5l3 2"/></symbol>
+      <symbol id="icon-more" viewBox="0 0 24 24"><path d="M5 12h.01M12 12h.01M19 12h.01"/></symbol>
       <symbol id="icon-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
       <symbol id="icon-rotate" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></symbol>
       <symbol id="icon-search" viewBox="0 0 24 24"><path d="m21 21-4.3-4.3"/><path d="M11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></symbol>
@@ -78,6 +79,26 @@
             <svg class="ui-icon"><use href="#icon-settings"></use></svg>
             <span>Настройки</span>
           </button>
+          <details class="nav-more">
+            <summary class="nav-tab nav-more-summary" aria-label="Дополнительные разделы">
+              <svg class="ui-icon"><use href="#icon-more"></use></svg>
+              <span>Еще</span>
+            </summary>
+            <div class="nav-more-menu">
+              <button class="nav-tab" data-view="goals" type="button">
+                <svg class="ui-icon"><use href="#icon-target"></use></svg>
+                <span>Цели</span>
+              </button>
+              <button class="nav-tab" data-view="archive" type="button">
+                <svg class="ui-icon"><use href="#icon-archive"></use></svg>
+                <span>Архив</span>
+              </button>
+              <button class="nav-tab" data-view="settings" type="button">
+                <svg class="ui-icon"><use href="#icon-settings"></use></svg>
+                <span>Настройки</span>
+              </button>
+            </div>
+          </details>
         </nav>
 
         <div class="sidebar-pulse">
@@ -121,6 +142,7 @@
           <div class="title-block">
             <p class="eyebrow" id="todayLabel"></p>
             <h1 id="pageTitle">Задачи на день</h1>
+            <p class="save-status" id="saveStatus" aria-live="polite" aria-atomic="true">Сохранено локально</p>
           </div>
 
           <div class="date-control" aria-label="Дата">
@@ -199,6 +221,13 @@
               <input id="quickTaskInput" type="text" autocomplete="off" placeholder="Созвон завтра 14:00-15:30 #работа !high">
             </label>
             <button class="primary-button compact-button" type="submit">Добавить</button>
+            <div class="quick-input-hints" id="quickInputHints" aria-label="Подсказки быстрого ввода">
+              <button type="button" data-quick-hint="завтра 10:00">завтра 10:00</button>
+              <button type="button" data-quick-hint="14:00-15:30">14:00-15:30</button>
+              <button type="button" data-quick-hint="через 2 часа">через 2 часа</button>
+              <button type="button" data-quick-hint="#работа">#категория</button>
+              <button type="button" data-quick-hint="!high">!high</button>
+            </div>
             <div class="quick-task-preview" id="quickTaskPreview" hidden></div>
           </form>
 
@@ -233,11 +262,11 @@
             </section>
 
             <aside class="right-rail">
-              <section class="panel form-panel" id="taskFormPanel" aria-labelledby="taskFormHeading">
+              <section class="panel form-panel is-collapsed" id="taskFormPanel" aria-labelledby="taskFormHeading">
                 <div class="panel-heading compact">
                   <div>
-                    <span class="metric-label">Создание</span>
-                    <h2 id="taskFormHeading">Задача</h2>
+                    <span class="metric-label">Планирование</span>
+                    <h2 id="taskFormHeading">Новая задача</h2>
                   </div>
                   <button class="icon-button subtle" id="closeTaskForm" type="button" aria-label="Закрыть форму">×</button>
                 </div>
@@ -334,6 +363,11 @@
                       <option value="custom">Настроить...</option>
                     </select>
                   </label>
+                  <label id="taskRepeatUntilField" hidden>
+                    Повторять до
+                    <input id="taskRepeatUntil" type="date">
+                    <small class="field-hint">Оставь пустым, чтобы повторять без ограничения.</small>
+                  </label>
                   <div class="repeat-designer" id="customRepeatPanel" hidden>
                     <div class="repeat-designer-head">
                       <span>Настроенный повтор</span>
@@ -400,7 +434,7 @@
         <section class="view" id="timelineView" aria-labelledby="timelineHeading">
           <div class="toolbar">
             <div>
-              <h2 id="timelineHeading">Таймлайн дня</h2>
+              <h2 id="timelineHeading">Расписание по времени</h2>
               <p class="muted">Задачи с временем разложены по часам выбранного дня.</p>
             </div>
             <span class="task-counter" id="timelineSummary" aria-live="polite" aria-atomic="true">0 по времени · 0 без времени</span>
@@ -425,7 +459,7 @@
         <section class="view" id="habitsView" aria-labelledby="habitsHeading">
           <div class="toolbar">
             <div>
-              <h2 id="habitsHeading">Привычки</h2>
+              <h2 id="habitsHeading">Привычки на выбранный день</h2>
               <p class="muted">Серии считаются по выполненным дням.</p>
             </div>
             <button class="primary-button icon-text-button" id="openHabitForm" type="button">
@@ -441,11 +475,11 @@
             </section>
 
             <aside class="right-rail">
-              <section class="panel form-panel" id="habitFormPanel" aria-labelledby="habitFormHeading">
+              <section class="panel form-panel is-collapsed" id="habitFormPanel" aria-labelledby="habitFormHeading">
                 <div class="panel-heading compact">
                   <div>
                     <span class="metric-label">Настройка</span>
-                    <h2 id="habitFormHeading">Привычка</h2>
+                    <h2 id="habitFormHeading">Новая привычка</h2>
                   </div>
                   <button class="icon-button subtle" id="closeHabitForm" type="button" aria-label="Закрыть форму">×</button>
                 </div>
@@ -512,7 +546,7 @@
                       </label>
                     </div>
                   </div>
-                  <div class="form-grid">
+                  <div class="form-grid" id="habitNumericFields" hidden>
                     <label>
                       Единица
                       <input id="habitUnit" type="text" maxlength="12" placeholder="мл">
@@ -535,7 +569,7 @@
         <section class="view" id="goalsView" aria-labelledby="goalsHeading">
           <div class="toolbar">
             <div>
-              <h2 id="goalsHeading">Цели</h2>
+              <h2 id="goalsHeading">Мои цели</h2>
               <p class="muted">Большие результаты со сроком, статусом и спокойным контролем прогресса.</p>
             </div>
             <button class="primary-button icon-text-button" id="openGoalForm" type="button">
@@ -566,7 +600,7 @@
             </section>
 
             <aside class="right-rail">
-              <section class="panel form-panel" id="goalFormPanel" aria-labelledby="goalFormHeading">
+              <section class="panel form-panel is-collapsed" id="goalFormPanel" aria-labelledby="goalFormHeading">
                 <div class="panel-heading compact">
                   <div>
                     <span class="metric-label">План</span>
@@ -584,34 +618,16 @@
                     Срок
                     <input id="goalDueDate" type="date" required>
                   </label>
-                  <label>
-                    Почему это важно
-                    <textarea id="goalWhy" maxlength="260" rows="3" required placeholder="Зачем тебе эта цель и как она связана с жизнью или ростом"></textarea>
-                  </label>
-                  <label>
-                    Шаги прогресса
-                    <textarea id="goalSteps" maxlength="600" rows="5" placeholder="Каждый шаг с новой строки:&#10;Дизайн&#10;Верстка&#10;Деплой"></textarea>
-                  </label>
-                  <details class="advanced-panel smart-card" id="goalAdvancedPanel">
-                    <summary class="advanced-summary">
-                      <span>Подробнее</span>
-                      <strong>SMART-проверка</strong>
-                    </summary>
-                    <div class="advanced-body">
-                      <label>
-                        Конкретный результат
-                        <textarea id="goalDescription" maxlength="240" rows="3" placeholder="Что именно должно быть готово или измениться"></textarea>
-                      </label>
-                      <label>
-                        Измеримый результат
-                        <input id="goalMeasure" type="text" maxlength="120" placeholder="Например: 5 кейсов в портфолио или -5 кг">
-                      </label>
-                      <label>
-                        Реалистичность
-                        <textarea id="goalReality" maxlength="240" rows="3" placeholder="Какие ресурсы, время или опыт помогут это выполнить"></textarea>
-                      </label>
-                    </div>
-                  </details>
+                  <fieldset class="goal-task-fieldset">
+                    <legend>Связанные задачи</legend>
+                    <p class="field-hint">Прогресс цели считается по выполненным задачам.</p>
+                    <div class="goal-task-picker" id="goalTaskPicker"></div>
+                  </fieldset>
+                  <textarea id="goalSteps" hidden></textarea>
+                  <input id="goalWhy" type="hidden">
+                  <input id="goalDescription" type="hidden">
+                  <input id="goalMeasure" type="hidden">
+                  <input id="goalReality" type="hidden">
                   <div class="form-actions">
                     <button class="primary-button" type="submit">Сохранить</button>
                     <button class="ghost-button" id="resetGoalForm" type="button">Очистить</button>
@@ -702,7 +718,7 @@
         <section class="view" id="archiveView" aria-labelledby="archiveHeading">
           <div class="toolbar">
             <div>
-              <h2 id="archiveHeading">Архив</h2>
+              <h2 id="archiveHeading">История выполнения</h2>
               <p class="muted">История завершенных задач.</p>
             </div>
             <div class="task-toolbar-meta archive-toolbar">
@@ -725,6 +741,14 @@
               </button>
             </div>
           </div>
+          <div class="archive-bulk-bar" id="archiveBulkBar" hidden>
+            <label class="archive-select-all"><input id="archiveSelectAll" type="checkbox"> Выбрать найденное</label>
+            <span id="archiveBulkCount">Выбрано: 0</span>
+            <div class="archive-bulk-actions">
+              <button class="ghost-button compact-button" id="archiveBulkRestore" type="button">Вернуть</button>
+              <button class="ghost-button compact-button danger-button" id="archiveBulkDelete" type="button">Удалить записи</button>
+            </div>
+          </div>
           <section class="panel main-panel">
             <div class="archive-list" id="archiveList"></div>
             <div class="empty-state" id="archiveEmpty">Завершенных задач пока нет.</div>
@@ -734,18 +758,18 @@
         <section class="view" id="settingsView" aria-labelledby="settingsHeading">
           <div class="toolbar">
             <div>
-              <h2 id="settingsHeading">Настройки</h2>
+              <h2 id="settingsHeading">Параметры приложения</h2>
               <p class="muted">Персонализация интерфейса и поведения приложения.</p>
             </div>
           </div>
           <div class="settings-grid">
-            <section class="panel settings-panel" aria-labelledby="appearanceHeading">
-              <div class="panel-heading compact">
+            <details class="panel settings-panel settings-accordion" aria-labelledby="appearanceHeading" open>
+              <summary class="panel-heading compact settings-summary">
                 <div>
                   <span class="metric-label">Интерфейс</span>
                   <h2 id="appearanceHeading">Внешний вид</h2>
                 </div>
-              </div>
+              </summary>
               <label class="settings-row">
                 <span>
                   <strong>Тема</strong>
@@ -770,7 +794,7 @@
               <label class="settings-row">
                 <span>
                   <strong>Режим интерфейса</strong>
-                  <small>Простой прячет дополнительные поля. Расширенный показывает SMART, кастомные повторы и тонкие настройки.</small>
+                  <small>Простой прячет дополнительные поля. Расширенный показывает кастомные повторы и тонкие настройки.</small>
                 </span>
                 <select id="interfaceMode" aria-label="Режим интерфейса">
                   <option value="simple">Простой</option>
@@ -800,14 +824,14 @@
               <div class="settings-actions">
                 <button class="ghost-button compact-button" id="settingsResetButton" type="button">Сбросить интерфейс</button>
               </div>
-            </section>
-            <section class="panel settings-panel" aria-labelledby="dataSettingsHeading">
-              <div class="panel-heading compact">
+            </details>
+            <details class="panel settings-panel settings-accordion" aria-labelledby="dataSettingsHeading">
+              <summary class="panel-heading compact settings-summary">
                 <div>
                   <span class="metric-label">Данные</span>
                   <h2 id="dataSettingsHeading">Бэкапы и экспорт</h2>
                 </div>
-              </div>
+              </summary>
               <label class="settings-row">
                 <span>
                   <strong>Плановый бэкап</strong>
@@ -827,6 +851,19 @@
                 <button class="ghost-button compact-button" id="settingsOpenBackupFolderButton" type="button">Папка бэкапов</button>
               </div>
               <p class="settings-status" id="settingsBackupStatus" aria-live="polite" aria-atomic="true">Авто-бэкап ожидает расписание</p>
+            </details>
+            <details class="panel settings-panel settings-accordion" aria-labelledby="syncSettingsHeading">
+              <summary class="panel-heading compact settings-summary">
+                <div>
+                  <span class="metric-label">Синхронизация</span>
+                  <h2 id="syncSettingsHeading">Удаленная база</h2>
+                </div>
+              </summary>
+              <ol class="sync-wizard-steps" aria-label="Шаги подключения">
+                <li><span>1</span><strong>Проект</strong><small>Вставь адрес и публичный ключ Supabase.</small></li>
+                <li><span>2</span><strong>Личный ключ</strong><small>Создай приватный идентификатор этого хранилища.</small></li>
+                <li><span>3</span><strong>Проверка</strong><small>Проверь связь и включи синхронизацию.</small></li>
+              </ol>
               <label class="settings-row">
                 <span>
                   <strong>Удаленная БД</strong>
@@ -853,11 +890,14 @@
               </label>
               <label class="settings-row">
                 <span>
-                  <strong>Ключ пользователя</strong>
-                  <small>Любой стабильный идентификатор, например email или main-device.</small>
+                  <strong>Приватный ключ</strong>
+                  <small>Не используй email или имя. Сгенерируй длинный секрет и храни его как пароль.</small>
                 </span>
-                <input id="remoteSyncUserKey" type="text" maxlength="120" autocomplete="username" placeholder="me@example.com">
+                <input id="remoteSyncUserKey" type="password" maxlength="120" autocomplete="new-password" placeholder="rhythm_...">
               </label>
+              <div class="settings-actions">
+                <button class="ghost-button compact-button" id="remoteSyncGenerateKeyButton" type="button">Создать приватный ключ</button>
+              </div>
               <p class="settings-status" id="remoteSyncStatus" aria-live="polite" aria-atomic="true">Удаленная БД не настроена</p>
               <div class="settings-actions">
                 <button class="ghost-button compact-button" id="remoteSyncPushButton" type="button">Сохранить в БД</button>
@@ -869,14 +909,14 @@
                 <button class="ghost-button compact-button" id="settingsImportSettingsButton" type="button">Импорт настроек</button>
                 <input id="settingsImportFile" type="file" accept="application/json,.json" hidden>
               </div>
-            </section>
-            <section class="panel settings-panel" aria-labelledby="notificationsSettingsHeading">
-              <div class="panel-heading compact">
+            </details>
+            <details class="panel settings-panel settings-accordion" aria-labelledby="notificationsSettingsHeading">
+              <summary class="panel-heading compact settings-summary">
                 <div>
                   <span class="metric-label">Система</span>
                   <h2 id="notificationsSettingsHeading">Уведомления</h2>
                 </div>
-              </div>
+              </summary>
               <label class="settings-row">
                 <span>
                   <strong>Напоминания</strong>
@@ -891,7 +931,7 @@
                 <svg class="ui-icon"><use href="#icon-bell"></use></svg>
                 Проверить уведомления
               </button>
-            </section>
+            </details>
           </div>
         </section>
       </main>
@@ -907,6 +947,7 @@
         <p id="confirmMessage"></p>
         <div class="confirm-actions">
           <button class="ghost-button" id="confirmCancel" type="button">Отмена</button>
+          <button class="ghost-button" id="confirmSecondary" type="button" hidden>Только этот день</button>
           <button class="primary-button" id="confirmAccept" type="button">Подтвердить</button>
         </div>
       </section>
@@ -948,6 +989,9 @@
 
     <template id="habitTemplate">
       <article class="habit-item">
+        <button class="habit-drag-handle" type="button" aria-label="Перетащить привычку">
+          <svg class="ui-icon"><use href="#icon-grip"></use></svg>
+        </button>
         <div class="habit-main">
           <div>
             <h3></h3>
@@ -967,32 +1011,37 @@
     </template>
 
     <script src="quick-input.js?v=2" defer></script>
-    <script src="recurrence.js?v=1" defer></script>
+    <script src="recurrence.js?v=2" defer></script>
     <script src="remote-sync.js?v=1" defer></script>
+    <script src="remote-sync-controller.js?v=1" defer></script>
     <script src="settings-state.js?v=1" defer></script>
-    <script src="state-normalizer.js?v=2" defer></script>
+    <script src="state-normalizer.js?v=3" defer></script>
+    <script src="date-rollover.js?v=1" defer></script>
     <script src="storage.js?v=1" defer></script>
     <script src="archive-view.js?v=1" defer></script>
     <script src="heatmap-view.js?v=3" defer></script>
     <script src="calendar-view.js?v=2" defer></script>
-    <script src="confirm-dialog.js?v=2" defer></script>
+    <script src="confirm-dialog.js?v=3" defer></script>
     <script src="categories.js?v=2" defer></script>
     <script src="goals-view.js?v=3" defer></script>
     <script src="habit-form.js?v=1" defer></script>
     <script src="habits-view.js?v=1" defer></script>
     <script src="import-export.js?v=3" defer></script>
     <script src="notifications.js?v=1" defer></script>
-    <script src="task-form.js?v=2" defer></script>
-    <script src="tasks-view.js?v=2" defer></script>
-    <script src="task-moves.js?v=2" defer></script>
+    <script src="overdue-controller.js?v=1" defer></script>
+    <script src="task-form.js?v=3" defer></script>
+    <script src="tasks-view.js?v=5" defer></script>
+    <script src="task-moves.js?v=4" defer></script>
+    <script src="task-state.js?v=1" defer></script>
     <script src="settings-sync.js?v=1" defer></script>
     <script src="settings-controller.js?v=3" defer></script>
     <script src="timeline-layout.js?v=1" defer></script>
     <script src="timeline-menu.js?v=1" defer></script>
     <script src="timeline-drag.js?v=1" defer></script>
     <script src="timeline-view.js?v=5" defer></script>
-    <script src="timeline-controller.js?v=1" defer></script>
+    <script src="timeline-controller.js?v=2" defer></script>
+    <script src="view-renderer.js?v=1" defer></script>
     <script src="toast.js?v=1" defer></script>
-    <script src="app.js?v=18" defer></script>
+    <script src="app.js?v=20" defer></script>
   </body>
 </html>

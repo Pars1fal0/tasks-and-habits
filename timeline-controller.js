@@ -3,10 +3,33 @@
     function deleteTask(taskId) {
       const task = ctx.findTask(taskId);
       if (!task) return false;
+      if (task.repeat !== "none" && ctx.confirmAction) {
+        return deleteRecurringTask(task);
+      }
       const undo = ctx.createUndoSnapshot();
       ctx.deleteTask(taskId);
       commit(ctx.messages.deleted, undo);
       return true;
+    }
+
+    async function deleteRecurringTask(task) {
+      const dateKey = ctx.getActiveDate();
+      const scope = await ctx.confirmAction({
+        title: "Удалить повторяющуюся задачу?",
+        message: `Выбери, убрать только ${ctx.formatLongDate(dateKey)} или завершить серию с этого дня. Прошлая история сохранится.`,
+        secondaryLabel: "Только этот день",
+        confirmLabel: "Этот и будущие",
+        tone: "danger",
+      });
+      if (scope === "secondary") {
+        ctx.excludeTaskDate(task, dateKey);
+        return true;
+      }
+      if (scope === true) {
+        ctx.stopTaskSeries(task, dateKey);
+        return true;
+      }
+      return false;
     }
 
     function toggleTaskDone(taskId) {
@@ -79,6 +102,13 @@
         const nextStart = ctx.timeToMinutes(nextTime);
         const nextEnd = Math.min(23 * 60 + 59, nextStart + duration);
         task.startTime = ctx.minutesToTime(Math.max(0, nextEnd - duration));
+        task.endTime = ctx.minutesToTime(nextEnd);
+        task.time = task.endTime;
+        task.scheduleMode = "block";
+      } else if (!ctx.cleanTimeValue(task.time)) {
+        const nextStart = ctx.timeToMinutes(nextTime);
+        const nextEnd = Math.min(23 * 60 + 59, nextStart + 60);
+        task.startTime = ctx.minutesToTime(Math.max(0, nextEnd - 60));
         task.endTime = ctx.minutesToTime(nextEnd);
         task.time = task.endTime;
         task.scheduleMode = "block";

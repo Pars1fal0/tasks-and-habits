@@ -2,6 +2,8 @@
   const WEEKDAY_LABELS = ["ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ", "ВС"];
 
   function createHeatmapView(ctx) {
+    const compactQuery = typeof global.matchMedia === "function" ? global.matchMedia("(max-width: 680px)") : null;
+
     function renderHeatmap() {
       const model = buildHeatmapModel({
         activeDate: ctx.getActiveDate(),
@@ -13,56 +15,84 @@
       const tooltipNode = getHeatmapTooltip();
 
       ctx.els.heatmapGrid.replaceChildren();
-      ctx.els.heatmapGrid.style.setProperty("--heatmap-columns", model.columns);
+      const slots = [
+        ...Array.from({ length: model.leadingBlanks }, () => null),
+        ...model.days,
+        ...Array.from({ length: model.trailingBlanks }, () => null),
+      ];
 
-      const monthRow = document.createElement("div");
-      monthRow.className = "heatmap-months";
-      monthRow.style.setProperty("--heatmap-columns", model.columns);
-      model.monthSpans.forEach((item) => {
-        const node = document.createElement("span");
-        node.textContent = item.label;
-        node.style.gridColumn = `${item.column + 1} / span ${item.span}`;
-        monthRow.appendChild(node);
-      });
-
-      const weekdayColumn = document.createElement("div");
-      weekdayColumn.className = "heatmap-weekdays";
-      WEEKDAY_LABELS.forEach((label) => {
-        const node = document.createElement("span");
-        node.textContent = label;
-        weekdayColumn.appendChild(node);
-      });
-
-      const cellsGrid = document.createElement("div");
-      cellsGrid.className = "heatmap-cells";
-      cellsGrid.style.setProperty("--heatmap-columns", model.columns);
-
-      for (let i = 0; i < model.leadingBlanks; i += 1) {
-        cellsGrid.appendChild(createEmptyCell());
+      if (compactQuery?.matches) {
+        const firstHalfColumns = Math.ceil(model.columns / 2);
+        ctx.els.heatmapGrid.classList.add("is-split");
+        ctx.els.heatmapGrid.append(
+          createHeatmapSection(model, slots, 0, firstHalfColumns, tooltipNode, ctx),
+          createHeatmapSection(model, slots, firstHalfColumns, model.columns - firstHalfColumns, tooltipNode, ctx),
+        );
+        return;
       }
 
-      model.days.forEach((day) => {
-        const cell = document.createElement("div");
-        cell.className = "heatmap-cell";
-        cell.tabIndex = 0;
-        cell.dataset.date = day.dateKey;
-        cell.dataset.tooltip = day.tooltip;
-        cell.style.setProperty("--task-alpha", ctx.heatAlpha(day.taskPercent));
-        cell.style.setProperty("--habit-alpha", ctx.heatAlpha(day.habitPercent));
-        cell.setAttribute("aria-label", day.tooltip);
-        if (day.dateKey === model.activeDate) cell.classList.add("is-current");
-        bindTooltip(cell, tooltipNode, day.tooltip);
-        cellsGrid.appendChild(cell);
-      });
-
-      for (let i = 0; i < model.trailingBlanks; i += 1) {
-        cellsGrid.appendChild(createEmptyCell());
-      }
-
-      ctx.els.heatmapGrid.append(monthRow, weekdayColumn, cellsGrid);
+      ctx.els.heatmapGrid.classList.remove("is-split");
+      ctx.els.heatmapGrid.append(...createHeatmapParts(model, slots, 0, model.columns, tooltipNode, ctx));
     }
 
+    compactQuery?.addEventListener?.("change", renderHeatmap);
+
     return { renderHeatmap };
+  }
+
+  function createHeatmapSection(model, slots, startColumn, columnCount, tooltipNode, ctx) {
+    const section = document.createElement("div");
+    section.className = "heatmap-half";
+    section.append(...createHeatmapParts(model, slots, startColumn, columnCount, tooltipNode, ctx));
+    return section;
+  }
+
+  function createHeatmapParts(model, slots, startColumn, columnCount, tooltipNode, ctx) {
+    const monthRow = document.createElement("div");
+    const weekdayColumn = document.createElement("div");
+    const cellsGrid = document.createElement("div");
+    const endColumn = startColumn + columnCount;
+
+    monthRow.className = "heatmap-months";
+    monthRow.style.setProperty("--heatmap-columns", columnCount);
+    model.monthSpans.forEach((item) => {
+      const overlapStart = Math.max(startColumn, item.column);
+      const overlapEnd = Math.min(endColumn, item.column + item.span);
+      if (overlapStart >= overlapEnd) return;
+      const node = document.createElement("span");
+      node.textContent = item.label;
+      node.style.gridColumn = `${overlapStart - startColumn + 1} / span ${overlapEnd - overlapStart}`;
+      monthRow.appendChild(node);
+    });
+
+    weekdayColumn.className = "heatmap-weekdays";
+    WEEKDAY_LABELS.forEach((label) => {
+      const node = document.createElement("span");
+      node.textContent = label;
+      weekdayColumn.appendChild(node);
+    });
+
+    cellsGrid.className = "heatmap-cells";
+    cellsGrid.style.setProperty("--heatmap-columns", columnCount);
+    slots.slice(startColumn * 7, endColumn * 7).forEach((day) => {
+      cellsGrid.appendChild(day ? createHeatmapCell(model, day, tooltipNode, ctx) : createEmptyCell());
+    });
+
+    return [monthRow, weekdayColumn, cellsGrid];
+  }
+
+  function createHeatmapCell(model, day, tooltipNode, ctx) {
+    const cell = document.createElement("div");
+    cell.className = "heatmap-cell";
+    cell.tabIndex = 0;
+    cell.dataset.date = day.dateKey;
+    cell.dataset.tooltip = day.tooltip;
+    cell.style.setProperty("--task-alpha", ctx.heatAlpha(day.taskPercent));
+    cell.style.setProperty("--habit-alpha", ctx.heatAlpha(day.habitPercent));
+    cell.setAttribute("aria-label", day.tooltip);
+    if (day.dateKey === model.activeDate) cell.classList.add("is-current");
+    bindTooltip(cell, tooltipNode, day.tooltip);
+    return cell;
   }
 
   function buildHeatmapModel({ activeDate, formatLongDate, parseDate, statsForDate, toDateKey }) {

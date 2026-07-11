@@ -20,6 +20,13 @@ module.exports = [
     },
   },
   {
+    name: "calculates progress from real linked tasks",
+    fn() {
+      const tasks = [{ done: true }, { done: false }, { done: true }, { done: false }];
+      assert.equal(goalsView.goalProgress({ status: "active", taskIds: ["a", "b", "c", "d"] }, tasks), 50);
+    },
+  },
+  {
     name: "calculates checklist progress and preserves edited steps",
     fn() {
       const steps = goalsView.parseGoalSteps("Дизайн\nВерстка\nДеплой", [

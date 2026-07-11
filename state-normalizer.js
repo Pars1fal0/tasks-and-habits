@@ -60,6 +60,9 @@
               categoryId,
               priority: config.validPriorities.includes(task.priority) ? task.priority : "medium",
               repeat: config.recurrence.normalizeRepeat(task.repeat),
+              repeatUntil: config.normalizeDateKey(task.repeatUntil, ""),
+              sourceTaskId: config.cleanText(task.sourceTaskId),
+              movedFromDate: config.normalizeDateKey(task.movedFromDate, ""),
               customRepeat: config.recurrence.normalizeCustomRepeat(task.customRepeat),
               reminderOffset: config.normalizeReminderOffset(task.reminderOffset, Boolean(normalizedTime)),
               completed: config.normalizeTaskFlags(task.completed),
@@ -100,6 +103,7 @@
               reality: config.cleanText(goal.reality),
               why: config.cleanText(goal.why),
               dueDate: config.normalizeDateKey(goal.dueDate),
+              taskIds: normalizeGoalTaskIds(goal.taskIds),
               steps: normalizeGoalSteps(goal.steps, config),
               status,
               completedAt: status === "done" ? goal.completedAt || new Date().toISOString() : "",
@@ -107,6 +111,11 @@
             };
           })
         : [];
+
+      const validTaskIds = new Set(normalized.tasks.map((task) => task.id));
+      normalized.goals.forEach((goal) => {
+        goal.taskIds = goal.taskIds.filter((taskId) => validTaskIds.has(taskId));
+      });
 
       normalized.taskOrder = config.normalizeTaskOrder(raw.taskOrder);
       return normalized;
@@ -136,6 +145,11 @@
         done: step?.done === true,
       }))
       .filter((step) => step.title);
+  }
+
+  function normalizeGoalTaskIds(value) {
+    if (!Array.isArray(value)) return [];
+    return [...new Set(value.map((id) => String(id || "").trim()).filter(Boolean))];
   }
 
   const api = { createStateNormalizer };

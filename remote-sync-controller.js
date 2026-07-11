@@ -1,0 +1,214 @@
+(function (global) {
+  function createRemoteSyncController(options = {}) {
+    const cryptoApi = options.crypto || global.crypto;
+
+    function generatePrivateKey() {
+      if (!cryptoApi?.getRandomValues) throw new Error("Secure random generator is unavailable");
+      const bytes = new Uint8Array(24);
+      cryptoApi.getRandomValues(bytes);
+      return `rhythm_${[...bytes].map((value) => value.toString(16).padStart(2, "0")).join("")}`;
+    }
+
+    function isSecurePrivateKey(value) {
+      return /^rhythm_[a-f0-9]{48,}$/i.test(String(value || "").trim());
+    }
+
+    return { generatePrivateKey, isSecurePrivateKey };
+  }
+
+  function createRemoteSyncWorkflow(ctx) {
+    let inFlight = false;
+    let lastError = "";
+    let timerId = null;
+
+    function getConfig() {
+      const settings = ctx.getSettings();
+      return ctx.remoteSync.normalizeConfig({
+        anonKey: settings.anonKey,
+        enabled: settings.enabled,
+        supabaseUrl: settings.supabaseUrl,
+        userKey: settings.userKey,
+      });
+    }
+
+    function isReady() {
+      return ctx.remoteSync.isConfigured(getConfig());
+    }
+
+    function clearError() {
+      lastError = "";
+    }
+
+    function renderStatus() {
+      if (!ctx.statusElement) return;
+      const settings = ctx.getSettings();
+      if (!settings.enabled) return setStatus("БД: не настроено · синхронизация выключена");
+      if (!isReady()) return setStatus("БД: не настроено · заполни Supabase URL, anon key и приватный ключ");
+      if (lastError) return setStatus(`БД: ошибка · ${lastError}`);
+      if (inFlight) return setStatus("БД: синхронизация...");
+      if (!ctx.isSecurePrivateKey(settings.userKey)) {
+        return setStatus("БД: подключена старым коротким ключом · создай приватный ключ перед хранением важных данных");
+      }
+      const meta = ctx.getSyncMeta();
+      const pushed = meta.lastPushedAt ? ctx.formatDate(meta.lastPushedAt) : "еще не сохранялось";
+      const pulled = meta.lastPulledAt ? ctx.formatDate(meta.lastPulledAt) : "еще не загружалось";
+      const latestSync = ctx.latestIsoDate(meta.lastPushedAt, meta.lastPulledAt);
+      const latest = latestSync ? ctx.formatDate(latestSync) : "еще не было";
+      setStatus(`БД: подключена · последняя синхронизация: ${latest} · сохранено: ${pushed} · загружено: ${pulled}`);
+    }
+
+    function schedulePush() {
+      if (!isReady()) return renderStatus();
+      if (timerId) clearTimeout(timerId);
+      timerId = setTimeout(() => {
+        timerId = null;
+        push({ silent: true });
+      }, 1200);
+    }
+
+    async function push(options = {}) {
+      options?.preventDefault?.();
+      const manual = !options?.silent;
+      if (!isReady()) {
+        renderStatus();
+        if (manual) ctx.showToast("Заполни настройки удаленной БД");
+        return;
+      }
+      if (inFlight) return;
+      begin();
+      try {
+        if (!(await confirmOverwriteIfNeeded({ manual }))) return;
+        const pushedAt = new Date().toISOString();
+        await ctx.remoteSync.pushState(getConfig(), {
+          clientUpdatedAt: pushedAt,
+          schemaVersion: ctx.schemaVersion,
+          state: ctx.getState(),
+          uiState: ctx.getRemoteUiSettings({ remoteSyncLastPushedAt: pushedAt }),
+        });
+        ctx.setSyncMeta({ lastPushedAt: pushedAt });
+        ctx.saveUiState();
+        if (manual) ctx.showToast("Данные сохранены в БД");
+      } catch (error) {
+        lastError = ctx.describeError(error);
+        if (manual) ctx.showToast("Не удалось сохранить данные в БД");
+      } finally {
+        finish();
+      }
+    }
+
+    async function confirmOverwriteIfNeeded({ manual }) {
+      const remoteSnapshot = await ctx.remoteSync.pullState(getConfig());
+      const meta = ctx.getSyncMeta();
+      if (!remoteSnapshot.found || !remoteSnapshot.clientUpdatedAt) return true;
+      if (!ctx.isRemoteVersionNewer(remoteSnapshot.clientUpdatedAt, meta.lastPulledAt, meta.lastPushedAt)) return true;
+      const remoteDate = ctx.formatDate(remoteSnapshot.clientUpdatedAt);
+      if (!manual) {
+        lastError = `удаленная версия новее (${remoteDate}); нажми "Загрузить из БД" или подтверди ручное сохранение`;
+        return false;
+      }
+      return ctx.confirmAction({
+        confirmLabel: "Перезаписать БД",
+        message: `В БД есть версия от ${remoteDate}, которую это устройство еще не загружало. Если продолжить, она будет перезаписана текущими локальными данными.`,
+        tone: "danger",
+        title: "Удаленная версия новее",
+      });
+    }
+
+    async function check(options = {}) {
+      options?.preventDefault?.();
+      if (!isReady()) {
+        renderStatus();
+        ctx.showToast("Заполни настройки удаленной БД");
+        return;
+      }
+      if (inFlight) return;
+      begin();
+      try {
+        const result = await ctx.remoteSync.checkConnection(getConfig());
+        ctx.showToast(result.found ? "Подключение к БД работает" : "Подключение работает, сохранений пока нет");
+      } catch (error) {
+        lastError = ctx.describeError(error);
+        ctx.showToast("Подключение к БД не прошло проверку");
+      } finally {
+        finish();
+      }
+    }
+
+    async function pull(options = {}) {
+      options?.preventDefault?.();
+      if (!isReady()) {
+        renderStatus();
+        ctx.showToast("Заполни настройки удаленной БД");
+        return;
+      }
+      if (inFlight) return;
+      begin();
+      let pulled;
+      try {
+        pulled = await ctx.remoteSync.pullState(getConfig());
+      } catch (error) {
+        lastError = ctx.describeError(error);
+        ctx.showToast("Не удалось загрузить данные из БД");
+        finish();
+        return;
+      }
+      finish();
+      if (!pulled.found || !pulled.state) {
+        ctx.showToast("В БД пока нет сохраненных данных");
+        return;
+      }
+      const remoteDate = pulled.clientUpdatedAt ? ctx.formatDate(pulled.clientUpdatedAt) : "неизвестно";
+      const localUpdatedAt = ctx.getLocalUpdatedAt();
+      const localWarning =
+        localUpdatedAt && pulled.clientUpdatedAt && localUpdatedAt > pulled.clientUpdatedAt
+          ? ` Локальные данные новее удаленной версии (${ctx.formatDate(localUpdatedAt)}).`
+          : "";
+      const confirmed = await ctx.confirmAction({
+        confirmLabel: "Загрузить",
+        message: `Локальные данные будут заменены состоянием из БД от ${remoteDate}.${localWarning} Перед заменой приложение создаст safety backup.`,
+        tone: "danger",
+        title: "Загрузить данные из БД?",
+      });
+      if (!confirmed || inFlight) return;
+      begin();
+      try {
+        const undo = ctx.createUndoSnapshot();
+        ctx.createImportSafetyBackup({ state: JSON.stringify(ctx.getState()) });
+        ctx.replaceState(pulled.state);
+        const pulledAt = new Date().toISOString();
+        ctx.setSyncMeta({ lastPulledAt: pulledAt });
+        ctx.saveState({ localUpdatedAt: pulled.clientUpdatedAt || pulledAt, skipBackup: true, skipRemote: true });
+        ctx.saveUiState();
+        ctx.render();
+        ctx.showToast("Данные загружены из БД", { undo });
+      } catch (error) {
+        lastError = ctx.describeError(error);
+        ctx.showToast("Не удалось загрузить данные из БД");
+      } finally {
+        finish();
+      }
+    }
+
+    function begin() {
+      inFlight = true;
+      lastError = "";
+      renderStatus();
+    }
+
+    function finish() {
+      inFlight = false;
+      ctx.syncControls();
+      renderStatus();
+    }
+
+    function setStatus(message) {
+      ctx.statusElement.textContent = message;
+    }
+
+    return { check, clearError, getConfig, isReady, pull, push, renderStatus, schedulePush };
+  }
+
+  const api = { createRemoteSyncController, createRemoteSyncWorkflow };
+  global.RhythmRemoteSyncController = api;
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
+})(typeof window !== "undefined" ? window : globalThis);

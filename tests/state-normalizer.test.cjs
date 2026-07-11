@@ -42,6 +42,7 @@ module.exports = [
             reality: "  есть  время  ",
             why: "  важно  для роста  ",
             dueDate: "bad-date",
+            taskIds: ["task-1", "missing-task"],
             steps: [
               { id: "step-1", title: "  Дизайн  ", done: true },
               { title: "  ", done: true },
@@ -72,6 +73,7 @@ module.exports = [
       assert.equal(normalized.goals[0].reality, "есть время");
       assert.equal(normalized.goals[0].why, "важно для роста");
       assert.equal(normalized.goals[0].dueDate, "2026-06-26");
+      assert.deepEqual(normalized.goals[0].taskIds, ["task-1"]);
       assert.deepEqual(
         normalized.goals[0].steps.map((step) => ({ done: step.done, title: step.title })),
         [

@@ -31,12 +31,16 @@
   function moveRecurringOccurrence(state, task, sourceDateKey, targetDateKey, options = {}, helpers = {}) {
     task.excludedDates = task.excludedDates || {};
     task.excludedDates[sourceDateKey] = true;
-    if (targetDateKey !== sourceDateKey && helpers.taskScheduledOn?.(task, targetDateKey)) {
-      task.excludedDates[targetDateKey] = true;
-    }
     delete task.completed?.[sourceDateKey];
     delete task.notified?.[sourceDateKey];
     removeTaskFromOrder(state, task.id, sourceDateKey);
+
+    const targetHasNaturalOccurrence = targetDateKey !== sourceDateKey && helpers.taskScheduledOn?.(task, targetDateKey);
+    if (targetHasNaturalOccurrence && !options.clearTime) {
+      delete task.excludedDates[targetDateKey];
+      return;
+    }
+    if (targetHasNaturalOccurrence) task.excludedDates[targetDateKey] = true;
 
     state.tasks.push({
       id: helpers.createId?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`,
@@ -49,6 +53,8 @@
       categoryId: task.categoryId,
       priority: task.priority,
       repeat: "none",
+      sourceTaskId: task.id,
+      movedFromDate: sourceDateKey,
       customRepeat: {},
       reminderOffset: task.reminderOffset,
       completed: {},

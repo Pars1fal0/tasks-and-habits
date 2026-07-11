@@ -2,6 +2,7 @@
   function createTasksView(ctx) {
     let draggedTaskId = null;
     let draggedTaskDate = "";
+    let overdueVisibleCount = 20;
 
     function renderTasks() {
       const activeDate = ctx.getActiveDate();
@@ -129,11 +130,7 @@
       excludeButton.hidden = task.repeat === "none";
       excludeButton.addEventListener("click", () => ctx.excludeTaskDate(task, activeDate));
       node.querySelector(".delete-task").addEventListener("click", () => {
-        const undo = ctx.createUndoSnapshot();
-        ctx.deleteTask(task.id);
-        ctx.saveState();
-        ctx.render();
-        ctx.showToast("Задача удалена", { undo });
+        deleteTaskWithScope(task, activeDate);
       });
 
       return node;
@@ -158,11 +155,14 @@
 
     function renderOverdueTasks() {
       const overdueEntries = ctx.overdueTaskEntries();
+      const visibleEntries = overdueEntries.slice(0, overdueVisibleCount);
       ctx.els.overdueList.replaceChildren();
       ctx.els.overduePanel.classList.toggle("is-visible", overdueEntries.length > 0);
-      ctx.els.overdueCounter.textContent = overdueEntries.length ? `${overdueEntries.length} невыполнено` : "";
+      ctx.els.overdueCounter.textContent = overdueEntries.length
+        ? `${overdueEntries.length} невыполнено${visibleEntries.length < overdueEntries.length ? ` · показано ${visibleEntries.length}` : ""}`
+        : "";
 
-      overdueEntries.forEach((entry) => {
+      visibleEntries.forEach((entry) => {
         const node = document.createElement("article");
         node.className = "overdue-item";
         const category = ctx.getCategory(entry.task.categoryId);
@@ -178,6 +178,16 @@
         const title = document.createElement("h3");
         const meta = document.createElement("p");
         const actions = document.createElement("div");
+        const more = document.createElement("details");
+        const moreSummary = document.createElement("summary");
+        const moreMenu = document.createElement("div");
+        const deleteButton = createButton(
+          "ghost-button compact-button overdue-delete",
+          entry.task.repeat === "none" ? "Удалить" : "Только этот день",
+        );
+        const deleteFutureButton = entry.task.repeat === "none"
+          ? null
+          : createButton("ghost-button compact-button overdue-delete-future", "Этот и последующие");
         const goButton = createButton("ghost-button compact-button overdue-go", "К дню");
         const todayButton = createButton("ghost-button compact-button overdue-today", "Сегодня");
         const doneButton = createButton("primary-button compact-button overdue-done", "Готово");
@@ -186,10 +196,19 @@
         appendDetails(meta, details);
         content.append(title, meta);
         actions.className = "overdue-actions";
-        actions.append(goButton, todayButton, doneButton);
+        more.className = "overdue-more";
+        moreSummary.className = "overdue-more-trigger";
+        moreSummary.setAttribute("aria-label", "Еще действия");
+        moreSummary.textContent = "...";
+        moreMenu.className = "overdue-more-menu";
+        moreMenu.append(goButton, deleteButton);
+        if (deleteFutureButton) moreMenu.appendChild(deleteFutureButton);
+        more.append(moreSummary, moreMenu);
+        actions.append(todayButton, doneButton, more);
         node.append(content, actions);
 
         goButton.addEventListener("click", () => {
+          more.open = false;
           ctx.openDate(entry.dateKey);
         });
 
@@ -205,8 +224,60 @@
           ctx.showToast("Просроченная задача закрыта", { undo });
         });
 
+        deleteButton.addEventListener("click", () => {
+          more.open = false;
+          if (entry.task.repeat !== "none") {
+            ctx.excludeTaskDate(entry.task, entry.dateKey);
+            return;
+          }
+          deleteTaskWithScope(entry.task, entry.dateKey);
+        });
+
+        deleteFutureButton?.addEventListener("click", () => {
+          more.open = false;
+          ctx.stopTaskSeries(entry.task, entry.dateKey);
+        });
+
         ctx.els.overdueList.appendChild(node);
       });
+
+      if (visibleEntries.length < overdueEntries.length) {
+        const loadMore = createButton("ghost-button compact-button overdue-load-more", `Показать еще (${overdueEntries.length - visibleEntries.length})`);
+        loadMore.addEventListener("click", () => {
+          overdueVisibleCount += 20;
+          renderOverdueTasks();
+        });
+        ctx.els.overdueList.appendChild(loadMore);
+      }
+    }
+
+    async function deleteTaskWithScope(task, dateKey) {
+      if (task.repeat === "none") {
+        const undo = ctx.createUndoSnapshot();
+        ctx.deleteTask(task.id);
+        ctx.saveState();
+        ctx.render();
+        ctx.showToast("Задача удалена", { undo });
+        return;
+      }
+
+      if (!ctx.confirmAction) {
+        ctx.excludeTaskDate(task, dateKey);
+        return;
+      }
+
+      const scope = await ctx.confirmAction({
+        title: "Удалить повторяющуюся задачу?",
+        message: `Выбери, убрать только ${ctx.formatLongDate(dateKey)} или завершить серию с этого дня. Прошлая история сохранится.`,
+        secondaryLabel: "Только этот день",
+        confirmLabel: "Этот и будущие",
+        tone: "danger",
+      });
+      if (scope === "secondary") {
+        ctx.excludeTaskDate(task, dateKey);
+      } else if (scope === true) {
+        ctx.stopTaskSeries(task, dateKey);
+      }
     }
 
     function renderExcludedTasks() {

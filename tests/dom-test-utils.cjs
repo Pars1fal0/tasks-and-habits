@@ -29,6 +29,11 @@ class FakeNode {
     this.parentNode = null;
   }
 
+  contains(node) {
+    if (node === this) return true;
+    return this.childNodes.some((child) => child === node || child.contains?.(node));
+  }
+
   get children() {
     return this.childNodes.filter((node) => node instanceof FakeElement);
   }
@@ -127,9 +132,28 @@ class FakeElement extends FakeNode {
     return this.attributes.get(name) || null;
   }
 
+  removeAttribute(name) {
+    this.attributes.delete(name);
+  }
+
   addEventListener(type, handler) {
     this.eventListeners[type] ||= [];
     this.eventListeners[type].push(handler);
+  }
+
+  dispatchEvent(event) {
+    const nextEvent = { ...event, currentTarget: this, target: event?.target || this };
+    (this.eventListeners[nextEvent.type] || []).forEach((handler) => handler(nextEvent));
+    return true;
+  }
+
+  closest(selector) {
+    let node = this;
+    while (node instanceof FakeElement) {
+      if (matchesSelectorList(node, selector)) return node;
+      node = node.parentNode;
+    }
+    return null;
   }
 
   cloneNode(deep = false) {
@@ -173,9 +197,23 @@ class FakeTemplate extends FakeElement {
 }
 
 function matchesSelector(element, selector) {
-  if (selector.startsWith(".")) return element.classList.contains(selector.slice(1));
+  if (selector.includes(",")) return matchesSelectorList(element, selector);
+  if (selector.startsWith(".")) {
+    return selector
+      .slice(1)
+      .split(".")
+      .every((className) => element.classList.contains(className));
+  }
   if (selector.startsWith("#")) return element.getAttribute("id") === selector.slice(1);
   return element.tagName.toLowerCase() === selector.toLowerCase();
+}
+
+function matchesSelectorList(element, selector) {
+  return String(selector)
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .some((item) => matchesSelector(element, item));
 }
 
 function createElement(tagName) {

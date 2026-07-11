@@ -88,6 +88,23 @@ function createHarness() {
 
 module.exports = [
   {
+    name: "turns an unscheduled timeline drop into a resizable one-hour block",
+    fn() {
+      const { controller, state } = createHarness();
+      const task = state.tasks[0];
+      task.time = "";
+      task.priority = "high";
+
+      assert.equal(controller.moveTaskTime(task.id, "14:15"), true);
+
+      assert.equal(task.scheduleMode, "block");
+      assert.equal(task.startTime, "14:15");
+      assert.equal(task.endTime, "15:15");
+      assert.equal(task.time, "15:15");
+      assert.equal(task.priority, "high");
+    },
+  },
+  {
     name: "toggles a timeline task done with undo toast",
     fn() {
       const { calls, controller, state } = createHarness();

@@ -215,10 +215,12 @@
 
     function createTaskChip(task, dateKey, className) {
       const chip = document.createElement("span");
+      const category = ctx.getCategory(task.categoryId);
       chip.className = className;
       chip.draggable = true;
       chip.dataset.taskId = task.id;
       chip.dataset.date = dateKey;
+      chip.style.setProperty("--chip-color", category?.color || "var(--muted-2)");
       return chip;
     }
     function renderHeatmap() {

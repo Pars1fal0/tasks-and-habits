@@ -4,6 +4,7 @@
       ctx.els.remoteSyncPushButton?.addEventListener("click", ctx.pushRemoteState);
       ctx.els.remoteSyncPullButton?.addEventListener("click", ctx.pullRemoteState);
       ctx.els.remoteSyncCheckButton?.addEventListener("click", ctx.checkRemoteConnection);
+      ctx.els.remoteSyncGenerateKeyButton?.addEventListener("click", ctx.generateRemoteSyncKey);
       ctx.els.remoteSyncEnabled?.addEventListener("change", () => ctx.updateSetting("remoteSyncEnabled", ctx.els.remoteSyncEnabled.value));
       ctx.els.remoteSyncUrl?.addEventListener("change", () => ctx.updateSetting("remoteSyncUrl", ctx.els.remoteSyncUrl.value));
       ctx.els.remoteSyncAnonKey?.addEventListener("change", () => ctx.updateSetting("remoteSyncAnonKey", ctx.els.remoteSyncAnonKey.value));

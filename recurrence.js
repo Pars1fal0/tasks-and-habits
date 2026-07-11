@@ -18,6 +18,7 @@
 
   function taskScheduledOn(task, dateKey) {
     if (task.repeat === "none") return task.date === dateKey;
+    if (task.repeatUntil && dateKey > task.repeatUntil) return false;
     const date = parseDate(dateKey);
     const start = parseDate(task.date);
     if (date < start) return false;

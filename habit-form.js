@@ -21,16 +21,18 @@
 
       ctx.upsertHabit(habit);
       ctx.saveState();
-      resetHabitForm();
+      resetHabitForm({ open: false });
       ctx.render();
       ctx.showToast(existing ? "Привычка обновлена" : "Привычка создана", { undo });
     }
 
     function fillHabitForm(habit) {
       ctx.els.habitFormPanel.classList.remove("is-collapsed");
+      if (ctx.els.habitFormHeading) ctx.els.habitFormHeading.textContent = "Редактировать привычку";
       ctx.els.habitId.value = habit.id;
       ctx.els.habitTitle.value = habit.title;
       ctx.els.habitType.value = habit.type;
+      ctx.syncHabitTypeFields();
       ctx.els.habitRepeat.value = ctx.normalizeHabitRepeat(habit.repeat);
       ctx.setHabitCustomRepeatForm(habit.customRepeat);
       ctx.syncHabitCustomRepeatPanel();
@@ -39,11 +41,13 @@
       ctx.els.habitTitle.focus();
     }
 
-    function resetHabitForm() {
-      ctx.els.habitFormPanel.classList.remove("is-collapsed");
+    function resetHabitForm(options = {}) {
+      ctx.els.habitFormPanel.classList.toggle("is-collapsed", options.open === false);
+      if (ctx.els.habitFormHeading) ctx.els.habitFormHeading.textContent = "Новая привычка";
       ctx.els.habitForm.reset();
       ctx.els.habitId.value = "";
       ctx.els.habitType.value = "check";
+      ctx.syncHabitTypeFields();
       ctx.els.habitRepeat.value = "daily";
       ctx.setHabitCustomRepeatForm();
       ctx.syncHabitCustomRepeatPanel();

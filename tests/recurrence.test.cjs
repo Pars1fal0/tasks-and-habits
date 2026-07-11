@@ -3,6 +3,14 @@ const { recurrence } = require("./test-utils.cjs");
 
 module.exports = [
   {
+    name: "stops a recurring series after its repeat-until date",
+    fn() {
+      const task = { date: "2026-07-01", repeat: "daily", repeatUntil: "2026-07-10" };
+      assert.equal(recurrence.taskScheduledOn(task, "2026-07-10"), true);
+      assert.equal(recurrence.taskScheduledOn(task, "2026-07-11"), false);
+    },
+  },
+  {
     name: "custom weekday recurrence matches selected weekdays only",
     fn() {
       const task = {

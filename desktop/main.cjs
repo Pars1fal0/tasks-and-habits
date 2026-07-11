@@ -34,8 +34,8 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1240,
     height: 840,
-    minWidth: 900,
-    minHeight: 640,
+    minWidth: isSmokeTest ? 320 : 900,
+    minHeight: isSmokeTest ? 600 : 640,
     show: !isSmokeTest,
     title: "Ритм дня",
     backgroundColor: "#090d10",
@@ -82,6 +82,18 @@ function createWindow() {
         const click = (selector) => document.querySelector(selector)?.click();
         const categoryName = "Smoke Category";
         const taskTitle = "Smoke Task";
+        const startsWithoutDemoData = state.tasks.length === 0 && state.habits.length === 0 && state.goals.length === 0;
+        const formsStartCollapsed = ["#taskFormPanel", "#habitFormPanel", "#goalFormPanel"].every((selector) =>
+          document.querySelector(selector)?.classList.contains("is-collapsed"),
+        );
+        const viewBeforeMore = activeView;
+        document.querySelector(".nav-more-summary")?.click();
+        const moreMenuKeepsView = activeView === viewBeforeMore && document.querySelector("#tasksView")?.classList.contains("is-active");
+        document.querySelector(".nav-more")?.removeAttribute("open");
+        const deadlineFieldsExclusive =
+          !document.querySelector("#taskDeadlineTimeField")?.hidden &&
+          document.querySelector("#taskBlockTimeFields")?.hidden &&
+          getComputedStyle(document.querySelector("#taskBlockTimeFields")).display === "none";
 
         document.querySelector("#categoryName").value = categoryName;
         document.querySelector("#categoryColor").value = "#5967d8";
@@ -110,6 +122,10 @@ function createWindow() {
         document.querySelector("#taskDate").value = document.querySelector("#activeDate").value;
         document.querySelector("#taskScheduleBlock").checked = true;
         document.querySelector("#taskScheduleBlock").dispatchEvent(new Event("change", { bubbles: true }));
+        const blockFieldsExclusive =
+          document.querySelector("#taskDeadlineTimeField")?.hidden &&
+          getComputedStyle(document.querySelector("#taskDeadlineTimeField")).display === "none" &&
+          !document.querySelector("#taskBlockTimeFields")?.hidden;
         document.querySelector("#taskStartTime").value = "14:00";
         document.querySelector("#taskEndTime").value = "15:30";
         document.querySelector("#taskCategoryId").value = categoryOption?.value || "";
@@ -213,23 +229,31 @@ function createWindow() {
           !habitOccursOn(customHabit, "2026-06-27") &&
           formatHabitRepeat(customHabit).includes("ПН");
 
+        state.tasks.push({
+          id: "smoke-goal-task",
+          title: "Smoke Goal Task",
+          date: "2026-07-15",
+          time: "",
+          categoryId: "",
+          priority: "high",
+          repeat: "none",
+          completed: {},
+          excludedDates: {},
+          notified: {},
+        });
         click('[data-view="goals"]');
         document.querySelector("#goalTitle").value = "Smoke Goal";
         document.querySelector("#goalDueDate").value = "2026-07-20";
-        document.querySelector("#goalDescription").value = "Ship a goal flow";
-        document.querySelector("#goalMeasure").value = "3 verified milestones";
-        document.querySelector("#goalReality").value = "Has time, scope, and clear checkpoints";
-        document.querySelector("#goalWhy").value = "Keeps larger outcomes visible";
-        document.querySelector("#goalSteps").value = "Design\\nBuild\\nVerify";
+        document.querySelector('.goal-task-option input[value="smoke-goal-task"]')?.click();
         submit(document.querySelector("#goalForm"));
         const goalCreated =
           document.body.dataset.view === "goals" &&
-          state.goals.some((goal) => goal.title === "Smoke Goal" && goal.dueDate === "2026-07-20" && goal.measure && goal.why && goal.steps?.length === 3) &&
+          state.goals.some((goal) => goal.title === "Smoke Goal" && goal.dueDate === "2026-07-20" && goal.taskIds?.includes("smoke-goal-task")) &&
           [...document.querySelectorAll(".goal-item")].some((item) => item.textContent.includes("Smoke Goal") && item.textContent.includes("0%"));
         document.querySelector(".goal-step input")?.click();
         const goalStepProgressWorks =
-          state.goals.some((goal) => goal.title === "Smoke Goal" && goal.steps?.some((step) => step.done)) &&
-          [...document.querySelectorAll(".goal-item")].some((item) => item.textContent.includes("Smoke Goal") && item.textContent.includes("33%"));
+          state.tasks.find((task) => task.id === "smoke-goal-task")?.completed?.["2026-07-15"] === true &&
+          [...document.querySelectorAll(".goal-item")].some((item) => item.textContent.includes("Smoke Goal") && item.textContent.includes("100%"));
         document.querySelector(".goal-item .goal-actions button:nth-child(2)")?.click();
         const goalCompleteWorks =
           state.goals.some((goal) => goal.title === "Smoke Goal" && goal.status === "done") &&
@@ -338,8 +362,7 @@ function createWindow() {
           interfaceModeSelect?.value === "simple" && document.documentElement.dataset.interfaceMode === "simple";
         interfaceModeSelect.value = "advanced";
         interfaceModeSelect.dispatchEvent(new Event("change", { bubbles: true }));
-        const advancedModeWorks =
-          document.documentElement.dataset.interfaceMode === "advanced" && document.querySelector("#goalAdvancedPanel")?.open;
+        const advancedModeWorks = document.documentElement.dataset.interfaceMode === "advanced";
         const timeFormatSelect = document.querySelector("#timeFormat");
         timeFormatSelect.value = "12";
         timeFormatSelect.dispatchEvent(new Event("change", { bubbles: true }));
@@ -396,7 +419,9 @@ function createWindow() {
           }),
         );
         unscheduledTimelineCard?.dispatchEvent(new DragEvent("dragend", { bubbles: true, cancelable: true, dataTransfer: transfer }));
-        const timelineUnscheduledDropWorks = state.tasks.find((task) => task.id === "smoke-unscheduled-timeline")?.time === "09:15";
+        const movedUnscheduledTask = state.tasks.find((task) => task.id === "smoke-unscheduled-timeline");
+        const timelineUnscheduledDropWorks =
+          movedUnscheduledTask?.scheduleMode === "block" && movedUnscheduledTask.startTime === "09:15" && movedUnscheduledTask.endTime === "10:15";
         const openTimelineTaskMenu = (taskId) => {
           const card = document.querySelector('.timeline-task[data-task-id="' + taskId + '"]');
           card?.querySelector(".timeline-menu-button")?.click();
@@ -486,6 +511,26 @@ function createWindow() {
           });
         const habitFormFits = habitFormRect.left >= 0 && habitFormRect.right <= window.innerWidth && habitFormControlsFit;
 
+        document.querySelector("#closeHabitForm")?.click();
+        window.resizeTo(390, 844);
+        await new Promise((resolve) => setTimeout(resolve, 80));
+        click('[data-view="tasks"]');
+        const mobileTaskPanel = document.querySelector("#tasksView .main-panel")?.getBoundingClientRect();
+        const mobileTaskRail = document.querySelector("#tasksView .right-rail")?.getBoundingClientRect();
+        const mobileTaskListComesFirst =
+          window.innerWidth <= 400 && mobileTaskPanel?.top < mobileTaskRail?.top && getComputedStyle(document.querySelector(".focus-board")).display === "none";
+        const mobileNavColumns = getComputedStyle(document.querySelector(".nav-tabs")).gridTemplateColumns.split(" ").filter(Boolean).length;
+        const mobileNavigationFits = mobileNavColumns === 5;
+        click('[data-view="overview"]');
+        await new Promise((resolve) => setTimeout(resolve, 30));
+        const mobileHeatmapGrid = document.querySelector("#heatmapGrid");
+        const mobileHeatmapCell = document.querySelector(".heatmap-cell");
+        const mobileHeatmapSplit =
+          mobileHeatmapGrid?.classList.contains("is-split") &&
+          document.querySelectorAll(".heatmap-half").length === 2 &&
+          mobileHeatmapCell?.getBoundingClientRect().width >= 7 &&
+          mobileHeatmapGrid.scrollWidth <= mobileHeatmapGrid.clientWidth + 1;
+
         return {
           title: document.title,
           hasTaskForm: Boolean(document.querySelector("#taskForm")),
@@ -521,17 +566,26 @@ function createWindow() {
               window.RhythmNotifications &&
               window.RhythmRecurrence &&
               window.RhythmRemoteSync &&
+              window.RhythmRemoteSyncController &&
               window.RhythmStateNormalizer &&
               window.RhythmStorage &&
+              window.RhythmTaskState &&
               window.RhythmTaskForm &&
               window.RhythmTasksView &&
               window.RhythmTaskMoves &&
+              window.RhythmOverdueController &&
               window.RhythmTimelineController &&
               window.RhythmTimelineView &&
               window.RhythmSettingsController &&
+              window.RhythmViewRenderer &&
+              window.RhythmDateRollover &&
               window.RhythmToast,
           ),
           desktopBridge: Boolean(window.rhythmDesktop?.syncReminders && window.rhythmDesktop?.writeFileBackup),
+          startsWithoutDemoData,
+          formsStartCollapsed,
+          moreMenuKeepsView,
+          scheduleFieldsExclusive: deadlineFieldsExclusive && blockFieldsExclusive,
           taskCreated: Boolean(taskCard),
           timeBlockCreated,
           quickTaskCreated,
@@ -567,6 +621,9 @@ function createWindow() {
           heatmapTooltipHasDate,
           heatmapTooltipSingle,
           habitFormFits,
+          mobileTaskListComesFirst: Boolean(mobileTaskListComesFirst),
+          mobileNavigationFits,
+          mobileHeatmapSplit: Boolean(mobileHeatmapSplit),
           nativeHeatmapTitleAbsent,
           notificationSettingWorks,
           interfaceResetWorks,

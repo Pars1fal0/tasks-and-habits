@@ -7,6 +7,7 @@
       cancelLabel = "Отмена",
       confirmLabel = "Подтвердить",
       message = "",
+      secondaryLabel = "",
       tone = "default",
       title = "Подтвердить действие?",
     } = {}) {
@@ -17,6 +18,8 @@
       ctx.els.confirmTitle.textContent = title;
       ctx.els.confirmMessage.textContent = message;
       ctx.els.confirmCancel.textContent = cancelLabel;
+      ctx.els.confirmSecondary.textContent = secondaryLabel;
+      ctx.els.confirmSecondary.hidden = !secondaryLabel;
       ctx.els.confirmAccept.textContent = confirmLabel;
       ctx.els.confirmAccept.dataset.tone = tone;
       ctx.els.confirmModal.hidden = false;
@@ -30,6 +33,7 @@
     function bindEvents() {
       ctx.els.confirmAccept?.addEventListener("click", () => close(true));
       ctx.els.confirmCancel?.addEventListener("click", () => close(false));
+      ctx.els.confirmSecondary?.addEventListener("click", () => close("secondary"));
       ctx.els.confirmModal?.querySelector("[data-confirm-cancel]")?.addEventListener("click", () => close(false));
       document.addEventListener("keydown", (event) => {
         if (ctx.els.confirmModal?.hidden) return;

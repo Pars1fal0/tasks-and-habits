@@ -33,6 +33,7 @@ const stateNormalizer = window.RhythmStateNormalizer.createStateNormalizer({
 
 let state = normalizeState(storage.loadState());
 let activeDate = toDateKey(new Date());
+let currentToday = activeDate;
 let activeView = "tasks";
 let taskFilter = "all";
 const initialUiState = storage.loadUiState();
@@ -53,23 +54,35 @@ let remoteSyncAnonKey = cleanText(initialUiState.remoteSyncAnonKey || "");
 let remoteSyncUserKey = normalizeRemoteUserKey(initialUiState.remoteSyncUserKey || "");
 let remoteSyncLastPushedAt = initialUiState.remoteSyncLastPushedAt || "";
 let remoteSyncLastPulledAt = initialUiState.remoteSyncLastPulledAt || "";
-let remoteSyncLastError = "";
 let localStateUpdatedAt = initialUiState.localStateUpdatedAt || "";
 let draggedTaskId = null;
 let draggedTaskDate = "";
 let pointerDragTask = null;
 let autoBackupTimerId = null;
-let remoteSyncTimerId = null;
-let remoteSyncInFlight = false;
 let lastAutoBackupAt = "";
 let nextAutoBackupAt = "";
+
+const overdueController = window.RhythmOverdueController.createOverdueController({
+  getTaskDeadlineDate,
+  getTasks: () => state.tasks,
+  isTaskDone,
+  isTaskExcluded,
+  taskScheduledOn,
+  toDateKey,
+});
+const taskState = window.RhythmTaskState.createTaskState({ getState: () => state });
 
 const els = {
   activeDate: document.querySelector("#activeDate"),
   archiveCategoryFilter: document.querySelector("#archiveCategoryFilter"),
+  archiveBulkBar: document.querySelector("#archiveBulkBar"),
+  archiveBulkCount: document.querySelector("#archiveBulkCount"),
+  archiveBulkDelete: document.querySelector("#archiveBulkDelete"),
+  archiveBulkRestore: document.querySelector("#archiveBulkRestore"),
   archiveEmpty: document.querySelector("#archiveEmpty"),
   archiveList: document.querySelector("#archiveList"),
   archiveSearch: document.querySelector("#archiveSearch"),
+  archiveSelectAll: document.querySelector("#archiveSelectAll"),
   backupStatus: document.querySelector("#backupStatus"),
   backupSchedule: document.querySelector("#backupSchedule"),
   categoryColor: document.querySelector("#categoryColor"),
@@ -83,6 +96,7 @@ const els = {
   confirmCancel: document.querySelector("#confirmCancel"),
   confirmMessage: document.querySelector("#confirmMessage"),
   confirmModal: document.querySelector("#confirmModal"),
+  confirmSecondary: document.querySelector("#confirmSecondary"),
   confirmTitle: document.querySelector("#confirmTitle"),
   desktopStatus: document.querySelector("#desktopStatus"),
   densityPreference: document.querySelector("#densityPreference"),
@@ -96,7 +110,6 @@ const els = {
   fileBackupStatus: document.querySelector("#fileBackupStatus"),
   firstDayOfWeek: document.querySelector("#firstDayOfWeek"),
   goalActiveMetric: document.querySelector("#goalActiveMetric"),
-  goalAdvancedPanel: document.querySelector("#goalAdvancedPanel"),
   goalDescription: document.querySelector("#goalDescription"),
   goalDoneMetric: document.querySelector("#goalDoneMetric"),
   goalDueDate: document.querySelector("#goalDueDate"),
@@ -110,11 +123,13 @@ const els = {
   goalOverdueMetric: document.querySelector("#goalOverdueMetric"),
   goalReality: document.querySelector("#goalReality"),
   goalSteps: document.querySelector("#goalSteps"),
+  goalTaskPicker: document.querySelector("#goalTaskPicker"),
   goalTitle: document.querySelector("#goalTitle"),
   goalWhy: document.querySelector("#goalWhy"),
   habitDoneMetric: document.querySelector("#habitDoneMetric"),
   habitEmpty: document.querySelector("#habitEmpty"),
   habitForm: document.querySelector("#habitForm"),
+  habitFormHeading: document.querySelector("#habitFormHeading"),
   habitFormPanel: document.querySelector("#habitFormPanel"),
   habitGoal: document.querySelector("#habitGoal"),
   habitCustomRepeatInterval: document.querySelector("#habitCustomRepeatInterval"),
@@ -123,6 +138,7 @@ const els = {
   habitCustomRepeatSummary: document.querySelector("#habitCustomRepeatSummary"),
   habitId: document.querySelector("#habitId"),
   habitList: document.querySelector("#habitList"),
+  habitNumericFields: document.querySelector("#habitNumericFields"),
   habitRepeat: document.querySelector("#habitRepeat"),
   habitTemplate: document.querySelector("#habitTemplate"),
   habitTitle: document.querySelector("#habitTitle"),
@@ -135,7 +151,9 @@ const els = {
   monthGrid: document.querySelector("#monthGrid"),
   monthLabel: document.querySelector("#monthLabel"),
   monthWeekdays: document.querySelector("#monthWeekdays"),
-  navTabs: document.querySelectorAll(".nav-tab"),
+  navMore: document.querySelector(".nav-more"),
+  navMoreSummary: document.querySelector(".nav-more-summary"),
+  navTabs: document.querySelectorAll(".nav-tab[data-view]"),
   nextDay: document.querySelector("#nextDay"),
   nextMonth: document.querySelector("#nextMonth"),
   notificationSetting: document.querySelector("#notificationSetting"),
@@ -156,10 +174,12 @@ const els = {
   customRepeatSummary: document.querySelector("#customRepeatSummary"),
   quickTaskForm: document.querySelector("#quickTaskForm"),
   quickTaskInput: document.querySelector("#quickTaskInput"),
+  quickInputHints: document.querySelector("#quickInputHints"),
   quickTaskPreview: document.querySelector("#quickTaskPreview"),
   remoteSyncAnonKey: document.querySelector("#remoteSyncAnonKey"),
   remoteSyncCheckButton: document.querySelector("#remoteSyncCheckButton"),
   remoteSyncEnabled: document.querySelector("#remoteSyncEnabled"),
+  remoteSyncGenerateKeyButton: document.querySelector("#remoteSyncGenerateKeyButton"),
   remoteSyncPullButton: document.querySelector("#remoteSyncPullButton"),
   remoteSyncPushButton: document.querySelector("#remoteSyncPushButton"),
   remoteSyncStatus: document.querySelector("#remoteSyncStatus"),
@@ -169,6 +189,7 @@ const els = {
   resetGoalForm: document.querySelector("#resetGoalForm"),
   resetTaskForm: document.querySelector("#resetTaskForm"),
   restoreBackupButton: document.querySelector("#restoreBackupButton"),
+  saveStatus: document.querySelector("#saveStatus"),
   settingsExportButton: document.querySelector("#settingsExportButton"),
   settingsExportSettingsButton: document.querySelector("#settingsExportSettingsButton"),
   settingsBackupStatus: document.querySelector("#settingsBackupStatus"),
@@ -186,6 +207,7 @@ const els = {
   taskDate: document.querySelector("#taskDate"),
   taskEmpty: document.querySelector("#taskEmpty"),
   taskForm: document.querySelector("#taskForm"),
+  taskFormHeading: document.querySelector("#taskFormHeading"),
   taskFormPanel: document.querySelector("#taskFormPanel"),
   taskId: document.querySelector("#taskId"),
   taskBlockTimeFields: document.querySelector("#taskBlockTimeFields"),
@@ -197,6 +219,8 @@ const els = {
   taskScheduleDeadline: document.querySelector("#taskScheduleDeadline"),
   taskReminder: document.querySelector("#taskReminder"),
   taskRepeat: document.querySelector("#taskRepeat"),
+  taskRepeatUntil: document.querySelector("#taskRepeatUntil"),
+  taskRepeatUntilField: document.querySelector("#taskRepeatUntilField"),
   taskSearch: document.querySelector("#taskSearch"),
   taskStartTime: document.querySelector("#taskStartTime"),
   taskTemplate: document.querySelector("#taskTemplate"),
@@ -240,6 +264,7 @@ const toastController = window.RhythmToast.createToastController({
 
 const confirmDialog = window.RhythmConfirmDialog.createConfirmDialog({ els });
 const remoteSync = window.RhythmRemoteSync.createRemoteSync();
+const remoteSyncController = window.RhythmRemoteSyncController.createRemoteSyncController();
 const taskFormHome = {
   next: els.taskFormPanel?.nextSibling || null,
   parent: els.taskFormPanel?.parentNode || null,
@@ -259,6 +284,7 @@ const tasksView = window.RhythmTasksView.createTasksView({
   addDays,
   clearTaskDragState,
   createUndoSnapshot,
+  confirmAction,
   deleteTask,
   escapeHtml,
   excludeTaskDate,
@@ -277,14 +303,16 @@ const tasksView = window.RhythmTasksView.createTasksView({
   matchesCategoryFilter,
   openDate: (dateKey) => {
     activeDate = dateKey;
-    resetTaskForm();
+    resetTaskForm({ open: false });
     render();
+    scrollWorkspaceTop();
   },
   overdueTaskEntries,
   postponeTask,
   render: renderTaskSurfaces,
   reorderTask,
   restoreTaskDate,
+  stopTaskSeries,
   saveState,
   setDraggedTask: (taskId, dateKey) => {
     draggedTaskId = taskId;
@@ -306,11 +334,13 @@ const habitsView = window.RhythmHabitsView.createHabitsView({
   formatHabitRepeat,
   getActiveDate: () => activeDate,
   getState: () => state,
+  isTaskDone,
   habitStreak,
   habitsForDate,
   render: renderHabitSurfaces,
   renderDailyPulse,
   renderOverview,
+  reorderHabit,
   saveState,
   showToast,
 });
@@ -324,11 +354,19 @@ const goalsView = window.RhythmGoalsView.createGoalsView({
   getActiveDate: () => activeDate,
   getInterfaceMode: () => interfaceMode,
   getState: () => state,
+  isTaskDone,
   normalizeDateKey,
   render: renderGoalSurfaces,
   saveState,
   showToast,
   toDateKey,
+  toggleLinkedTask: (taskId, done) => {
+    const task = state.tasks.find((item) => item.id === taskId);
+    if (!task) return;
+    const dateKey = task.date || activeDate;
+    task.completed = task.completed || {};
+    task.completed[dateKey] = done;
+  },
   upsertGoal: (goal) => {
     const existing = state.goals.find((item) => item.id === goal.id);
     if (existing) {
@@ -365,12 +403,15 @@ const calendarView = window.RhythmCalendarView.createCalendarView({
 
 const timelineController = window.RhythmTimelineController.createTimelineController({
   cleanTimeValue,
+  confirmAction,
   createId,
   createUndoSnapshot,
   deleteTask,
+  excludeTaskDate,
   els,
   findTask: (id) => state.tasks.find((task) => task.id === id),
   formatTaskWindow,
+  formatLongDate,
   formatTime,
   getActiveDate: () => activeDate,
   getOrderedTasksForDate,
@@ -395,6 +436,7 @@ const timelineController = window.RhythmTimelineController.createTimelineControl
   saveState,
   setTaskScheduleMode,
   showToast,
+  stopTaskSeries,
   syncTaskScheduleMode,
   syncTaskTimePresets,
   taskSortTime,
@@ -425,7 +467,9 @@ const archiveView = window.RhythmArchiveView.createArchiveView({
   els,
   archiveEntries,
   archiveEntryMatchesSearch,
+  confirmAction,
   createUndoSnapshot,
+  deleteTask,
   escapeHtml,
   formatLongDate,
   getArchiveCategoryFilter: () => archiveCategoryFilter,
@@ -456,6 +500,7 @@ const taskFormController = window.RhythmTaskForm.createTaskForm({
   getTaskScheduleMode,
   isTimeBlock,
   isValidTimeBlock,
+  normalizeDateKey,
   render,
   saveState,
   setActiveDate: (dateKey) => {
@@ -491,6 +536,7 @@ const habitFormController = window.RhythmHabitForm.createHabitForm({
   setHabitCustomRepeatForm,
   showToast,
   syncHabitCustomRepeatPanel,
+  syncHabitTypeFields,
   upsertHabit: (habit) => {
     const existing = state.habits.find((item) => item.id === habit.id);
     if (existing) {
@@ -548,12 +594,47 @@ const settingsController = window.RhythmSettingsController.createSettingsControl
   checkRemoteConnection,
   pullRemoteState,
   pushRemoteState,
+  generateRemoteSyncKey,
   renderBackupStatus: renderSettingsBackupStatus,
   renderRemoteSyncStatus,
   requestNotifications,
   resetInterfaceSettings,
   restoreBackup,
   updateSetting,
+});
+
+const remoteSyncWorkflow = window.RhythmRemoteSyncController.createRemoteSyncWorkflow({
+  confirmAction,
+  createImportSafetyBackup,
+  createUndoSnapshot,
+  describeError: describeRemoteSyncError,
+  formatDate: formatBackupDate,
+  getLocalUpdatedAt: () => localStateUpdatedAt,
+  getRemoteUiSettings,
+  getSettings: () => ({
+    anonKey: remoteSyncAnonKey,
+    enabled: remoteSyncEnabled === "on",
+    supabaseUrl: remoteSyncUrl,
+    userKey: remoteSyncUserKey,
+  }),
+  getState: () => state,
+  getSyncMeta: () => ({ lastPulledAt: remoteSyncLastPulledAt, lastPushedAt: remoteSyncLastPushedAt }),
+  isRemoteVersionNewer: settingsState.isRemoteVersionNewer,
+  isSecurePrivateKey: remoteSyncController.isSecurePrivateKey,
+  latestIsoDate,
+  remoteSync,
+  render,
+  replaceState,
+  saveState,
+  saveUiState,
+  schemaVersion: SCHEMA_VERSION,
+  setSyncMeta: ({ lastPulledAt, lastPushedAt }) => {
+    if (lastPulledAt) remoteSyncLastPulledAt = lastPulledAt;
+    if (lastPushedAt) remoteSyncLastPushedAt = lastPushedAt;
+  },
+  showToast,
+  statusElement: els.remoteSyncStatus,
+  syncControls: () => settingsController.syncControls(),
 });
 
 const notificationsController = window.RhythmNotifications.createNotifications({
@@ -571,6 +652,20 @@ const notificationsController = window.RhythmNotifications.createNotifications({
   toDateKey,
 });
 
+const viewRenderer = window.RhythmViewRenderer.createViewRenderer({
+  renderArchive,
+  renderCategories,
+  renderDailyPulse,
+  renderGoals,
+  renderHabits,
+  renderOverview,
+  renderRemoteSyncStatus,
+  renderSettingsBackupStatus,
+  renderTasks,
+  renderTimeline,
+  renderWeekdayLabels,
+});
+
 seedIfEmpty();
 init();
 
@@ -583,9 +678,9 @@ function init() {
   settingsController.syncControls();
   confirmDialog.bindEvents();
   bindEvents();
-  resetTaskForm();
-  resetHabitForm();
-  resetGoalForm();
+  resetTaskForm({ open: false });
+  resetHabitForm({ open: false });
+  resetGoalForm({ open: false });
   registerServiceWorker();
   updateNotificationButton();
   updateBackupStatus();
@@ -597,13 +692,27 @@ function init() {
   syncDesktopBackup();
   setInterval(checkDueNotifications, 30000);
   setInterval(syncDesktopReminders, 60000);
+  setInterval(handleDateRollover, 30000);
   scheduleAutoBackup();
+}
+
+function handleDateRollover() {
+  const nextToday = toDateKey(new Date());
+  const rollover = window.RhythmDateRollover.resolveDateRollover(activeDate, currentToday, nextToday);
+  if (!rollover.changed) return;
+  currentToday = rollover.today;
+  if (rollover.activeDate !== activeDate) {
+    activeDate = rollover.activeDate;
+    resetTaskForm({ open: false });
+    resetHabitForm({ open: false });
+  }
+  render();
 }
 
 function bindEvents() {
   els.activeDate.addEventListener("change", () => {
     activeDate = els.activeDate.value || toDateKey(new Date());
-    resetTaskForm();
+    resetTaskForm({ open: false });
     render();
   });
 
@@ -615,8 +724,12 @@ function bindEvents() {
 
   els.navTabs.forEach((button) => {
     button.addEventListener("click", () => {
-      activeView = button.dataset.view;
+      const nextView = button.dataset.view;
+      if (!nextView || !els.views[nextView]) return;
+      activeView = nextView;
+      els.navMore?.removeAttribute("open");
       render();
+      scrollWorkspaceTop();
     });
   });
 
@@ -661,14 +774,22 @@ function bindEvents() {
   });
   els.openTaskForm.addEventListener("click", () => {
     restoreTaskFormPanel();
-    resetTaskForm();
+    resetTaskForm({ open: true });
     els.taskTitle.focus();
   });
-  els.resetTaskForm.addEventListener("click", resetTaskForm);
+  els.resetTaskForm.addEventListener("click", () => resetTaskForm({ open: true }));
   els.taskForm.addEventListener("submit", saveTaskFromForm);
   els.quickTaskForm.addEventListener("submit", saveQuickTask);
   els.quickTaskInput.addEventListener("input", updateQuickTaskPreview);
+  els.quickInputHints?.addEventListener("click", (event) => {
+    const hint = event.target.closest("[data-quick-hint]")?.dataset.quickHint;
+    if (!hint) return;
+    els.quickTaskInput.value = `${els.quickTaskInput.value.trim()} ${hint}`.trim();
+    updateQuickTaskPreview();
+    els.quickTaskInput.focus();
+  });
   els.taskRepeat.addEventListener("change", syncCustomRepeatPanel);
+  els.taskDate.addEventListener("change", syncCustomRepeatPanel);
   [els.taskScheduleDeadline, els.taskScheduleBlock].forEach((input) => {
     input?.addEventListener("change", syncTaskScheduleMode);
   });
@@ -706,11 +827,12 @@ function bindEvents() {
     els.habitFormPanel.classList.add("is-collapsed");
   });
   els.openHabitForm.addEventListener("click", () => {
-    resetHabitForm();
+    resetHabitForm({ open: true });
     els.habitTitle.focus();
   });
-  els.resetHabitForm.addEventListener("click", resetHabitForm);
+  els.resetHabitForm.addEventListener("click", () => resetHabitForm({ open: true }));
   els.habitForm.addEventListener("submit", saveHabitFromForm);
+  els.habitType.addEventListener("change", syncHabitTypeFields);
   els.habitRepeat.addEventListener("change", syncHabitCustomRepeatPanel);
   document.querySelectorAll("[data-habit-repeat-mode]").forEach((button) => {
     button.addEventListener("click", () => setHabitCustomRepeatMode(button.dataset.habitRepeatMode));
@@ -731,11 +853,10 @@ function bindEvents() {
     els.goalFormPanel.classList.add("is-collapsed");
   });
   els.openGoalForm.addEventListener("click", () => {
-    resetGoalForm();
-    els.goalFormPanel.classList.remove("is-collapsed");
+    resetGoalForm({ open: true });
     els.goalTitle.focus();
   });
-  els.resetGoalForm.addEventListener("click", resetGoalForm);
+  els.resetGoalForm.addEventListener("click", () => resetGoalForm({ open: true }));
   els.goalForm.addEventListener("submit", saveGoalFromForm);
 
   els.categoryForm.addEventListener("submit", saveCategoryFromForm);
@@ -776,6 +897,7 @@ function render() {
   if (activeView !== "timeline") restoreTaskFormPanel();
   els.activeDate.value = activeDate;
   els.todayLabel.textContent = formatLongDate(activeDate);
+  renderSaveStatus();
   els.pageTitle.textContent = {
     archive: "Архив",
     goals: "Цели",
@@ -798,33 +920,45 @@ function render() {
     }
   });
 
+  const isMoreView = activeView === "goals" || activeView === "archive" || activeView === "settings";
+  els.navMoreSummary?.classList.toggle("is-active", isMoreView);
+  if (isMoreView) {
+    els.navMoreSummary?.setAttribute("aria-current", "page");
+  } else {
+    els.navMoreSummary?.removeAttribute("aria-current");
+  }
+
   Object.entries(els.views).forEach(([view, element]) => {
     element.classList.toggle("is-active", view === activeView);
   });
 
-  renderCategories();
-  renderDailyPulse();
-  renderTasks();
-  renderTimeline();
-  renderHabits();
-  renderGoals();
-  renderWeekdayLabels();
-  renderOverview();
-  renderArchive();
+  viewRenderer.render(activeView);
+}
+
+function scrollWorkspaceTop() {
+  requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: "auto" }));
+}
+
+function renderSaveStatus() {
+  if (!els.saveStatus) return;
+  if (!localStateUpdatedAt) {
+    els.saveStatus.textContent = "Сохранено локально";
+    return;
+  }
+  const savedAt = new Date(localStateUpdatedAt);
+  if (Number.isNaN(savedAt.getTime())) {
+    els.saveStatus.textContent = "Сохранено локально";
+    return;
+  }
+  els.saveStatus.textContent = `Сохранено ${formatTime(toTimeValue(savedAt))}`;
 }
 
 function renderTaskSurfaces() {
-  renderDailyPulse();
-  renderTasks();
-  renderTimeline();
-  renderOverview();
-  renderArchive();
+  viewRenderer.render(activeView);
 }
 
 function renderHabitSurfaces() {
-  renderDailyPulse();
-  renderHabits();
-  renderOverview();
+  viewRenderer.render(activeView);
 }
 
 function renderGoalSurfaces() {
@@ -908,27 +1042,49 @@ function restoreTaskDate(task, dateKey) {
   }
   saveState();
   render();
-  showToast("Повтор возвращен в план", { undo });
+  showToast(`Повтор возвращен на ${formatLongDate(dateKey)}`, { undo });
+}
+
+function stopTaskSeries(task, dateKey) {
+  if (task.repeat === "none") return;
+  const undo = createUndoSnapshot();
+  const cutoff = addDays(dateKey, -1);
+  task.repeatUntil = cutoff;
+  [task.completed, task.excludedDates, task.notified].forEach((flags) => {
+    Object.keys(flags || {}).forEach((key) => {
+      if (key >= dateKey) delete flags[key];
+    });
+  });
+  Object.keys(state.taskOrder).forEach((key) => {
+    if (key >= dateKey) state.taskOrder[key] = state.taskOrder[key].filter((id) => id !== task.id);
+  });
+  saveState();
+  render();
+  showToast(`Повтор завершен с ${formatLongDate(dateKey)}`, { undo });
 }
 
 function deleteTask(taskId) {
-  state.tasks = state.tasks.filter((item) => item.id !== taskId);
-  Object.keys(state.taskOrder).forEach((dateKey) => {
-    state.taskOrder[dateKey] = state.taskOrder[dateKey].filter((id) => id !== taskId);
-  });
-}function deleteHabit(habitId) {
-  state.habits = state.habits.filter((item) => item.id !== habitId);
+  return taskState.deleteTask(taskId);
+}
+
+function deleteHabit(habitId) {
+  taskState.deleteHabit(habitId);
+}
+
+function reorderHabit(sourceId, targetId) {
+  taskState.reorderHabit(sourceId, targetId);
 }
 
 function deleteGoal(goalId) {
-  state.goals = state.goals.filter((item) => item.id !== goalId);
+  taskState.deleteGoal(goalId);
 }
 
 function openDateTasks(dateKey) {
   activeDate = dateKey;
   activeView = "tasks";
-  resetTaskForm();
+  resetTaskForm({ open: false });
   render();
+  scrollWorkspaceTop();
 }
 
 function moveTaskToDate(taskId, sourceDateKey, targetDateKey) {
@@ -1110,7 +1266,7 @@ function postponeTask(task, sourceDateKey, targetDateKey, options = {}) {
 
   activeDate = targetDate;
   saveState();
-  resetTaskForm();
+  resetTaskForm({ open: false });
   render();
   showToast(`Задача перенесена на ${formatLongDate(targetDate)}`, { undo });
 }
@@ -1167,8 +1323,8 @@ function saveGoalFromForm(event) {
   goalsView.saveGoalFromForm(event);
 }
 
-function resetGoalForm() {
-  goalsView.resetGoalForm();
+function resetGoalForm(options) {
+  goalsView.resetGoalForm(options);
 }
 
 function saveQuickTask(event) {
@@ -1206,7 +1362,7 @@ function saveQuickTask(event) {
   els.quickTaskInput.value = "";
   updateQuickTaskPreview();
   saveState();
-  resetTaskForm();
+  resetTaskForm({ open: false });
   render();
   showToast(`Добавлено: ${task.title}`, { undo });
 }
@@ -1302,7 +1458,10 @@ function setCustomRepeatForm(value = {}) {
 }
 
 function syncCustomRepeatPanel() {
+  const hasRepeat = els.taskRepeat.value !== "none";
   const isCustom = els.taskRepeat.value === "custom" && interfaceMode === "advanced";
+  els.taskRepeatUntilField.hidden = !hasRepeat;
+  if (hasRepeat) els.taskRepeatUntil.min = els.taskDate.value || activeDate;
   els.customRepeatPanel.hidden = !isCustom;
   if (isCustom) updateCustomRepeatSummary();
 }
@@ -1362,6 +1521,13 @@ function syncHabitCustomRepeatPanel() {
   if (isCustom) updateHabitCustomRepeatSummary();
 }
 
+function syncHabitTypeFields() {
+  const isNumber = els.habitType.value === "number";
+  if (els.habitNumericFields) els.habitNumericFields.hidden = !isNumber;
+  els.habitUnit.disabled = !isNumber;
+  els.habitGoal.disabled = !isNumber;
+}
+
 function setHabitCustomRepeatMode(mode = "weekdays") {
   document.querySelectorAll("[data-habit-repeat-mode]").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.habitRepeatMode === mode);
@@ -1397,8 +1563,8 @@ function fillTaskForm(task) {
   taskFormController.fillTaskForm(task);
 }
 
-function resetTaskForm() {
-  taskFormController.resetTaskForm();
+function resetTaskForm(options) {
+  taskFormController.resetTaskForm(options);
 }
 
 function saveHabitFromForm(event) {
@@ -1409,8 +1575,8 @@ function fillHabitForm(habit) {
   habitFormController.fillHabitForm(habit);
 }
 
-function resetHabitForm() {
-  habitFormController.resetHabitForm();
+function resetHabitForm(options) {
+  habitFormController.resetHabitForm(options);
 }
 
 function saveCategoryFromForm(event) {
@@ -1488,40 +1654,24 @@ function isTaskExcluded(task, dateKey) {
 }
 
 function excludedTasksForDate(dateKey) {
+  const replacementSourceIds = new Set(
+    state.tasks
+      .filter((task) => task.repeat === "none" && task.date === dateKey && task.sourceTaskId)
+      .map((task) => task.sourceTaskId),
+  );
   return state.tasks
-    .filter((task) => task.repeat !== "none" && taskScheduledOn(task, dateKey) && isTaskExcluded(task, dateKey))
+    .filter(
+      (task) =>
+        task.repeat !== "none" &&
+        taskScheduledOn(task, dateKey) &&
+        isTaskExcluded(task, dateKey) &&
+        !replacementSourceIds.has(task.id),
+    )
     .sort(sortTasks);
 }
 
 function overdueTaskEntries(now = new Date()) {
-  const todayKey = toDateKey(now);
-  const start = new Date(now);
-  start.setDate(now.getDate() - 60);
-  const entries = [];
-
-  state.tasks.forEach((task) => {
-    if (task.repeat === "none") {
-      addOverdueEntry(entries, task, task.date, now);
-      return;
-    }
-
-    for (let cursor = new Date(start); cursor <= now; cursor.setDate(cursor.getDate() + 1)) {
-      const dateKey = toDateKey(cursor);
-      if (dateKey > todayKey) continue;
-      if (!taskScheduledOn(task, dateKey) || isTaskExcluded(task, dateKey)) continue;
-      addOverdueEntry(entries, task, dateKey, now);
-    }
-  });
-
-  return entries
-    .sort((a, b) => a.dueAt - b.dueAt || a.task.title.localeCompare(b.task.title, "ru"))
-    .slice(0, 20);
-}
-
-function addOverdueEntry(entries, task, dateKey, now) {
-  const dueAt = getTaskDeadlineDate(task, dateKey);
-  if (dueAt >= now || isTaskDone(task, dateKey)) return;
-  entries.push({ task, dateKey, dueAt });
+  return overdueController.list(now);
 }
 
 function habitsForDate(dateKey) {
@@ -1663,7 +1813,8 @@ function timeValue(value) {
 }
 
 function formatTaskRepeat(task) {
-  return window.RhythmRecurrence.repeatLabel(task);
+  const label = window.RhythmRecurrence.repeatLabel(task);
+  return task.repeatUntil ? `${label} · до ${formatShortDate(task.repeatUntil)}` : label;
 }
 
 function normalizeHabitRepeat(value) {
@@ -1771,13 +1922,13 @@ function shiftDate(days) {
   const date = parseDate(activeDate);
   date.setDate(date.getDate() + days);
   activeDate = toDateKey(date);
-  resetTaskForm();
+  resetTaskForm({ open: false });
   render();
 }
 
 function goToday() {
   activeDate = toDateKey(new Date());
-  resetTaskForm();
+  resetTaskForm({ open: false });
   render();
 }
 
@@ -1788,7 +1939,7 @@ function shiftMonth(months) {
   const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
   target.setDate(Math.min(targetDay, lastDay));
   activeDate = toDateKey(target);
-  resetTaskForm();
+  resetTaskForm({ open: false });
   render();
 }
 
@@ -1880,9 +2031,6 @@ function applySettingsPreferences() {
   if (els.remoteSyncUserKey) els.remoteSyncUserKey.value = remoteSyncUserKey;
   syncCustomRepeatPanel();
   syncHabitCustomRepeatPanel();
-  if (els.goalAdvancedPanel && !els.goalId?.value) {
-    els.goalAdvancedPanel.open = interfaceMode === "advanced";
-  }
 }
 
 function getUiSettings() {
@@ -1936,6 +2084,8 @@ function updateSetting(name, value) {
       firstDayOfWeek = normalizeFirstDayOfWeek(value);
       saveUiState();
       settingsController.syncControls();
+      renderWeekdayLabels();
+      renderOverview();
       render();
       showToast("Календарь обновлен");
       break;
@@ -1964,7 +2114,7 @@ function updateSetting(name, value) {
       break;
     case "remoteSyncEnabled":
       remoteSyncEnabled = normalizeRemoteSyncEnabled(value);
-      remoteSyncLastError = "";
+      remoteSyncWorkflow.clearError();
       applySettingsPreferences();
       saveUiState();
       settingsController.syncControls();
@@ -1974,7 +2124,7 @@ function updateSetting(name, value) {
       break;
     case "remoteSyncUrl":
       remoteSyncUrl = cleanText(value);
-      remoteSyncLastError = "";
+      remoteSyncWorkflow.clearError();
       applySettingsPreferences();
       saveUiState();
       settingsController.syncControls();
@@ -1982,7 +2132,7 @@ function updateSetting(name, value) {
       break;
     case "remoteSyncAnonKey":
       remoteSyncAnonKey = cleanText(value);
-      remoteSyncLastError = "";
+      remoteSyncWorkflow.clearError();
       applySettingsPreferences();
       saveUiState();
       settingsController.syncControls();
@@ -1990,7 +2140,7 @@ function updateSetting(name, value) {
       break;
     case "remoteSyncUserKey":
       remoteSyncUserKey = normalizeRemoteUserKey(value);
-      remoteSyncLastError = "";
+      remoteSyncWorkflow.clearError();
       applySettingsPreferences();
       saveUiState();
       settingsController.syncControls();
@@ -2074,7 +2224,7 @@ function applyImportedSettings(settings = {}) {
   remoteSyncLastPulledAt = normalized.remoteSyncLastPulledAt;
   remoteSyncLastPushedAt = normalized.remoteSyncLastPushedAt;
   localStateUpdatedAt = normalized.localStateUpdatedAt || localStateUpdatedAt;
-  remoteSyncLastError = "";
+  remoteSyncWorkflow.clearError();
   applyThemePreference();
   applySettingsPreferences();
   scheduleAutoBackup();
@@ -2095,201 +2245,37 @@ function renderSettingsBackupStatus() {
   els.settingsBackupStatus.textContent = `Последний авто-бэкап: ${last} · следующий: ${next}`;
 }
 
-function getRemoteSyncConfig() {
-  return remoteSync.normalizeConfig({
-    anonKey: remoteSyncAnonKey,
-    enabled: remoteSyncEnabled === "on",
-    supabaseUrl: remoteSyncUrl,
-    userKey: remoteSyncUserKey,
-  });
+function generateRemoteSyncKey() {
+  remoteSyncUserKey = remoteSyncController.generatePrivateKey();
+  remoteSyncWorkflow.clearError();
+  saveUiState();
+  settingsController.syncControls();
+  els.remoteSyncUserKey?.focus();
+  showToast("Приватный ключ создан. Сохрани его для подключения других устройств");
 }
 
 function isRemoteSyncReady() {
-  return remoteSync.isConfigured(getRemoteSyncConfig());
+  return remoteSyncWorkflow.isReady();
 }
 
 function renderRemoteSyncStatus() {
-  if (!els.remoteSyncStatus) return;
-  if (remoteSyncEnabled !== "on") {
-    els.remoteSyncStatus.textContent = "БД: не настроено · синхронизация выключена";
-    return;
-  }
-  if (!isRemoteSyncReady()) {
-    els.remoteSyncStatus.textContent = "БД: не настроено · заполни Supabase URL, anon key и ключ пользователя";
-    return;
-  }
-  if (remoteSyncLastError) {
-    els.remoteSyncStatus.textContent = `БД: ошибка · ${remoteSyncLastError}`;
-    return;
-  }
-  if (remoteSyncInFlight) {
-    els.remoteSyncStatus.textContent = "БД: синхронизация...";
-    return;
-  }
-  const pushed = remoteSyncLastPushedAt ? formatBackupDate(remoteSyncLastPushedAt) : "еще не сохранялось";
-  const pulled = remoteSyncLastPulledAt ? formatBackupDate(remoteSyncLastPulledAt) : "еще не загружалось";
-  const latestSync = latestIsoDate(remoteSyncLastPushedAt, remoteSyncLastPulledAt);
-  const latest = latestSync ? formatBackupDate(latestSync) : "еще не было";
-  els.remoteSyncStatus.textContent = `БД: подключена · последняя синхронизация: ${latest} · сохранено: ${pushed} · загружено: ${pulled}`;
+  remoteSyncWorkflow.renderStatus();
 }
 
 function scheduleRemotePush() {
-  if (!isRemoteSyncReady()) {
-    renderRemoteSyncStatus();
-    return;
-  }
-  if (remoteSyncTimerId) clearTimeout(remoteSyncTimerId);
-  remoteSyncTimerId = setTimeout(() => {
-    remoteSyncTimerId = null;
-    pushRemoteState({ silent: true });
-  }, 1200);
+  remoteSyncWorkflow.schedulePush();
 }
 
 async function pushRemoteState(options = {}) {
-  if (options?.preventDefault) options.preventDefault();
-  const manual = !options?.silent;
-  if (!isRemoteSyncReady()) {
-    renderRemoteSyncStatus();
-    if (manual) showToast("Заполни настройки удаленной БД");
-    return;
-  }
-  if (remoteSyncInFlight) return;
-
-  remoteSyncInFlight = true;
-  remoteSyncLastError = "";
-  renderRemoteSyncStatus();
-  try {
-    const canPush = await confirmRemoteOverwriteIfNeeded({ manual });
-    if (!canPush) return;
-    const pushedAt = new Date().toISOString();
-    await remoteSync.pushState(getRemoteSyncConfig(), {
-      clientUpdatedAt: pushedAt,
-      schemaVersion: SCHEMA_VERSION,
-      state,
-      uiState: getRemoteUiSettings({ remoteSyncLastPushedAt: pushedAt }),
-    });
-    remoteSyncLastPushedAt = pushedAt;
-    saveUiState();
-    if (manual) showToast("Данные сохранены в БД");
-  } catch (error) {
-    remoteSyncLastError = describeRemoteSyncError(error);
-    if (manual) showToast("Не удалось сохранить данные в БД");
-  } finally {
-    remoteSyncInFlight = false;
-    settingsController.syncControls();
-    renderRemoteSyncStatus();
-  }
-}
-
-async function confirmRemoteOverwriteIfNeeded({ manual }) {
-  const remoteSnapshot = await remoteSync.pullState(getRemoteSyncConfig());
-  if (!remoteSnapshot.found || !remoteSnapshot.clientUpdatedAt) return true;
-  if (!settingsState.isRemoteVersionNewer(remoteSnapshot.clientUpdatedAt, remoteSyncLastPulledAt, remoteSyncLastPushedAt)) return true;
-  const remoteDate = formatBackupDate(remoteSnapshot.clientUpdatedAt);
-  if (!manual) {
-    remoteSyncLastError = `удаленная версия новее (${remoteDate}); нажми "Загрузить из БД" или подтверди ручное сохранение`;
-    return false;
-  }
-
-  return confirmAction({
-    confirmLabel: "Перезаписать БД",
-    message: `В БД есть версия от ${remoteDate}, которую это устройство еще не загружало. Если продолжить, она будет перезаписана текущими локальными данными.`,
-    tone: "danger",
-    title: "Удаленная версия новее",
-  });
+  return remoteSyncWorkflow.push(options);
 }
 
 async function checkRemoteConnection(options = {}) {
-  if (options?.preventDefault) options.preventDefault();
-  if (!isRemoteSyncReady()) {
-    renderRemoteSyncStatus();
-    showToast("Заполни настройки удаленной БД");
-    return;
-  }
-  if (remoteSyncInFlight) return;
-
-  remoteSyncInFlight = true;
-  remoteSyncLastError = "";
-  renderRemoteSyncStatus();
-  try {
-    const result = await remoteSync.checkConnection(getRemoteSyncConfig());
-    showToast(result.found ? "Подключение к БД работает" : "Подключение работает, сохранений пока нет");
-  } catch (error) {
-    remoteSyncLastError = describeRemoteSyncError(error);
-    showToast("Подключение к БД не прошло проверку");
-  } finally {
-    remoteSyncInFlight = false;
-    settingsController.syncControls();
-    renderRemoteSyncStatus();
-  }
+  return remoteSyncWorkflow.check(options);
 }
 
 async function pullRemoteState(options = {}) {
-  if (options?.preventDefault) options.preventDefault();
-  if (!isRemoteSyncReady()) {
-    renderRemoteSyncStatus();
-    showToast("Заполни настройки удаленной БД");
-    return;
-  }
-
-  if (remoteSyncInFlight) return;
-  remoteSyncInFlight = true;
-  remoteSyncLastError = "";
-  renderRemoteSyncStatus();
-  let pulled;
-  try {
-    pulled = await remoteSync.pullState(getRemoteSyncConfig());
-  } catch (error) {
-    remoteSyncLastError = describeRemoteSyncError(error);
-    showToast("Не удалось загрузить данные из БД");
-    remoteSyncInFlight = false;
-    settingsController.syncControls();
-    renderRemoteSyncStatus();
-    return;
-  }
-  remoteSyncInFlight = false;
-  settingsController.syncControls();
-  renderRemoteSyncStatus();
-
-  if (!pulled.found || !pulled.state) {
-    showToast("В БД пока нет сохраненных данных");
-    return;
-  }
-
-  const remoteDate = pulled.clientUpdatedAt ? formatBackupDate(pulled.clientUpdatedAt) : "неизвестно";
-  const localWarning =
-    localStateUpdatedAt && pulled.clientUpdatedAt && localStateUpdatedAt > pulled.clientUpdatedAt
-      ? ` Локальные данные новее удаленной версии (${formatBackupDate(localStateUpdatedAt)}).`
-      : "";
-  const confirmed = await confirmAction({
-    confirmLabel: "Загрузить",
-    message: `Локальные данные будут заменены состоянием из БД от ${remoteDate}.${localWarning} Перед заменой приложение создаст safety backup.`,
-    tone: "danger",
-    title: "Загрузить данные из БД?",
-  });
-  if (!confirmed || remoteSyncInFlight) return;
-
-  remoteSyncInFlight = true;
-  remoteSyncLastError = "";
-  renderRemoteSyncStatus();
-  try {
-    const undo = createUndoSnapshot();
-    createImportSafetyBackup({ state: JSON.stringify(state) });
-    replaceState(pulled.state);
-    const pulledAt = new Date().toISOString();
-    remoteSyncLastPulledAt = pulledAt;
-    saveState({ localUpdatedAt: pulled.clientUpdatedAt || pulledAt, skipBackup: true, skipRemote: true });
-    saveUiState();
-    render();
-    showToast("Данные загружены из БД", { undo });
-  } catch (error) {
-    remoteSyncLastError = describeRemoteSyncError(error);
-    showToast("Не удалось загрузить данные из БД");
-  } finally {
-    remoteSyncInFlight = false;
-    settingsController.syncControls();
-    renderRemoteSyncStatus();
-  }
+  return remoteSyncWorkflow.pull(options);
 }
 
 function latestIsoDate(...values) {
@@ -2467,6 +2453,7 @@ function saveState(options = {}) {
   });
   localStateUpdatedAt = options.localUpdatedAt || new Date().toISOString();
   saveUiState();
+  renderSaveStatus();
   if (!options.skipBackup) updateBackupStatus();
   syncDesktopReminders();
   if (!options.skipBackup) syncDesktopBackup();
@@ -2498,86 +2485,14 @@ function formatBackupDate(value) {
 }
 
 function seedIfEmpty() {
-  if (!state.categories.length) {
-    state.categories.push(
-      { id: createId(), name: "Работа", color: "#5967d8", createdAt: new Date().toISOString() },
-      { id: createId(), name: "Фокус", color: "#00a78e", createdAt: new Date().toISOString() },
-      { id: createId(), name: "Здоровье", color: "#ef6a4b", createdAt: new Date().toISOString() },
-      { id: createId(), name: "Дом", color: "#e7b84a", createdAt: new Date().toISOString() },
-    );
-  }
-
-  if (state.tasks.length || state.habits.length || state.goals.length) {
-    saveState();
-    return;
-  }
-
-  const focusId = state.categories.find((category) => category.name === "Фокус")?.id || "";
-  const workId = state.categories.find((category) => category.name === "Работа")?.id || "";
-  const healthId = state.categories.find((category) => category.name === "Здоровье")?.id || "";
-
-  state.tasks.push(
-    {
-      id: createId(),
-      title: "Собрать план на день",
-      date: activeDate,
-      time: "10:00",
-      categoryId: focusId,
-      priority: "high",
-      repeat: "daily",
-      reminderOffset: "15",
-      completed: {},
-      notified: {},
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: createId(),
-      title: "Закрыть важную рабочую задачу",
-      date: activeDate,
-      time: "16:30",
-      categoryId: workId,
-      priority: "medium",
-      repeat: "none",
-      reminderOffset: "30",
-      completed: {},
-      notified: {},
-      createdAt: new Date().toISOString(),
-    },
+  if (state.categories.length) return;
+  state.categories.push(
+    { id: createId(), name: "Работа", color: "#5967d8", createdAt: new Date().toISOString() },
+    { id: createId(), name: "Фокус", color: "#00a78e", createdAt: new Date().toISOString() },
+    { id: createId(), name: "Здоровье", color: "#ef6a4b", createdAt: new Date().toISOString() },
+    { id: createId(), name: "Дом", color: "#e7b84a", createdAt: new Date().toISOString() },
   );
-
-  state.habits.push(
-    {
-      id: createId(),
-      title: "Вода",
-      type: "number",
-      repeat: "daily",
-      startDate: activeDate,
-      unit: "мл",
-      goal: 2000,
-      logs: {},
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: createId(),
-      title: "Разминка",
-      type: "check",
-      repeat: "weekdays",
-      startDate: activeDate,
-      unit: "",
-      goal: 1,
-      logs: {},
-      createdAt: new Date().toISOString(),
-    },
-  );
-
-  if (!healthId) ensureHealthCategory();
   saveState();
-}
-
-function ensureHealthCategory() {
-  if (!state.categories.some((category) => category.name === "Здоровье")) {
-    state.categories.push({ id: createId(), name: "Здоровье", color: "#ef6a4b", createdAt: new Date().toISOString() });
-  }
 }
 
 function registerServiceWorker() {
@@ -2810,7 +2725,7 @@ function restoreUndoSnapshot(snapshot) {
     activeDate = normalizeDateKey(snapshot.activeDate, toDateKey(new Date()));
     activeView = snapshot.activeView || "tasks";
     saveState();
-    resetTaskForm();
+    resetTaskForm({ open: false });
     render();
     showToast("Действие отменено");
   } catch {

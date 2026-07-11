@@ -4,6 +4,8 @@
       const goals = [...(ctx.getState().goals || [])];
       const todayKey = ctx.toDateKey(new Date());
       const stats = goalStats(goals, todayKey);
+      const editingGoal = goals.find((goal) => goal.id === ctx.els.goalId.value);
+      renderTaskPicker(editingGoal?.taskIds || []);
 
       ctx.els.goalActiveMetric.textContent = stats.active;
       ctx.els.goalOverdueMetric.textContent = stats.overdue;
@@ -23,7 +25,8 @@
       const title = document.createElement("h3");
       const status = document.createElement("span");
       const meta = document.createElement("p");
-      const progress = createGoalProgress(goalProgress(goal));
+      const linkedTasks = getLinkedTasks(goal);
+      const progress = createGoalProgress(goalProgress(goal, linkedTasks, linkedTaskDone));
       const nextStep = createNextStep(goal);
       const details = createGoalDetails(goal);
       const actions = document.createElement("div");
@@ -37,7 +40,7 @@
       status.className = "goal-status-pill";
       status.textContent = goalStatusLabel(goal, todayKey);
       meta.className = "goal-meta";
-      meta.textContent = goal.why ? `${goalDueLabel(goal, todayKey)} · ${goal.why}` : goalDueLabel(goal, todayKey);
+      meta.textContent = goalDueLabel(goal, todayKey);
       actions.className = "goal-actions";
 
       actions.append(
@@ -60,33 +63,14 @@
       event.preventDefault();
       const title = ctx.cleanText(ctx.els.goalTitle.value);
       const dueDate = ctx.normalizeDateKey(ctx.els.goalDueDate.value, "");
-      const measure = ctx.cleanText(ctx.els.goalMeasure.value);
-      const reality = ctx.cleanText(ctx.els.goalReality.value);
-      const why = ctx.cleanText(ctx.els.goalWhy.value);
-      const needsSmartDetails = ctx.getInterfaceMode?.() === "advanced" || ctx.els.goalAdvancedPanel?.open;
       if (!title) {
         ctx.showToast("Напиши название цели");
         ctx.els.goalTitle.focus();
         return;
       }
-      if (!why) {
-        ctx.showToast("Заполни, почему цель важна");
-        ctx.els.goalWhy.focus();
-        return;
-      }
       if (!dueDate) {
         ctx.showToast("Выбери срок цели");
         ctx.els.goalDueDate.focus();
-        return;
-      }
-      if (needsSmartDetails && !measure) {
-        ctx.showToast("Добавь измеримый результат по SMART");
-        ctx.els.goalMeasure.focus();
-        return;
-      }
-      if (needsSmartDetails && !reality) {
-        ctx.showToast("Опиши, почему цель достижима");
-        ctx.els.goalReality.focus();
         return;
       }
 
@@ -96,12 +80,13 @@
       const nextGoal = {
         id,
         title,
-        description: ctx.cleanText(ctx.els.goalDescription.value),
-        measure,
-        reality,
-        why,
+        description: "",
+        measure: "",
+        reality: "",
+        why: "",
         dueDate,
-        steps: parseGoalSteps(ctx.els.goalSteps.value, existing?.steps || []),
+        taskIds: selectedTaskIds(),
+        steps: existing?.steps || [],
         status: existing?.status === "done" ? "done" : "active",
         completedAt: existing?.completedAt || "",
         createdAt: existing?.createdAt || new Date().toISOString(),
@@ -109,7 +94,7 @@
 
       ctx.upsertGoal(nextGoal);
       ctx.saveState();
-      resetGoalForm();
+      resetGoalForm({ open: false });
       renderGoals();
       ctx.showToast(existing ? "Цель обновлена" : "Цель добавлена", { undo });
     }
@@ -118,30 +103,28 @@
       ctx.els.goalId.value = goal.id;
       ctx.els.goalTitle.value = goal.title || "";
       ctx.els.goalDueDate.value = goal.dueDate || ctx.getActiveDate();
-      ctx.els.goalDescription.value = goal.description || "";
-      ctx.els.goalMeasure.value = goal.measure || "";
-      ctx.els.goalReality.value = goal.reality || "";
-      ctx.els.goalWhy.value = goal.why || "";
+      if (ctx.els.goalDescription) ctx.els.goalDescription.value = "";
+      if (ctx.els.goalMeasure) ctx.els.goalMeasure.value = "";
+      if (ctx.els.goalReality) ctx.els.goalReality.value = "";
+      if (ctx.els.goalWhy) ctx.els.goalWhy.value = "";
       ctx.els.goalSteps.value = (goal.steps || []).map((step) => step.title).join("\n");
-      if (ctx.els.goalAdvancedPanel) {
-        ctx.els.goalAdvancedPanel.open =
-          ctx.getInterfaceMode?.() === "advanced" || Boolean(goal.description || goal.measure || goal.reality);
-      }
+      renderTaskPicker(goal.taskIds || []);
       ctx.els.goalFormHeading.textContent = "Редактировать цель";
       ctx.els.goalFormPanel.classList.remove("is-collapsed");
       ctx.els.goalTitle.focus();
     }
 
-    function resetGoalForm() {
+    function resetGoalForm(options = {}) {
+      ctx.els.goalFormPanel.classList.toggle("is-collapsed", options.open === false);
       ctx.els.goalId.value = "";
       ctx.els.goalTitle.value = "";
       ctx.els.goalDueDate.value = ctx.getActiveDate();
-      ctx.els.goalDescription.value = "";
-      ctx.els.goalMeasure.value = "";
-      ctx.els.goalReality.value = "";
-      ctx.els.goalWhy.value = "";
+      if (ctx.els.goalDescription) ctx.els.goalDescription.value = "";
+      if (ctx.els.goalMeasure) ctx.els.goalMeasure.value = "";
+      if (ctx.els.goalReality) ctx.els.goalReality.value = "";
+      if (ctx.els.goalWhy) ctx.els.goalWhy.value = "";
       ctx.els.goalSteps.value = "";
-      if (ctx.els.goalAdvancedPanel) ctx.els.goalAdvancedPanel.open = ctx.getInterfaceMode?.() === "advanced";
+      renderTaskPicker([]);
       ctx.els.goalFormHeading.textContent = "Новая цель";
     }
 
@@ -180,7 +163,7 @@
       const undo = ctx.createUndoSnapshot();
       ctx.deleteGoal(goalId);
       ctx.saveState();
-      resetGoalForm();
+      resetGoalForm({ open: false });
       renderGoals();
       ctx.showToast("Цель удалена", { undo });
     }
@@ -217,7 +200,7 @@
     }
 
     function createNextStep(goal) {
-      const next = (goal.steps || []).find((step) => !step.done);
+      const next = getLinkedTasks(goal).find((task) => !linkedTaskDone(task));
       if (!next) return null;
       const element = document.createElement("p");
       const label = document.createElement("span");
@@ -231,59 +214,90 @@
       const details = document.createElement("details");
       const summary = document.createElement("summary");
       const body = document.createElement("div");
-      const smart = document.createElement("div");
       const steps = document.createElement("div");
 
       details.className = "goal-details";
-      details.open = ctx.getInterfaceMode?.() === "advanced";
-      summary.textContent = "Подробнее";
+      summary.textContent = "Связанные задачи";
       body.className = "goal-details-body";
 
-      if (goal.description) {
-        const description = document.createElement("p");
-        description.className = "goal-description";
-        description.textContent = goal.description;
-        body.appendChild(description);
-      }
-
-      smart.className = "goal-smart";
-      smart.append(
-        createSmartChip("M", goal.measure || "Измеримый результат не задан"),
-        createSmartChip("A", goal.reality || "Реалистичность не описана"),
-        createSmartChip("R", goal.why || "Важность не описана"),
-        createSmartChip("T", goal.dueDate || "Срок не задан"),
-      );
-      body.appendChild(smart);
-
-      if (goal.steps?.length) {
+      const linkedTasks = getLinkedTasks(goal);
+      if (linkedTasks.length) {
         steps.className = "goal-steps";
-        steps.setAttribute("aria-label", "Шаги цели");
-        goal.steps.forEach((step) => steps.appendChild(createStepControl(goal, step)));
+        steps.setAttribute("aria-label", "Связанные задачи");
+        linkedTasks.forEach((task) => steps.appendChild(createTaskControl(goal, task)));
         body.appendChild(steps);
+      } else {
+        const empty = document.createElement("p");
+        empty.className = "goal-description";
+        empty.textContent = "Связанных задач пока нет.";
+        body.appendChild(empty);
       }
 
       details.append(summary, body);
       return details;
     }
 
-    function createSmartChip(label, text) {
-      const chip = document.createElement("span");
-      chip.className = text.includes("не ") || text.includes("не задан") ? "goal-smart-chip is-missing" : "goal-smart-chip";
-      chip.textContent = `${label}: ${text}`;
-      return chip;
-    }
-
-    function createStepControl(goal, step) {
+    function createTaskControl(goal, task) {
       const label = document.createElement("label");
       const checkbox = document.createElement("input");
       const text = document.createElement("span");
       label.className = "goal-step";
       checkbox.type = "checkbox";
-      checkbox.checked = step.done === true;
-      checkbox.addEventListener("change", () => toggleGoalStep(goal.id, step.id, checkbox.checked));
-      text.textContent = step.title;
+      checkbox.checked = linkedTaskDone(task);
+      checkbox.addEventListener("change", () => {
+        const undo = ctx.createUndoSnapshot();
+        ctx.toggleLinkedTask(task.id, checkbox.checked);
+        ctx.saveState();
+        ctx.render();
+        ctx.showToast(checkbox.checked ? "Задача выполнена" : "Задача снова активна", { undo });
+      });
+      text.textContent = task.title;
       label.append(checkbox, text);
       return label;
+    }
+
+    function getLinkedTasks(goal) {
+      const ids = new Set(goal.taskIds || []);
+      return ctx.getState().tasks.filter((task) => ids.has(task.id));
+    }
+
+    function linkedTaskDone(task) {
+      return ctx.isTaskDone(task, task.date || ctx.getActiveDate());
+    }
+
+    function selectedTaskIds() {
+      return [...ctx.els.goalTaskPicker.querySelectorAll('input[type="checkbox"]:checked')].map((input) => input.value);
+    }
+
+    function renderTaskPicker(selectedIds = []) {
+      const selected = new Set(selectedIds);
+      const tasks = ctx.getState().tasks.filter((task) => task.repeat === "none");
+      ctx.els.goalTaskPicker.replaceChildren();
+      if (!tasks.length) {
+        const empty = document.createElement("p");
+        empty.className = "goal-task-picker-empty";
+        empty.textContent = "Сначала создай обычную задачу.";
+        ctx.els.goalTaskPicker.appendChild(empty);
+        return;
+      }
+      tasks
+        .sort((a, b) => String(a.date).localeCompare(String(b.date)) || a.title.localeCompare(b.title))
+        .forEach((task) => {
+          const label = document.createElement("label");
+          const checkbox = document.createElement("input");
+          const content = document.createElement("span");
+          const title = document.createElement("strong");
+          const date = document.createElement("small");
+          label.className = "goal-task-option";
+          checkbox.type = "checkbox";
+          checkbox.value = task.id;
+          checkbox.checked = selected.has(task.id);
+          title.textContent = task.title;
+          date.textContent = task.date || "Без даты";
+          content.append(title, date);
+          label.append(checkbox, content);
+          ctx.els.goalTaskPicker.appendChild(label);
+        });
     }
 
     return {
@@ -308,8 +322,9 @@
     );
   }
 
-  function goalProgress(goal) {
+  function goalProgress(goal, linkedTasks = [], isDone = (task) => task.done === true) {
     if (goal.status === "done") return 100;
+    if (linkedTasks.length) return Math.round((linkedTasks.filter(isDone).length / linkedTasks.length) * 100);
     const steps = Array.isArray(goal.steps) ? goal.steps : [];
     if (!steps.length) return 0;
     return Math.round((steps.filter((step) => step.done).length / steps.length) * 100);
