@@ -238,9 +238,12 @@
     }
 
     function createTaskControl(goal, task) {
+      const row = document.createElement("div");
       const label = document.createElement("label");
       const checkbox = document.createElement("input");
       const text = document.createElement("span");
+      const open = document.createElement("button");
+      row.className = "goal-linked-task";
       label.className = "goal-step";
       checkbox.type = "checkbox";
       checkbox.checked = linkedTaskDone(task);
@@ -253,7 +256,12 @@
       });
       text.textContent = task.title;
       label.append(checkbox, text);
-      return label;
+      open.type = "button";
+      open.className = "ghost-button compact-button";
+      open.textContent = "Перейти";
+      open.addEventListener("click", () => ctx.openTaskDate(task.date || ctx.getActiveDate()));
+      row.append(label, open);
+      return row;
     }
 
     function getLinkedTasks(goal) {

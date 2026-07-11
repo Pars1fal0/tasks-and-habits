@@ -3,6 +3,25 @@ const { createOverdueController } = require("../overdue-controller.js");
 
 module.exports = [
   {
+    name: "reuses overdue calculations until state or minute changes",
+    fn() {
+      let taskReads = 0;
+      const controller = createOverdueController({
+        getCacheKey: () => "state-1",
+        getTaskDeadlineDate: () => new Date("2026-01-01T23:59:59"),
+        getTasks: () => { taskReads += 1; return [{ id: "old", title: "Old", date: "2026-01-01", repeat: "none", completed: {} }]; },
+        isTaskDone: () => false,
+        isTaskExcluded: () => false,
+        taskScheduledOn: () => true,
+        toDateKey: (date) => date.toISOString().slice(0, 10),
+      });
+      const now = new Date("2026-07-12T12:00:10Z");
+      controller.list(now);
+      controller.list(new Date("2026-07-12T12:00:40Z"));
+      assert.equal(taskReads, 1);
+    },
+  },
+  {
     name: "keeps overdue occurrences older than sixty days",
     fn() {
       const tasks = [{ id: "old", title: "Old", date: "2026-01-01", time: "", repeat: "none", completed: {} }];

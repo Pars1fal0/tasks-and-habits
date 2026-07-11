@@ -19,6 +19,7 @@
   function createRemoteSyncWorkflow(ctx) {
     let inFlight = false;
     let lastError = "";
+    let pending = false;
     let timerId = null;
 
     function getConfig() {
@@ -49,6 +50,7 @@
       if (!ctx.isSecurePrivateKey(settings.userKey)) {
         return setStatus("БД: подключена старым коротким ключом · создай приватный ключ перед хранением важных данных");
       }
+      if (pending) return setStatus("БД: ожидает синхронизации локальных изменений");
       const meta = ctx.getSyncMeta();
       const pushed = meta.lastPushedAt ? ctx.formatDate(meta.lastPushedAt) : "еще не сохранялось";
       const pulled = meta.lastPulledAt ? ctx.formatDate(meta.lastPulledAt) : "еще не загружалось";
@@ -59,6 +61,8 @@
 
     function schedulePush() {
       if (!isReady()) return renderStatus();
+      pending = true;
+      renderStatus();
       if (timerId) clearTimeout(timerId);
       timerId = setTimeout(() => {
         timerId = null;
@@ -86,6 +90,7 @@
           uiState: ctx.getRemoteUiSettings({ remoteSyncLastPushedAt: pushedAt }),
         });
         ctx.setSyncMeta({ lastPushedAt: pushedAt });
+        pending = false;
         ctx.saveUiState();
         if (manual) ctx.showToast("Данные сохранены в БД");
       } catch (error) {
@@ -164,23 +169,26 @@
           ? ` Локальные данные новее удаленной версии (${ctx.formatDate(localUpdatedAt)}).`
           : "";
       const confirmed = await ctx.confirmAction({
-        confirmLabel: "Загрузить",
-        message: `Локальные данные будут заменены состоянием из БД от ${remoteDate}.${localWarning} Перед заменой приложение создаст safety backup.`,
+        confirmLabel: "Заменить локальные",
+        secondaryLabel: "Объединить",
+        message: `Данные из БД от ${remoteDate}.${localWarning} Можно объединить записи с двух устройств или полностью заменить локальное состояние. Перед действием приложение создаст safety backup.`,
         tone: "danger",
-        title: "Загрузить данные из БД?",
+        title: "Как загрузить данные из БД?",
       });
       if (!confirmed || inFlight) return;
       begin();
       try {
         const undo = ctx.createUndoSnapshot();
         ctx.createImportSafetyBackup({ state: JSON.stringify(ctx.getState()) });
-        ctx.replaceState(pulled.state);
+        const nextState = confirmed === "secondary" ? ctx.mergeStates(ctx.getState(), pulled.state) : pulled.state;
+        ctx.replaceState(nextState);
         const pulledAt = new Date().toISOString();
         ctx.setSyncMeta({ lastPulledAt: pulledAt });
+        pending = false;
         ctx.saveState({ localUpdatedAt: pulled.clientUpdatedAt || pulledAt, skipBackup: true, skipRemote: true });
         ctx.saveUiState();
         ctx.render();
-        ctx.showToast("Данные загружены из БД", { undo });
+        ctx.showToast(confirmed === "secondary" ? "Локальные и удаленные данные объединены" : "Данные загружены из БД", { undo });
       } catch (error) {
         lastError = ctx.describeError(error);
         ctx.showToast("Не удалось загрузить данные из БД");
@@ -205,7 +213,11 @@
       ctx.statusElement.textContent = message;
     }
 
-    return { check, clearError, getConfig, isReady, pull, push, renderStatus, schedulePush };
+    function getStatus() {
+      return { inFlight, lastError, pending };
+    }
+
+    return { check, clearError, getConfig, getStatus, isReady, pull, push, renderStatus, schedulePush };
   }
 
   const api = { createRemoteSyncController, createRemoteSyncWorkflow };

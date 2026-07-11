@@ -1,5 +1,9 @@
 (function (global) {
   function createTaskState(ctx) {
+    function getLinkedGoals(taskId) {
+      return ctx.getState().goals.filter((goal) => (goal.taskIds || []).includes(taskId));
+    }
+
     function deleteTask(taskId) {
       const state = ctx.getState();
       const linkedGoals = [];
@@ -13,6 +17,17 @@
         state.taskOrder[dateKey] = state.taskOrder[dateKey].filter((id) => id !== taskId);
       });
       return { linkedGoalCount: linkedGoals.length };
+    }
+
+    function deleteMovedReplacement(taskId, options = {}) {
+      const state = ctx.getState();
+      const replacement = state.tasks.find((task) => task.id === taskId);
+      if (!replacement?.sourceTaskId) return deleteTask(taskId);
+      if (options.restoreSourceOccurrence) {
+        const source = state.tasks.find((task) => task.id === replacement.sourceTaskId);
+        if (source?.excludedDates) delete source.excludedDates[replacement.date];
+      }
+      return deleteTask(taskId);
     }
 
     function deleteHabit(habitId) {
@@ -35,7 +50,7 @@
       return true;
     }
 
-    return { deleteGoal, deleteHabit, deleteTask, reorderHabit };
+    return { deleteGoal, deleteHabit, deleteMovedReplacement, deleteTask, getLinkedGoals, reorderHabit };
   }
 
   global.RhythmTaskState = { createTaskState };

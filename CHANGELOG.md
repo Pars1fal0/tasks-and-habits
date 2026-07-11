@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Added safe deletion for moved recurring replacements and scoped duplication for recurring timeline tasks.
+- Added cached overdue history with a persistent hide/show control.
+- Added ended-series management with resume-from-today behavior.
+- Added goal-link deletion warnings and direct navigation from goals to linked tasks.
+- Added offline, pending-sync, and synchronized status states plus local/remote state merging.
+- Extracted application event binding and calendar drag behavior into dedicated controllers.
 - Added visible repeat end dates with resume support and preserved timed recurring replacements without exposing false exclusions.
 - Replaced the silent overdue history cap with complete history and incremental "show more" controls.
 - Automatically removes deleted task links from goals and repairs orphaned links during normalization.

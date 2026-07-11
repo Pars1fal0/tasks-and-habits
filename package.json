@@ -21,7 +21,9 @@
     "files": [
       "app.js",
       "archive-view.js",
+      "app-events.js",
       "calendar-view.js",
+      "calendar-drag-controller.js",
       "categories.js",
       "CHANGELOG.md",
       "confirm-dialog.js",
@@ -46,6 +48,7 @@
       "settings-sync.js",
       "settings-controller.js",
       "state-normalizer.js",
+      "state-merge.js",
       "storage.js",
       "styles.css",
       "supabase-schema.sql",

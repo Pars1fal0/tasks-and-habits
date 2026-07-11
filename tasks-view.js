@@ -3,6 +3,10 @@
     let draggedTaskId = null;
     let draggedTaskDate = "";
     let overdueVisibleCount = 20;
+    ctx.els.overdueToggle?.addEventListener("click", () => {
+      ctx.setOverdueHidden(!ctx.getOverdueHidden());
+      renderOverdueTasks();
+    });
 
     function renderTasks() {
       const activeDate = ctx.getActiveDate();
@@ -35,6 +39,7 @@
       ctx.els.taskProgress.textContent = `${percent}%`;
       ctx.els.taskProgressRing.style.setProperty("--progress", `${percent * 3.6}deg`);
       renderExcludedTasks();
+      renderEndedSeries();
     }
 
     function createTaskNode(task) {
@@ -156,8 +161,14 @@
     function renderOverdueTasks() {
       const overdueEntries = ctx.overdueTaskEntries();
       const visibleEntries = overdueEntries.slice(0, overdueVisibleCount);
+      const isHidden = ctx.getOverdueHidden?.() === true;
       ctx.els.overdueList.replaceChildren();
       ctx.els.overduePanel.classList.toggle("is-visible", overdueEntries.length > 0);
+      ctx.els.overduePanel.classList.toggle("is-collapsed", isHidden);
+      if (ctx.els.overdueToggle) {
+        ctx.els.overdueToggle.textContent = isHidden ? "Показать" : "Скрыть";
+        ctx.els.overdueToggle.setAttribute("aria-expanded", String(!isHidden));
+      }
       ctx.els.overdueCounter.textContent = overdueEntries.length
         ? `${overdueEntries.length} невыполнено${visibleEntries.length < overdueEntries.length ? ` · показано ${visibleEntries.length}` : ""}`
         : "";
@@ -252,7 +263,33 @@
     }
 
     async function deleteTaskWithScope(task, dateKey) {
+      if (task.sourceTaskId) {
+        const choice = await ctx.confirmAction({
+          title: "Удалить перенесенную задачу?",
+          message: "Можно вернуть исходный повтор на этот день или оставить день исключенным из серии.",
+          secondaryLabel: "Вернуть повтор",
+          confirmLabel: "Оставить день пустым",
+          tone: "danger",
+        });
+        if (!choice) return;
+        const undo = ctx.createUndoSnapshot();
+        ctx.deleteMovedReplacement(task.id, { restoreSourceOccurrence: choice === "secondary" });
+        ctx.saveState();
+        ctx.render();
+        ctx.showToast(choice === "secondary" ? "Исходный повтор возвращен" : "Перенесенная задача удалена", { undo });
+        return;
+      }
       if (task.repeat === "none") {
+        const linkedGoals = ctx.getLinkedGoals?.(task.id) || [];
+        if (linkedGoals.length) {
+          const confirmed = await ctx.confirmAction({
+            title: "Удалить связанную задачу?",
+            message: `Связь исчезнет из целей: ${linkedGoals.map((goal) => goal.title).join(", ")}.`,
+            confirmLabel: "Удалить задачу",
+            tone: "danger",
+          });
+          if (!confirmed) return;
+        }
         const undo = ctx.createUndoSnapshot();
         ctx.deleteTask(task.id);
         ctx.saveState();
@@ -305,6 +342,28 @@
         });
 
         ctx.els.excludedList.appendChild(node);
+      });
+    }
+
+    function renderEndedSeries() {
+      if (!ctx.els.endedSeriesPanel || !ctx.endedRecurringTasks) return;
+      const tasks = ctx.endedRecurringTasks();
+      ctx.els.endedSeriesPanel.hidden = tasks.length === 0;
+      ctx.els.endedSeriesCount.textContent = tasks.length ? `${tasks.length}` : "";
+      ctx.els.endedSeriesList.replaceChildren();
+      tasks.forEach((task) => {
+        const node = document.createElement("article");
+        const content = document.createElement("div");
+        const title = document.createElement("h3");
+        const meta = document.createElement("p");
+        const resume = createButton("ghost-button compact-button", "Возобновить");
+        node.className = "excluded-item";
+        title.textContent = task.title;
+        appendDetails(meta, [ctx.formatTaskRepeat(task), `завершена ${ctx.formatLongDate(task.repeatUntil)}`]);
+        content.append(title, meta);
+        node.append(content, resume);
+        resume.addEventListener("click", () => ctx.resumeTaskSeries(task));
+        ctx.els.endedSeriesList.appendChild(node);
       });
     }
 

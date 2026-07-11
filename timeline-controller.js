@@ -3,12 +3,44 @@
     function deleteTask(taskId) {
       const task = ctx.findTask(taskId);
       if (!task) return false;
+      if (task.sourceTaskId && ctx.confirmAction) return deleteMovedReplacement(task);
       if (task.repeat !== "none" && ctx.confirmAction) {
         return deleteRecurringTask(task);
       }
+      if ((ctx.getLinkedGoals?.(task.id) || []).length && ctx.confirmAction) return deleteLinkedTask(task);
       const undo = ctx.createUndoSnapshot();
       ctx.deleteTask(taskId);
       commit(ctx.messages.deleted, undo);
+      return true;
+    }
+
+    async function deleteLinkedTask(task) {
+      const linkedGoals = ctx.getLinkedGoals(task.id);
+      const confirmed = await ctx.confirmAction({
+        title: "Удалить связанную задачу?",
+        message: `Связь исчезнет из целей: ${linkedGoals.map((goal) => goal.title).join(", ")}.`,
+        confirmLabel: "Удалить задачу",
+        tone: "danger",
+      });
+      if (!confirmed) return false;
+      const undo = ctx.createUndoSnapshot();
+      ctx.deleteTask(task.id);
+      commit(ctx.messages.deleted, undo);
+      return true;
+    }
+
+    async function deleteMovedReplacement(task) {
+      const choice = await ctx.confirmAction({
+        title: "Удалить перенесенную задачу?",
+        message: "Можно вернуть исходный повтор на этот день или оставить день исключенным из серии.",
+        secondaryLabel: "Вернуть повтор",
+        confirmLabel: "Оставить день пустым",
+        tone: "danger",
+      });
+      if (!choice) return false;
+      const undo = ctx.createUndoSnapshot();
+      ctx.deleteMovedReplacement(task.id, { restoreSourceOccurrence: choice === "secondary" });
+      commit(choice === "secondary" ? "Исходный повтор возвращен" : ctx.messages.deleted, undo);
       return true;
     }
 
@@ -47,6 +79,22 @@
     function duplicateTask(taskId) {
       const task = ctx.findTask(taskId);
       if (!task) return null;
+      if (task.repeat !== "none" && ctx.confirmAction) return chooseDuplicateScope(task);
+      return createDuplicate(task, { wholeSeries: false });
+    }
+
+    async function chooseDuplicateScope(task) {
+      const choice = await ctx.confirmAction({
+        title: "Дублировать повторяющуюся задачу?",
+        message: "Создать разовую копию выбранного дня или вторую повторяющуюся серию?",
+        secondaryLabel: "Только этот день",
+        confirmLabel: "Всю серию",
+      });
+      if (!choice) return null;
+      return createDuplicate(task, { wholeSeries: choice === true });
+    }
+
+    function createDuplicate(task, options = {}) {
       const activeDate = ctx.getActiveDate();
       const undo = ctx.createUndoSnapshot();
       const source = cloneTask(task);
@@ -54,7 +102,12 @@
         ...source,
         id: ctx.createId(),
         title: `${task.title} ${ctx.messages.copySuffix}`,
-        date: activeDate,
+        date: options.wholeSeries ? task.date : activeDate,
+        repeat: options.wholeSeries ? task.repeat : "none",
+        repeatUntil: options.wholeSeries ? task.repeatUntil || "" : "",
+        customRepeat: options.wholeSeries ? cloneTask(task.customRepeat || {}) : {},
+        sourceTaskId: "",
+        movedFromDate: "",
         completed: {},
         excludedDates: {},
         notified: {},

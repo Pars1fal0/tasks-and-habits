@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 const { createTimelineController } = require("../timeline-controller.js");
 
-function createHarness() {
+function createHarness(ctxOverrides = {}) {
   const state = {
     taskOrder: {
       "2026-07-02": ["task-1"],
@@ -78,6 +78,7 @@ function createHarness() {
       return hours * 60 + minutes;
     },
   };
+  Object.assign(ctx, ctxOverrides);
 
   return {
     calls,
@@ -87,6 +88,27 @@ function createHarness() {
 }
 
 module.exports = [
+  {
+    name: "duplicates only one occurrence when selected for a recurring task",
+    async fn() {
+      const { controller, state } = createHarness({ confirmAction: async () => "secondary" });
+      state.tasks[0].repeat = "daily";
+      const duplicate = await controller.duplicateTask("task-1");
+      assert.equal(duplicate.repeat, "none");
+      assert.equal(duplicate.date, "2026-07-02");
+    },
+  },
+  {
+    name: "duplicates the whole recurring series only after explicit choice",
+    async fn() {
+      const { controller, state } = createHarness({ confirmAction: async () => true });
+      state.tasks[0].repeat = "daily";
+      state.tasks[0].date = "2026-06-01";
+      const duplicate = await controller.duplicateTask("task-1");
+      assert.equal(duplicate.repeat, "daily");
+      assert.equal(duplicate.date, "2026-06-01");
+    },
+  },
   {
     name: "turns an unscheduled timeline drop into a resizable one-hour block",
     fn() {

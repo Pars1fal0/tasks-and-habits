@@ -41,6 +41,7 @@ let taskCategoryFilter = initialUiState.taskCategoryFilter || "all";
 let taskSearchQuery = initialUiState.taskSearchQuery || "";
 let archiveCategoryFilter = initialUiState.archiveCategoryFilter || "all";
 let archiveSearchQuery = initialUiState.archiveSearchQuery || "";
+let overdueHidden = initialUiState.overdueHidden === true;
 let themePreference = normalizeThemePreference(initialUiState.themePreference);
 let notificationSetting = normalizeNotificationSetting(initialUiState.notificationSetting);
 let backupSchedule = normalizeBackupSchedule(initialUiState.backupSchedule);
@@ -55,14 +56,12 @@ let remoteSyncUserKey = normalizeRemoteUserKey(initialUiState.remoteSyncUserKey 
 let remoteSyncLastPushedAt = initialUiState.remoteSyncLastPushedAt || "";
 let remoteSyncLastPulledAt = initialUiState.remoteSyncLastPulledAt || "";
 let localStateUpdatedAt = initialUiState.localStateUpdatedAt || "";
-let draggedTaskId = null;
-let draggedTaskDate = "";
-let pointerDragTask = null;
 let autoBackupTimerId = null;
 let lastAutoBackupAt = "";
 let nextAutoBackupAt = "";
 
 const overdueController = window.RhythmOverdueController.createOverdueController({
+  getCacheKey: () => localStateUpdatedAt,
   getTaskDeadlineDate,
   getTasks: () => state.tasks,
   isTaskDone,
@@ -103,6 +102,9 @@ const els = {
   exportButton: document.querySelector("#exportButton"),
   excludedList: document.querySelector("#excludedList"),
   excludedPanel: document.querySelector("#excludedPanel"),
+  endedSeriesCount: document.querySelector("#endedSeriesCount"),
+  endedSeriesList: document.querySelector("#endedSeriesList"),
+  endedSeriesPanel: document.querySelector("#endedSeriesPanel"),
   focusBar: document.querySelector("#focusBar"),
   focusMeta: document.querySelector("#focusMeta"),
   focusPercent: document.querySelector("#focusPercent"),
@@ -165,6 +167,7 @@ const els = {
   overdueCounter: document.querySelector("#overdueCounter"),
   overdueList: document.querySelector("#overdueList"),
   overduePanel: document.querySelector("#overduePanel"),
+  overdueToggle: document.querySelector("#overdueToggle"),
   pageTitle: document.querySelector("#pageTitle"),
   prevDay: document.querySelector("#prevDay"),
   prevMonth: document.querySelector("#prevMonth"),
@@ -277,6 +280,13 @@ const priorityLabels = {
 };
 
 const repeatLabels = window.RhythmRecurrence.repeatLabels;
+const calendarDragController = window.RhythmCalendarDragController.createCalendarDragController({
+  addDays,
+  getActiveDate: () => activeDate,
+  moveTaskToDate,
+  normalizeDateKey,
+  openDateTasks,
+});
 
 const tasksView = window.RhythmTasksView.createTasksView({
   els,
@@ -286,9 +296,11 @@ const tasksView = window.RhythmTasksView.createTasksView({
   createUndoSnapshot,
   confirmAction,
   deleteTask,
+  deleteMovedReplacement,
   escapeHtml,
   excludeTaskDate,
   excludedTasksForDate,
+  endedRecurringTasks,
   fillTaskForm,
   formatLongDate,
   formatTime,
@@ -299,6 +311,7 @@ const tasksView = window.RhythmTasksView.createTasksView({
   getTaskCategoryFilter: () => taskCategoryFilter,
   getTaskFilter: () => taskFilter,
   getTaskSearchQuery: () => taskSearchQuery,
+  getLinkedGoals: (taskId) => taskState.getLinkedGoals(taskId),
   isTaskDone,
   matchesCategoryFilter,
   openDate: (dateKey) => {
@@ -308,15 +321,20 @@ const tasksView = window.RhythmTasksView.createTasksView({
     scrollWorkspaceTop();
   },
   overdueTaskEntries,
+  getOverdueHidden: () => overdueHidden,
+  setOverdueHidden: (value) => {
+    overdueHidden = value === true;
+    saveUiState();
+  },
   postponeTask,
   render: renderTaskSurfaces,
   reorderTask,
   restoreTaskDate,
+  resumeTaskSeries,
   stopTaskSeries,
   saveState,
   setDraggedTask: (taskId, dateKey) => {
-    draggedTaskId = taskId;
-    draggedTaskDate = dateKey;
+    calendarDragController.setDraggedTask(taskId, dateKey);
   },
   showToast,
   taskDetails,
@@ -356,6 +374,7 @@ const goalsView = window.RhythmGoalsView.createGoalsView({
   getState: () => state,
   isTaskDone,
   normalizeDateKey,
+  openTaskDate: (dateKey) => openDateTasks(dateKey),
   render: renderGoalSurfaces,
   saveState,
   showToast,
@@ -407,6 +426,7 @@ const timelineController = window.RhythmTimelineController.createTimelineControl
   createId,
   createUndoSnapshot,
   deleteTask,
+  deleteMovedReplacement,
   excludeTaskDate,
   els,
   findTask: (id) => state.tasks.find((task) => task.id === id),
@@ -414,6 +434,7 @@ const timelineController = window.RhythmTimelineController.createTimelineControl
   formatLongDate,
   formatTime,
   getActiveDate: () => activeDate,
+  getLinkedGoals: (taskId) => taskState.getLinkedGoals(taskId),
   getOrderedTasksForDate,
   getState: () => state,
   isTaskDone,
@@ -622,6 +643,7 @@ const remoteSyncWorkflow = window.RhythmRemoteSyncController.createRemoteSyncWor
   isRemoteVersionNewer: settingsState.isRemoteVersionNewer,
   isSecurePrivateKey: remoteSyncController.isSecurePrivateKey,
   latestIsoDate,
+  mergeStates: window.RhythmStateMerge.mergeStates,
   remoteSync,
   render,
   replaceState,
@@ -666,6 +688,130 @@ const viewRenderer = window.RhythmViewRenderer.createViewRenderer({
   renderWeekdayLabels,
 });
 
+const appEvents = window.RhythmAppEvents.createAppEvents({
+  calendarDragController,
+  changeActiveDate: (value) => {
+    activeDate = value || toDateKey(new Date());
+    resetTaskForm({ open: false });
+    render();
+  },
+  changeArchiveCategoryFilter: (value) => {
+    archiveCategoryFilter = value || "all";
+    saveUiState();
+    renderArchive();
+  },
+  changeArchiveSearch: (value) => {
+    archiveSearchQuery = cleanSearchQuery(value);
+    saveUiState();
+    renderArchive();
+  },
+  changeTaskCategoryFilter: (value) => {
+    taskCategoryFilter = value || "all";
+    saveUiState();
+    renderTasks();
+  },
+  changeTaskFilter: (value, activeButton) => {
+    taskFilter = value;
+    document.querySelectorAll("[data-task-filter]").forEach((item) => item.classList.toggle("is-active", item === activeButton));
+    renderTasks();
+  },
+  changeTaskSearch: (value) => {
+    taskSearchQuery = cleanSearchQuery(value);
+    saveUiState();
+    renderTasks();
+  },
+  changeView: (nextView) => {
+    if (!nextView || !els.views[nextView]) return;
+    activeView = nextView;
+    els.navMore?.removeAttribute("open");
+    render();
+    scrollWorkspaceTop();
+  },
+  clearArchiveFilter: () => {
+    archiveSearchQuery = "";
+    archiveCategoryFilter = "all";
+    els.archiveSearch.value = "";
+    els.archiveCategoryFilter.value = "all";
+    saveUiState();
+    renderArchive();
+  },
+  clearTaskSearch: () => {
+    taskFilter = "all";
+    taskCategoryFilter = "all";
+    taskSearchQuery = "";
+    els.taskSearch.value = "";
+    els.taskCategoryFilter.value = "all";
+    document.querySelectorAll("[data-task-filter]").forEach((item) => item.classList.toggle("is-active", item.dataset.taskFilter === "all"));
+    saveUiState();
+    renderTasks();
+  },
+  closeGoalForm: () => els.goalFormPanel.classList.add("is-collapsed"),
+  closeHabitForm: () => els.habitFormPanel.classList.add("is-collapsed"),
+  closeTaskForm: () => {
+    els.taskFormPanel.classList.add("is-collapsed");
+    closeFloatingTaskForm();
+  },
+  els,
+  exportData,
+  goToday,
+  handleOnline: () => {
+    renderSaveStatus();
+    scheduleRemotePush();
+  },
+  handleSystemThemeChange: () => {
+    if (themePreference === "system") applyThemePreference();
+  },
+  importData,
+  openBackupFolder,
+  openGoalForm: () => {
+    resetGoalForm({ open: true });
+    els.goalTitle.focus();
+  },
+  openHabitForm: () => {
+    resetHabitForm({ open: true });
+    els.habitTitle.focus();
+  },
+  openTaskForm: () => {
+    restoreTaskFormPanel();
+    resetTaskForm({ open: true });
+    els.taskTitle.focus();
+  },
+  applyTimePreset: (preset) => {
+    if (getTaskScheduleMode() === "block") {
+      els.taskStartTime.value = preset;
+      els.taskEndTime.value = preset ? minutesToTime(Math.min(23 * 60 + 59, timeToMinutes(preset) + 60)) : "";
+    } else {
+      els.taskTime.value = preset;
+    }
+    syncTaskTimePresets();
+    (getTaskScheduleMode() === "block" ? els.taskStartTime : els.taskTime).focus();
+  },
+  renderSaveStatus,
+  requestNotifications,
+  resetGoalForm,
+  resetHabitForm,
+  resetTaskForm,
+  restoreBackup,
+  saveCategoryFromForm,
+  saveGoalFromForm,
+  saveHabitFromForm,
+  saveQuickTask,
+  saveTaskFromForm,
+  setCustomRepeatMode,
+  setHabitCustomRepeatMode,
+  settingsController,
+  shiftDate,
+  shiftMonth,
+  syncCustomRepeatPanel,
+  syncHabitCustomRepeatPanel,
+  syncHabitTypeFields,
+  syncTaskScheduleMode,
+  syncTaskTimePresets,
+  updateCustomRepeatSummary,
+  updateHabitCustomRepeatSummary,
+  updateQuickTaskPreview,
+});
+
 seedIfEmpty();
 init();
 
@@ -677,7 +823,7 @@ function init() {
   applySettingsPreferences();
   settingsController.syncControls();
   confirmDialog.bindEvents();
-  bindEvents();
+  appEvents.bind();
   resetTaskForm({ open: false });
   resetHabitForm({ open: false });
   resetGoalForm({ open: false });
@@ -707,190 +853,6 @@ function handleDateRollover() {
     resetHabitForm({ open: false });
   }
   render();
-}
-
-function bindEvents() {
-  els.activeDate.addEventListener("change", () => {
-    activeDate = els.activeDate.value || toDateKey(new Date());
-    resetTaskForm({ open: false });
-    render();
-  });
-
-  els.prevDay.addEventListener("click", () => shiftDate(-1));
-  els.nextDay.addEventListener("click", () => shiftDate(1));
-  els.todayButton.addEventListener("click", goToday);
-  els.prevMonth.addEventListener("click", () => shiftMonth(-1));
-  els.nextMonth.addEventListener("click", () => shiftMonth(1));
-
-  els.navTabs.forEach((button) => {
-    button.addEventListener("click", () => {
-      const nextView = button.dataset.view;
-      if (!nextView || !els.views[nextView]) return;
-      activeView = nextView;
-      els.navMore?.removeAttribute("open");
-      render();
-      scrollWorkspaceTop();
-    });
-  });
-
-  els.taskCategoryFilter.addEventListener("change", () => {
-    taskCategoryFilter = els.taskCategoryFilter.value || "all";
-    saveUiState();
-    renderTasks();
-  });
-
-  els.taskSearch.addEventListener("input", () => {
-    taskSearchQuery = cleanSearchQuery(els.taskSearch.value);
-    saveUiState();
-    renderTasks();
-  });
-
-  els.clearTaskSearch.addEventListener("click", () => {
-    taskFilter = "all";
-    taskCategoryFilter = "all";
-    taskSearchQuery = "";
-    els.taskSearch.value = "";
-    els.taskCategoryFilter.value = "all";
-    document.querySelectorAll("[data-task-filter]").forEach((item) => {
-      item.classList.toggle("is-active", item.dataset.taskFilter === "all");
-    });
-    saveUiState();
-    renderTasks();
-  });
-
-  document.querySelectorAll("[data-task-filter]").forEach((button) => {
-    button.addEventListener("click", () => {
-      taskFilter = button.dataset.taskFilter;
-      document.querySelectorAll("[data-task-filter]").forEach((item) => {
-        item.classList.toggle("is-active", item === button);
-      });
-      renderTasks();
-    });
-  });
-
-  document.querySelector("#closeTaskForm").addEventListener("click", () => {
-    els.taskFormPanel.classList.add("is-collapsed");
-    closeFloatingTaskForm();
-  });
-  els.openTaskForm.addEventListener("click", () => {
-    restoreTaskFormPanel();
-    resetTaskForm({ open: true });
-    els.taskTitle.focus();
-  });
-  els.resetTaskForm.addEventListener("click", () => resetTaskForm({ open: true }));
-  els.taskForm.addEventListener("submit", saveTaskFromForm);
-  els.quickTaskForm.addEventListener("submit", saveQuickTask);
-  els.quickTaskInput.addEventListener("input", updateQuickTaskPreview);
-  els.quickInputHints?.addEventListener("click", (event) => {
-    const hint = event.target.closest("[data-quick-hint]")?.dataset.quickHint;
-    if (!hint) return;
-    els.quickTaskInput.value = `${els.quickTaskInput.value.trim()} ${hint}`.trim();
-    updateQuickTaskPreview();
-    els.quickTaskInput.focus();
-  });
-  els.taskRepeat.addEventListener("change", syncCustomRepeatPanel);
-  els.taskDate.addEventListener("change", syncCustomRepeatPanel);
-  [els.taskScheduleDeadline, els.taskScheduleBlock].forEach((input) => {
-    input?.addEventListener("change", syncTaskScheduleMode);
-  });
-  document.querySelectorAll("[data-repeat-mode]").forEach((button) => {
-    button.addEventListener("click", () => setCustomRepeatMode(button.dataset.repeatMode));
-  });
-  document.querySelectorAll("[data-weekday]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const activeButtons = document.querySelectorAll("[data-weekday].is-active");
-      if (button.classList.contains("is-active") && activeButtons.length <= 1) return;
-      button.classList.toggle("is-active");
-      updateCustomRepeatSummary();
-    });
-  });
-  [els.customRepeatMonthDay, els.customRepeatInterval].forEach((input) => {
-    input.addEventListener("input", updateCustomRepeatSummary);
-  });
-  els.taskTime.addEventListener("input", syncTaskTimePresets);
-  [els.taskStartTime, els.taskEndTime].forEach((input) => input?.addEventListener("input", syncTaskTimePresets));
-  document.querySelectorAll("[data-time-preset]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const preset = button.dataset.timePreset || "";
-      if (getTaskScheduleMode() === "block") {
-        els.taskStartTime.value = preset;
-        els.taskEndTime.value = preset ? minutesToTime(Math.min(23 * 60 + 59, timeToMinutes(preset) + 60)) : "";
-      } else {
-        els.taskTime.value = preset;
-      }
-      syncTaskTimePresets();
-      (getTaskScheduleMode() === "block" ? els.taskStartTime : els.taskTime).focus();
-    });
-  });
-
-  document.querySelector("#closeHabitForm").addEventListener("click", () => {
-    els.habitFormPanel.classList.add("is-collapsed");
-  });
-  els.openHabitForm.addEventListener("click", () => {
-    resetHabitForm({ open: true });
-    els.habitTitle.focus();
-  });
-  els.resetHabitForm.addEventListener("click", () => resetHabitForm({ open: true }));
-  els.habitForm.addEventListener("submit", saveHabitFromForm);
-  els.habitType.addEventListener("change", syncHabitTypeFields);
-  els.habitRepeat.addEventListener("change", syncHabitCustomRepeatPanel);
-  document.querySelectorAll("[data-habit-repeat-mode]").forEach((button) => {
-    button.addEventListener("click", () => setHabitCustomRepeatMode(button.dataset.habitRepeatMode));
-  });
-  document.querySelectorAll("[data-habit-weekday]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const activeButtons = document.querySelectorAll("[data-habit-weekday].is-active");
-      if (button.classList.contains("is-active") && activeButtons.length <= 1) return;
-      button.classList.toggle("is-active");
-      updateHabitCustomRepeatSummary();
-    });
-  });
-  [els.habitCustomRepeatMonthDay, els.habitCustomRepeatInterval].forEach((input) => {
-    input.addEventListener("input", updateHabitCustomRepeatSummary);
-  });
-
-  els.closeGoalForm.addEventListener("click", () => {
-    els.goalFormPanel.classList.add("is-collapsed");
-  });
-  els.openGoalForm.addEventListener("click", () => {
-    resetGoalForm({ open: true });
-    els.goalTitle.focus();
-  });
-  els.resetGoalForm.addEventListener("click", () => resetGoalForm({ open: true }));
-  els.goalForm.addEventListener("submit", saveGoalFromForm);
-
-  els.categoryForm.addEventListener("submit", saveCategoryFromForm);
-  els.notifyButton.addEventListener("click", requestNotifications);
-  els.exportButton.addEventListener("click", exportData);
-  els.restoreBackupButton.addEventListener("click", restoreBackup);
-  els.openBackupFolderButton.addEventListener("click", openBackupFolder);
-  settingsController.bindEvents();
-  els.importButton.addEventListener("click", () => els.importFile.click());
-  els.importFile.addEventListener("change", importData);
-  window.matchMedia?.("(prefers-color-scheme: light)")?.addEventListener("change", () => {
-    if (themePreference === "system") applyThemePreference();
-  });
-  els.archiveSearch.addEventListener("input", () => {
-    archiveSearchQuery = cleanSearchQuery(els.archiveSearch.value);
-    saveUiState();
-    renderArchive();
-  });
-  els.archiveCategoryFilter.addEventListener("change", () => {
-    archiveCategoryFilter = els.archiveCategoryFilter.value || "all";
-    saveUiState();
-    renderArchive();
-  });
-  els.clearArchiveFilter.addEventListener("click", () => {
-    archiveSearchQuery = "";
-    archiveCategoryFilter = "all";
-    els.archiveSearch.value = "";
-    els.archiveCategoryFilter.value = "all";
-    saveUiState();
-    renderArchive();
-  });
-  document.addEventListener("pointermove", handleCalendarPointerMove);
-  document.addEventListener("pointerup", finishCalendarPointerDrag);
-  document.addEventListener("pointercancel", cancelCalendarPointerDrag);
 }
 
 function render() {
@@ -941,6 +903,14 @@ function scrollWorkspaceTop() {
 
 function renderSaveStatus() {
   if (!els.saveStatus) return;
+  if (navigator.onLine === false) {
+    els.saveStatus.textContent = "Офлайн · сохранено локально";
+    return;
+  }
+  if (remoteSyncEnabled === "on" && remoteSyncWorkflow.getStatus().pending) {
+    els.saveStatus.textContent = "Ожидает синхронизации";
+    return;
+  }
   if (!localStateUpdatedAt) {
     els.saveStatus.textContent = "Сохранено локально";
     return;
@@ -1063,8 +1033,21 @@ function stopTaskSeries(task, dateKey) {
   showToast(`Повтор завершен с ${formatLongDate(dateKey)}`, { undo });
 }
 
+function resumeTaskSeries(task) {
+  const undo = createUndoSnapshot();
+  task.date = toDateKey(new Date());
+  task.repeatUntil = "";
+  saveState();
+  render();
+  showToast("Повторяющаяся серия возобновлена с сегодняшнего дня", { undo });
+}
+
 function deleteTask(taskId) {
   return taskState.deleteTask(taskId);
+}
+
+function deleteMovedReplacement(taskId, options) {
+  return taskState.deleteMovedReplacement(taskId, options);
 }
 
 function deleteHabit(habitId) {
@@ -1096,151 +1079,15 @@ function moveTaskToDate(taskId, sourceDateKey, targetDateKey) {
 }
 
 function attachTaskDropZone(element, dateKey) {
-  element.addEventListener("dragover", (event) => {
-    const transfer = getDraggedTaskTransfer(event);
-    if (!transfer.taskId || transfer.dateKey === dateKey) return;
-    event.preventDefault();
-    element.classList.add("is-drop-target");
-    event.dataTransfer.dropEffect = "move";
-  });
-  element.addEventListener("dragleave", (event) => {
-    if (!element.contains(event.relatedTarget)) {
-      element.classList.remove("is-drop-target");
-    }
-  });
-  element.addEventListener("drop", (event) => {
-    event.preventDefault();
-    element.classList.remove("is-drop-target");
-    const transfer = getDraggedTaskTransfer(event);
-    if (!transfer.taskId || transfer.dateKey === dateKey) return;
-    moveTaskToDate(transfer.taskId, transfer.dateKey, dateKey);
-  });
+  calendarDragController.attachTaskDropZone(element, dateKey);
 }
 
 function attachTaskChipDrag(chip) {
-  chip.tabIndex = 0;
-  chip.setAttribute("role", "button");
-  chip.setAttribute("aria-keyshortcuts", "Enter Space Alt+ArrowLeft Alt+ArrowRight Alt+ArrowUp Alt+ArrowDown");
-  chip.setAttribute(
-    "aria-label",
-    `${chip.textContent.trim()}. Enter открыть день. Alt и стрелки — перенести задачу по календарю.`,
-  );
-  chip.addEventListener("click", (event) => {
-    event.stopPropagation();
-    openDateTasks(chip.dataset.date);
-  });
-  chip.addEventListener("keydown", (event) => handleTaskChipKeydown(event, chip));
-  chip.addEventListener("pointerdown", (event) => {
-    startCalendarPointerDrag(event, chip);
-  });
-  chip.addEventListener("dragstart", (event) => {
-    draggedTaskId = chip.dataset.taskId;
-    draggedTaskDate = chip.dataset.date;
-    chip.classList.add("is-dragging");
-    event.stopPropagation();
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", chip.dataset.taskId);
-    event.dataTransfer.setData(
-      "application/x-rhythm-task",
-      JSON.stringify({ taskId: chip.dataset.taskId, dateKey: chip.dataset.date }),
-    );
-  });
-  chip.addEventListener("dragend", () => {
-    chip.classList.remove("is-dragging");
-    clearTaskDragState();
-  });
-}
-
-function handleTaskChipKeydown(event, chip) {
-  event.stopPropagation();
-  if (event.key === "Enter" || event.key === " ") {
-    event.preventDefault();
-    openDateTasks(chip.dataset.date);
-    return;
-  }
-
-  if (!event.altKey) return;
-  const offsets = {
-    ArrowDown: 7,
-    ArrowLeft: -1,
-    ArrowRight: 1,
-    ArrowUp: -7,
-  };
-  const offset = offsets[event.key];
-  if (!offset || !chip.dataset.taskId || !chip.dataset.date) return;
-  event.preventDefault();
-  moveTaskToDate(chip.dataset.taskId, chip.dataset.date, addDays(chip.dataset.date, offset));
-}
-
-function getDraggedTaskTransfer(event) {
-  try {
-    const raw = event.dataTransfer?.getData("application/x-rhythm-task");
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      return {
-        taskId: String(parsed.taskId || ""),
-        dateKey: normalizeDateKey(parsed.dateKey || draggedTaskDate || activeDate, ""),
-      };
-    }
-  } catch {
-    // Fall back to the plain text payload below.
-  }
-
-  return {
-    taskId: event.dataTransfer?.getData("text/plain") || draggedTaskId || "",
-    dateKey: normalizeDateKey(draggedTaskDate || activeDate, ""),
-  };
+  calendarDragController.attachTaskChipDrag(chip);
 }
 
 function clearTaskDragState() {
-  draggedTaskId = null;
-  draggedTaskDate = "";
-  document.querySelectorAll(".task-item.is-drop-target, .calendar-drop-zone.is-drop-target").forEach((item) => {
-    item.classList.remove("is-drop-target");
-  });
-}
-
-function startCalendarPointerDrag(event, chip) {
-  if (event.button !== 0 || !chip.dataset.taskId || !chip.dataset.date) return;
-  pointerDragTask = {
-    taskId: chip.dataset.taskId,
-    dateKey: chip.dataset.date,
-    startX: event.clientX,
-    startY: event.clientY,
-    dragging: false,
-    chip,
-  };
-}
-
-function handleCalendarPointerMove(event) {
-  if (!pointerDragTask) return;
-  const distance = Math.hypot(event.clientX - pointerDragTask.startX, event.clientY - pointerDragTask.startY);
-  if (!pointerDragTask.dragging && distance < 8) return;
-
-  pointerDragTask.dragging = true;
-  pointerDragTask.chip.classList.add("is-dragging");
-  document.querySelectorAll(".calendar-drop-zone.is-drop-target").forEach((item) => item.classList.remove("is-drop-target"));
-
-  const target = document.elementFromPoint(event.clientX, event.clientY)?.closest(".calendar-drop-zone");
-  if (target?.dataset.date && target.dataset.date !== pointerDragTask.dateKey) {
-    target.classList.add("is-drop-target");
-  }
-}
-
-function finishCalendarPointerDrag(event) {
-  if (!pointerDragTask) return;
-  const drag = pointerDragTask;
-  const target = document.elementFromPoint(event.clientX, event.clientY)?.closest(".calendar-drop-zone");
-  cancelCalendarPointerDrag();
-
-  if (!drag.dragging || !target?.dataset.date || target.dataset.date === drag.dateKey) return;
-  moveTaskToDate(drag.taskId, drag.dateKey, target.dataset.date);
-}
-
-function cancelCalendarPointerDrag() {
-  if (pointerDragTask?.chip) pointerDragTask.chip.classList.remove("is-dragging");
-  pointerDragTask = null;
-  document.querySelectorAll(".calendar-drop-zone.is-drop-target").forEach((item) => item.classList.remove("is-drop-target"));
+  calendarDragController.clearTaskDragState();
 }
 
 function postponeTask(task, sourceDateKey, targetDateKey, options = {}) {
@@ -1670,6 +1517,12 @@ function excludedTasksForDate(dateKey) {
     .sort(sortTasks);
 }
 
+function endedRecurringTasks(todayKey = toDateKey(new Date())) {
+  return state.tasks
+    .filter((task) => task.repeat !== "none" && task.repeatUntil && task.repeatUntil < todayKey)
+    .sort((a, b) => b.repeatUntil.localeCompare(a.repeatUntil) || a.title.localeCompare(b.title, "ru"));
+}
+
 function overdueTaskEntries(now = new Date()) {
   return overdueController.list(now);
 }
@@ -1959,6 +1812,7 @@ function saveUiState() {
     interfaceMode,
     localStateUpdatedAt,
     notificationSetting,
+    overdueHidden,
     remoteSyncAnonKey,
     remoteSyncEnabled,
     remoteSyncLastPulledAt,

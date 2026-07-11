@@ -1,6 +1,12 @@
 (function (global) {
   function createOverdueController(ctx) {
+    let cachedEntries = [];
+    let cachedKey = "";
+
     function list(now = new Date()) {
+      const minuteKey = now.toISOString().slice(0, 16);
+      const nextKey = `${ctx.getCacheKey?.() || ""}:${minuteKey}`;
+      if (nextKey === cachedKey) return cachedEntries;
       const todayKey = ctx.toDateKey(now);
       const entries = [];
 
@@ -21,7 +27,9 @@
         }
       });
 
-      return entries.sort((a, b) => a.dueAt - b.dueAt || a.task.title.localeCompare(b.task.title, "ru"));
+      cachedEntries = entries.sort((a, b) => a.dueAt - b.dueAt || a.task.title.localeCompare(b.task.title, "ru"));
+      cachedKey = nextKey;
+      return cachedEntries;
     }
 
     function addEntry(entries, task, dateKey, now) {

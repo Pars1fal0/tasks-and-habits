@@ -7,7 +7,7 @@
     <title>Ритм дня</title>
     <link rel="icon" href="data:,">
     <link rel="manifest" href="manifest.webmanifest">
-    <link rel="stylesheet" href="styles.css?v=17">
+    <link rel="stylesheet" href="styles.css?v=18">
   </head>
   <body>
     <svg class="icon-sprite" aria-hidden="true">
@@ -243,12 +243,13 @@
                 </div>
               </div>
               <div class="overdue-panel" id="overduePanel">
-                <div class="overdue-heading">
-                  <div>
-                    <span class="metric-label">Просроченные</span>
-                    <p id="overdueCounter"></p>
-                  </div>
+              <div class="overdue-heading">
+                <div>
+                  <span class="metric-label">Просроченные</span>
+                  <p id="overdueCounter"></p>
                 </div>
+                <button class="ghost-button compact-button" id="overdueToggle" type="button" aria-expanded="true">Скрыть</button>
+              </div>
                 <div class="overdue-list" id="overdueList"></div>
               </div>
               <div class="task-list" id="taskList"></div>
@@ -259,6 +260,13 @@
                 </div>
                 <div class="excluded-list" id="excludedList"></div>
               </div>
+              <details class="ended-series-panel" id="endedSeriesPanel" hidden>
+                <summary>
+                  <span class="metric-label">Завершенные серии</span>
+                  <span id="endedSeriesCount"></span>
+                </summary>
+                <div class="excluded-list" id="endedSeriesList"></div>
+              </details>
             </section>
 
             <aside class="right-rail">
@@ -874,20 +882,23 @@
                   <option value="on">Включена</option>
                 </select>
               </label>
-              <label class="settings-row">
-                <span>
-                  <strong>Supabase URL</strong>
-                  <small>Адрес проекта вида https://xxxx.supabase.co.</small>
-                </span>
-                <input id="remoteSyncUrl" type="url" inputmode="url" autocomplete="off" placeholder="https://project.supabase.co">
-              </label>
-              <label class="settings-row">
-                <span>
-                  <strong>Anon key</strong>
-                  <small>Публичный anon key из API settings проекта.</small>
-                </span>
-                <input id="remoteSyncAnonKey" type="password" autocomplete="off" placeholder="eyJ...">
-              </label>
+              <details class="sync-technical">
+                <summary>Параметры проекта Supabase</summary>
+                <label class="settings-row">
+                  <span>
+                    <strong>Адрес проекта</strong>
+                    <small>Supabase Project URL вида https://xxxx.supabase.co.</small>
+                  </span>
+                  <input id="remoteSyncUrl" type="url" inputmode="url" autocomplete="off" placeholder="https://project.supabase.co">
+                </label>
+                <label class="settings-row">
+                  <span>
+                    <strong>Публичный ключ проекта</strong>
+                    <small>Anon key из API settings. Это не личный приватный ключ.</small>
+                  </span>
+                  <input id="remoteSyncAnonKey" type="password" autocomplete="off" placeholder="eyJ...">
+                </label>
+              </details>
               <label class="settings-row">
                 <span>
                   <strong>Приватный ключ</strong>
@@ -1013,35 +1024,38 @@
     <script src="quick-input.js?v=2" defer></script>
     <script src="recurrence.js?v=2" defer></script>
     <script src="remote-sync.js?v=1" defer></script>
-    <script src="remote-sync-controller.js?v=1" defer></script>
+    <script src="remote-sync-controller.js?v=2" defer></script>
     <script src="settings-state.js?v=1" defer></script>
     <script src="state-normalizer.js?v=3" defer></script>
+    <script src="state-merge.js?v=1" defer></script>
     <script src="date-rollover.js?v=1" defer></script>
     <script src="storage.js?v=1" defer></script>
     <script src="archive-view.js?v=1" defer></script>
+    <script src="app-events.js?v=1" defer></script>
     <script src="heatmap-view.js?v=3" defer></script>
     <script src="calendar-view.js?v=2" defer></script>
+    <script src="calendar-drag-controller.js?v=1" defer></script>
     <script src="confirm-dialog.js?v=3" defer></script>
     <script src="categories.js?v=2" defer></script>
-    <script src="goals-view.js?v=3" defer></script>
+    <script src="goals-view.js?v=4" defer></script>
     <script src="habit-form.js?v=1" defer></script>
     <script src="habits-view.js?v=1" defer></script>
     <script src="import-export.js?v=3" defer></script>
     <script src="notifications.js?v=1" defer></script>
-    <script src="overdue-controller.js?v=1" defer></script>
+    <script src="overdue-controller.js?v=2" defer></script>
     <script src="task-form.js?v=3" defer></script>
-    <script src="tasks-view.js?v=5" defer></script>
+    <script src="tasks-view.js?v=6" defer></script>
     <script src="task-moves.js?v=4" defer></script>
-    <script src="task-state.js?v=1" defer></script>
+    <script src="task-state.js?v=2" defer></script>
     <script src="settings-sync.js?v=1" defer></script>
     <script src="settings-controller.js?v=3" defer></script>
     <script src="timeline-layout.js?v=1" defer></script>
     <script src="timeline-menu.js?v=1" defer></script>
     <script src="timeline-drag.js?v=1" defer></script>
     <script src="timeline-view.js?v=5" defer></script>
-    <script src="timeline-controller.js?v=2" defer></script>
+    <script src="timeline-controller.js?v=3" defer></script>
     <script src="view-renderer.js?v=1" defer></script>
     <script src="toast.js?v=1" defer></script>
-    <script src="app.js?v=20" defer></script>
+    <script src="app.js?v=21" defer></script>
   </body>
 </html>

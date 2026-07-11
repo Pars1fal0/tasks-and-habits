@@ -86,6 +86,34 @@ function createWindow() {
         const formsStartCollapsed = ["#taskFormPanel", "#habitFormPanel", "#goalFormPanel"].every((selector) =>
           document.querySelector(selector)?.classList.contains("is-collapsed"),
         );
+        state.tasks.push({
+          id: "smoke-overdue-toggle",
+          title: "Smoke hidden overdue",
+          date: "2025-01-01",
+          time: "",
+          priority: "medium",
+          repeat: "none",
+          completed: {}, excludedDates: {}, notified: {},
+        });
+        render();
+        document.querySelector("#overdueToggle")?.click();
+        const overdueHideWorks = document.querySelector("#overduePanel")?.classList.contains("is-collapsed") && overdueHidden === true;
+        document.querySelector("#overdueToggle")?.click();
+        state.tasks = state.tasks.filter((task) => task.id !== "smoke-overdue-toggle");
+        state.tasks.push({
+          id: "smoke-ended-series",
+          title: "Smoke ended series",
+          date: "2025-01-01",
+          repeat: "daily",
+          repeatUntil: "2025-01-03",
+          completed: {}, excludedDates: {}, notified: {},
+        });
+        render();
+        const endedSeriesVisible = document.querySelector("#endedSeriesPanel")?.hidden === false;
+        document.querySelector('#endedSeriesList button')?.click();
+        const endedSeriesResumeWorks = state.tasks.find((task) => task.id === "smoke-ended-series")?.repeatUntil === "";
+        state.tasks = state.tasks.filter((task) => task.id !== "smoke-ended-series");
+        render();
         const viewBeforeMore = activeView;
         document.querySelector(".nav-more-summary")?.click();
         const moreMenuKeepsView = activeView === viewBeforeMore && document.querySelector("#tasksView")?.classList.contains("is-active");
@@ -258,6 +286,8 @@ function createWindow() {
         const goalCompleteWorks =
           state.goals.some((goal) => goal.title === "Smoke Goal" && goal.status === "done") &&
           [...document.querySelectorAll(".goal-item.is-done")].some((item) => item.textContent.includes("Smoke Goal"));
+        document.querySelector(".goal-linked-task button")?.click();
+        const goalTaskJumpWorks = activeView === "tasks" && activeDate === "2026-07-15";
 
         click('[data-view="tasks"]');
         document.querySelector("#quickTaskInput").value = "Smoke Undo 2026-07-12 #SmokeQuick";
@@ -549,12 +579,16 @@ function createWindow() {
           hasMonthCalendar: document.querySelectorAll(".month-day").length === 42,
           hasWeekBoard,
           hasTodayButton: Boolean(document.querySelector("#todayButton")),
+          hasOverdueToggle: Boolean(document.querySelector("#overdueToggle")),
+          hasEndedSeriesManager: Boolean(document.querySelector("#endedSeriesPanel")),
           hasQuickInput: Boolean(document.querySelector("#quickTaskInput")),
           hasCategories: document.querySelectorAll(".category-item").length >= 1,
           hasJsonActions: Boolean(document.querySelector("#exportButton")) && Boolean(document.querySelector("#importFile")),
           modulesLoaded: Boolean(
             window.RhythmQuickInput &&
+              window.RhythmAppEvents &&
               window.RhythmArchiveView &&
+              window.RhythmCalendarDragController &&
               window.RhythmCalendarView &&
               window.RhythmCategories &&
               window.RhythmConfirmDialog &&
@@ -568,6 +602,7 @@ function createWindow() {
               window.RhythmRemoteSync &&
               window.RhythmRemoteSyncController &&
               window.RhythmStateNormalizer &&
+              window.RhythmStateMerge &&
               window.RhythmStorage &&
               window.RhythmTaskState &&
               window.RhythmTaskForm &&
@@ -584,6 +619,9 @@ function createWindow() {
           desktopBridge: Boolean(window.rhythmDesktop?.syncReminders && window.rhythmDesktop?.writeFileBackup),
           startsWithoutDemoData,
           formsStartCollapsed,
+          overdueHideWorks,
+          endedSeriesVisible,
+          endedSeriesResumeWorks,
           moreMenuKeepsView,
           scheduleFieldsExclusive: deadlineFieldsExclusive && blockFieldsExclusive,
           taskCreated: Boolean(taskCard),
@@ -599,6 +637,7 @@ function createWindow() {
           goalCreated,
           goalStepProgressWorks,
           goalCompleteWorks,
+          goalTaskJumpWorks,
           hasUndoButton,
           undoTaskCreated,
           undoRestored,
