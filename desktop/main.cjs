@@ -95,6 +95,13 @@ function createWindow() {
           repeat: "none",
           completed: {}, excludedDates: {}, notified: {},
         });
+        saveState({ skipBackup: true, skipRemote: true });
+        render();
+        const overdueVisibleOnNextDay = [...document.querySelectorAll(".overdue-item h3")].some((item) => item.textContent === "Smoke hidden overdue");
+        activeDate = addDays(activeDate, 1);
+        render();
+        const overdueGoneAfterNextDay = ![...document.querySelectorAll(".overdue-item h3")].some((item) => item.textContent === "Smoke hidden overdue");
+        activeDate = addDays(activeDate, -1);
         render();
         document.querySelector("#overdueToggle")?.click();
         const overdueHideWorks = document.querySelector("#overduePanel")?.hidden === true && overdueHidden === true;
@@ -620,6 +627,7 @@ function createWindow() {
           startsWithoutDemoData,
           formsStartCollapsed,
           overdueHideWorks,
+          overdueVisibleOnlyNextDay: overdueVisibleOnNextDay && overdueGoneAfterNextDay,
           endedSeriesVisible,
           endedSeriesResumeWorks,
           moreMenuKeepsView,

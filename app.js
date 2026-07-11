@@ -1523,8 +1523,10 @@ function endedRecurringTasks(todayKey = toDateKey(new Date())) {
     .sort((a, b) => b.repeatUntil.localeCompare(a.repeatUntil) || a.title.localeCompare(b.title, "ru"));
 }
 
-function overdueTaskEntries(now = new Date()) {
-  return overdueController.list(now);
+function overdueTaskEntries(referenceDateKey = activeDate) {
+  const referenceDate = parseDate(normalizeDateKey(referenceDateKey, activeDate));
+  referenceDate.setHours(12, 0, 0, 0);
+  return overdueController.list(referenceDate);
 }
 
 function habitsForDate(dateKey) {
