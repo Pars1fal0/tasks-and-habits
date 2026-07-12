@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.6.0 - 2026-07-12
+
+- Replaced goal-to-task links with independent deadline-free checkpoints and automatic progress.
+- Added automatic goal completion, achieved-goal sorting, compact action menus, and a completion celebration.
+- Migrated existing linked goal tasks into checkpoints without discarding their completion state.
+- Added timeline scope selection for recurring tasks: one occurrence or the selected occurrence and all following ones.
+- Split recurring series at the selected date so past timeline history keeps its original schedule.
+
 ## 0.5.0 - 2026-07-12
 
 - Added one-click acknowledgement for all previous-day overdue tasks, with undo and per-task restore.

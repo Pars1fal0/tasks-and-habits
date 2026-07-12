@@ -58,7 +58,7 @@ module.exports = [
         },
       });
 
-      assert.equal(normalized.schemaVersion, 8);
+      assert.equal(normalized.schemaVersion, 9);
       assert.equal(normalized.categories[0].color, "#00a78e");
       assert.equal(normalized.categories[1].name, "Работа");
       assert.equal(normalized.tasks[0].title, "Задача");
@@ -78,12 +78,12 @@ module.exports = [
       assert.equal(normalized.goals[0].reality, "есть время");
       assert.equal(normalized.goals[0].why, "важно для роста");
       assert.equal(normalized.goals[0].dueDate, "2026-06-26");
-      assert.deepEqual(normalized.goals[0].taskIds, ["task-1"]);
+      assert.equal(normalized.goals[0].taskIds, undefined);
       assert.deepEqual(
         normalized.goals[0].steps.map((step) => ({ done: step.done, title: step.title })),
         [
           { done: true, title: "Дизайн" },
-          { done: false, title: "Деплой" },
+          { done: true, title: "Деплой" },
         ],
       );
       assert.equal(normalized.goals[0].status, "done");
@@ -117,6 +117,20 @@ module.exports = [
       assert.equal(normalized.tasks[0].endTime, "15:30");
       assert.equal(normalized.tasks[0].time, "15:30");
       assert.equal(normalized.tasks[0].reminderOffset, "15");
+    },
+  },
+  {
+    name: "migrates legacy linked goal tasks into independent checkpoints",
+    fn() {
+      const normalizer = createStateNormalizer();
+      const normalized = normalizer.normalizeState({
+        tasks: [{ id: "legacy-task", title: "Собрать прототип", date: "2026-07-12", completed: { "2026-07-12": true } }],
+        goals: [{ id: "goal", title: "Запустить продукт", dueDate: "2026-08-01", taskIds: ["legacy-task"], steps: [] }],
+      });
+
+      assert.equal(normalized.goals[0].taskIds, undefined);
+      assert.equal(normalized.goals[0].steps[0].title, "Собрать прототип");
+      assert.equal(normalized.goals[0].steps[0].done, true);
     },
   },
 ];

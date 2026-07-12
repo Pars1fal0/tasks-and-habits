@@ -1,4 +1,4 @@
-﻿const SCHEMA_VERSION = 8;
+﻿const SCHEMA_VERSION = 9;
 const VALID_PRIORITIES = ["high", "medium", "low"];
 const VALID_HABIT_REPEATS = ["daily", "every2days", "every3days", "weekdays", "weekends", "weekly", "custom"];
 const VALID_REMINDER_OFFSETS = ["none", "0", "5", "15", "30", "60", "1440"];
@@ -113,7 +113,6 @@ const els = {
   fileBackupStatus: document.querySelector("#fileBackupStatus"),
   firstDayOfWeek: document.querySelector("#firstDayOfWeek"),
   goalActiveMetric: document.querySelector("#goalActiveMetric"),
-  goalDescription: document.querySelector("#goalDescription"),
   goalDoneMetric: document.querySelector("#goalDoneMetric"),
   goalDueDate: document.querySelector("#goalDueDate"),
   goalEmpty: document.querySelector("#goalEmpty"),
@@ -122,13 +121,9 @@ const els = {
   goalFormPanel: document.querySelector("#goalFormPanel"),
   goalId: document.querySelector("#goalId"),
   goalList: document.querySelector("#goalList"),
-  goalMeasure: document.querySelector("#goalMeasure"),
   goalOverdueMetric: document.querySelector("#goalOverdueMetric"),
-  goalReality: document.querySelector("#goalReality"),
   goalSteps: document.querySelector("#goalSteps"),
-  goalTaskPicker: document.querySelector("#goalTaskPicker"),
   goalTitle: document.querySelector("#goalTitle"),
-  goalWhy: document.querySelector("#goalWhy"),
   habitDoneMetric: document.querySelector("#habitDoneMetric"),
   habitEmpty: document.querySelector("#habitEmpty"),
   habitForm: document.querySelector("#habitForm"),
@@ -315,7 +310,6 @@ const tasksView = window.RhythmTasksView.createTasksView({
   getTaskCategoryFilter: () => taskCategoryFilter,
   getTaskFilter: () => taskFilter,
   getTaskSearchQuery: () => taskSearchQuery,
-  getLinkedGoals: (taskId) => taskState.getLinkedGoals(taskId),
   isTaskDone,
   matchesCategoryFilter,
   openDate: (dateKey) => {
@@ -371,27 +365,17 @@ const habitsView = window.RhythmHabitsView.createHabitsView({
 const goalsView = window.RhythmGoalsView.createGoalsView({
   els,
   cleanText,
+  confirmAction,
   createId,
   createUndoSnapshot,
   deleteGoal,
   getActiveDate: () => activeDate,
-  getInterfaceMode: () => interfaceMode,
   getState: () => state,
-  isTaskDone,
   normalizeDateKey,
-  openTaskDate: (dateKey) => openDateTasks(dateKey),
   render: renderGoalSurfaces,
   saveState,
   showToast,
   toDateKey,
-  toggleLinkedTask: (taskId, done) => {
-    const task = state.tasks.find((item) => item.id === taskId);
-    if (!task) return;
-    const dateKey = task.date || activeDate;
-    task.completed = task.completed || {};
-    task.completed[dateKey] = done;
-    task.updatedAt = new Date().toISOString();
-  },
   upsertGoal: (goal) => {
     delete state.tombstones?.goals?.[goal.id];
     const existing = state.goals.find((item) => item.id === goal.id);
@@ -441,7 +425,6 @@ const timelineController = window.RhythmTimelineController.createTimelineControl
   formatLongDate,
   formatTime,
   getActiveDate: () => activeDate,
-  getLinkedGoals: (taskId) => taskState.getLinkedGoals(taskId),
   getOrderedTasksForDate,
   getState: () => state,
   isTaskDone,

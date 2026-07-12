@@ -296,16 +296,6 @@
         return;
       }
       if (task.repeat === "none") {
-        const linkedGoals = ctx.getLinkedGoals?.(task.id) || [];
-        if (linkedGoals.length) {
-          const confirmed = await ctx.confirmAction({
-            title: "Удалить связанную задачу?",
-            message: `Связь исчезнет из целей: ${linkedGoals.map((goal) => goal.title).join(", ")}.`,
-            confirmLabel: "Удалить задачу",
-            tone: "danger",
-          });
-          if (!confirmed) return;
-        }
         const undo = ctx.createUndoSnapshot();
         ctx.deleteTask(task.id);
         ctx.saveState();

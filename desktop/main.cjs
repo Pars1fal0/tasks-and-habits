@@ -293,37 +293,24 @@ function createWindow() {
           !habitOccursOn(customHabit, "2026-06-27") &&
           formatHabitRepeat(customHabit).includes("ПН");
 
-        state.tasks.push({
-          id: "smoke-goal-task",
-          title: "Smoke Goal Task",
-          date: "2026-07-15",
-          time: "",
-          categoryId: "",
-          priority: "high",
-          repeat: "none",
-          completed: {},
-          excludedDates: {},
-          notified: {},
-        });
         click('[data-view="goals"]');
         document.querySelector("#goalTitle").value = "Smoke Goal";
         document.querySelector("#goalDueDate").value = "2026-07-20";
-        document.querySelector('.goal-task-option input[value="smoke-goal-task"]')?.click();
+        document.querySelector("#goalSteps").value = "Smoke checkpoint one\\nSmoke checkpoint two";
         submit(document.querySelector("#goalForm"));
         const goalCreated =
           document.body.dataset.view === "goals" &&
-          state.goals.some((goal) => goal.title === "Smoke Goal" && goal.dueDate === "2026-07-20" && goal.taskIds?.includes("smoke-goal-task")) &&
+          state.goals.some((goal) => goal.title === "Smoke Goal" && goal.dueDate === "2026-07-20" && !("taskIds" in goal) && goal.steps?.length === 2) &&
           [...document.querySelectorAll(".goal-item")].some((item) => item.textContent.includes("Smoke Goal") && item.textContent.includes("0%"));
         document.querySelector(".goal-step input")?.click();
         const goalStepProgressWorks =
-          state.tasks.find((task) => task.id === "smoke-goal-task")?.completed?.["2026-07-15"] === true &&
-          [...document.querySelectorAll(".goal-item")].some((item) => item.textContent.includes("Smoke Goal") && item.textContent.includes("100%"));
-        document.querySelector(".goal-item .goal-actions button:nth-child(2)")?.click();
+          state.goals.find((goal) => goal.title === "Smoke Goal")?.steps?.[0]?.done === true &&
+          [...document.querySelectorAll(".goal-item")].some((item) => item.textContent.includes("Smoke Goal") && item.textContent.includes("50%"));
+        document.querySelectorAll(".goal-step input")[1]?.click();
         const goalCompleteWorks =
           state.goals.some((goal) => goal.title === "Smoke Goal" && goal.status === "done") &&
           [...document.querySelectorAll(".goal-item.is-done")].some((item) => item.textContent.includes("Smoke Goal"));
-        document.querySelector(".goal-linked-task button")?.click();
-        const goalTaskJumpWorks = activeView === "tasks" && activeDate === "2026-07-15";
+        const goalCompletionAnimationWorks = document.querySelector(".goal-item.is-done.is-celebrating .goal-celebration")?.children.length === 12;
 
         click('[data-view="tasks"]');
         document.querySelector("#quickTaskInput").value = "Smoke Undo 2026-07-12 #SmokeQuick";
@@ -433,6 +420,39 @@ function createWindow() {
         timeFormatSelect.value = "12";
         timeFormatSelect.dispatchEvent(new Event("change", { bubbles: true }));
         click('[data-view="timeline"]');
+        const recurrenceStart = addDays(activeDate, -5);
+        state.tasks.push({
+          id: "smoke-recurring-time-one",
+          title: "Smoke recurring one",
+          date: recurrenceStart,
+          time: "",
+          priority: "high",
+          repeat: "daily",
+          completed: {}, acknowledgedOverdue: {}, excludedDates: {}, notified: {},
+        });
+        const oneOccurrencePromise = timelineController.setTaskTime("smoke-recurring-time-one", "10:00");
+        document.querySelector("#confirmSecondary")?.click();
+        await oneOccurrencePromise;
+        const recurringTimelineOneOccurrenceWorks =
+          state.tasks.find((task) => task.id === "smoke-recurring-time-one")?.excludedDates?.[activeDate] === true &&
+          state.tasks.some((task) => task.sourceTaskId === "smoke-recurring-time-one" && task.date === activeDate && task.startTime === "10:00" && task.priority === "high");
+
+        state.tasks.push({
+          id: "smoke-recurring-time-following",
+          title: "Smoke recurring following",
+          date: recurrenceStart,
+          time: "",
+          priority: "high",
+          repeat: "daily",
+          completed: {}, acknowledgedOverdue: {}, excludedDates: {}, notified: {},
+        });
+        const followingOccurrencesPromise = timelineController.setTaskTime("smoke-recurring-time-following", "14:00");
+        document.querySelector("#confirmAccept")?.click();
+        await followingOccurrencesPromise;
+        const recurringTimelineFollowingWorks =
+          state.tasks.find((task) => task.id === "smoke-recurring-time-following")?.repeatUntil === addDays(activeDate, -1) &&
+          state.tasks.some((task) => task.id !== "smoke-recurring-time-following" && task.title === "Smoke recurring following" && task.date === activeDate && task.repeat === "daily" && task.startTime === "14:00" && task.priority === "high");
+
         const timeFormatWorks = [...document.querySelectorAll(".timeline-task strong")].some((item) =>
           /AM|PM|дп|пп/i.test(item.textContent),
         );
@@ -677,7 +697,7 @@ function createWindow() {
           goalCreated,
           goalStepProgressWorks,
           goalCompleteWorks,
-          goalTaskJumpWorks,
+          goalCompletionAnimationWorks,
           hasUndoButton,
           undoTaskCreated,
           undoRestored,
@@ -713,6 +733,8 @@ function createWindow() {
           timelineDropZonesWork,
           timelineAccessibilityWorks,
           timelineKeyboardMoveWorks,
+          recurringTimelineOneOccurrenceWorks,
+          recurringTimelineFollowingWorks,
           timelineQuickActionsRemoved,
           timelineMenuButtonVisible,
           timelineMenuCompleteWorks,

@@ -7,7 +7,7 @@
     <title>Ритм дня</title>
     <link rel="icon" href="data:,">
     <link rel="manifest" href="manifest.webmanifest">
-    <link rel="stylesheet" href="styles.css?v=20">
+    <link rel="stylesheet" href="styles.css?v=21">
   </head>
   <body>
     <svg class="icon-sprite" aria-hidden="true">
@@ -582,7 +582,7 @@
           <div class="toolbar">
             <div>
               <h2 id="goalsHeading">Мои цели</h2>
-              <p class="muted">Большие результаты со сроком, статусом и спокойным контролем прогресса.</p>
+              <p class="muted">Разбивай большой результат на понятные чекпоинты и двигайся к нему без лишнего шума.</p>
             </div>
             <button class="primary-button icon-text-button" id="openGoalForm" type="button">
               <svg class="ui-icon"><use href="#icon-plus"></use></svg>
@@ -600,7 +600,7 @@
               <strong id="goalOverdueMetric">0</strong>
             </article>
             <article class="panel goal-metric goal-metric-done">
-              <span class="metric-label">Готово</span>
+              <span class="metric-label">Достигнуты</span>
               <strong id="goalDoneMetric">0</strong>
             </article>
           </div>
@@ -608,7 +608,7 @@
           <div class="split-layout goals-layout">
             <section class="panel main-panel">
               <div class="goal-list" id="goalList"></div>
-              <div class="empty-state" id="goalEmpty">Добавь первую цель и срок, до которого хочешь ее закрыть.</div>
+              <div class="empty-state" id="goalEmpty">Добавь цель, срок и несколько чекпоинтов на пути к результату.</div>
             </section>
 
             <aside class="right-rail">
@@ -630,16 +630,11 @@
                     Срок
                     <input id="goalDueDate" type="date" required>
                   </label>
-                  <fieldset class="goal-task-fieldset">
-                    <legend>Связанные задачи</legend>
-                    <p class="field-hint">Прогресс цели считается по выполненным задачам.</p>
-                    <div class="goal-task-picker" id="goalTaskPicker"></div>
-                  </fieldset>
-                  <textarea id="goalSteps" hidden></textarea>
-                  <input id="goalWhy" type="hidden">
-                  <input id="goalDescription" type="hidden">
-                  <input id="goalMeasure" type="hidden">
-                  <input id="goalReality" type="hidden">
+                  <label>
+                    Чекпоинты
+                    <textarea id="goalSteps" rows="6" required maxlength="1200" placeholder="Собрать материалы&#10;Подготовить первый вариант&#10;Получить обратную связь"></textarea>
+                    <span class="field-hint">Каждый чекпоинт с новой строки. Даты им не нужны.</span>
+                  </label>
                   <div class="form-actions">
                     <button class="primary-button" type="submit">Сохранить</button>
                     <button class="ghost-button" id="resetGoalForm" type="button">Очистить</button>
@@ -1033,7 +1028,7 @@
     <script src="remote-sync.js?v=1" defer></script>
     <script src="remote-sync-controller.js?v=2" defer></script>
     <script src="settings-state.js?v=1" defer></script>
-    <script src="state-normalizer.js?v=5" defer></script>
+    <script src="state-normalizer.js?v=6" defer></script>
     <script src="state-merge.js?v=3" defer></script>
     <script src="date-rollover.js?v=1" defer></script>
     <script src="storage.js?v=1" defer></script>
@@ -1044,25 +1039,25 @@
     <script src="calendar-drag-controller.js?v=1" defer></script>
     <script src="confirm-dialog.js?v=3" defer></script>
     <script src="categories.js?v=3" defer></script>
-    <script src="goals-view.js?v=5" defer></script>
+    <script src="goals-view.js?v=6" defer></script>
     <script src="habit-form.js?v=2" defer></script>
     <script src="habits-view.js?v=2" defer></script>
     <script src="import-export.js?v=3" defer></script>
     <script src="notifications.js?v=1" defer></script>
     <script src="overdue-controller.js?v=4" defer></script>
     <script src="task-form.js?v=5" defer></script>
-    <script src="tasks-view.js?v=9" defer></script>
-    <script src="task-moves.js?v=6" defer></script>
-    <script src="task-state.js?v=3" defer></script>
+    <script src="tasks-view.js?v=10" defer></script>
+    <script src="task-moves.js?v=7" defer></script>
+    <script src="task-state.js?v=4" defer></script>
     <script src="settings-sync.js?v=1" defer></script>
     <script src="settings-controller.js?v=3" defer></script>
     <script src="timeline-layout.js?v=1" defer></script>
     <script src="timeline-menu.js?v=1" defer></script>
     <script src="timeline-drag.js?v=1" defer></script>
     <script src="timeline-view.js?v=5" defer></script>
-    <script src="timeline-controller.js?v=5" defer></script>
+    <script src="timeline-controller.js?v=6" defer></script>
     <script src="view-renderer.js?v=1" defer></script>
     <script src="toast.js?v=1" defer></script>
-    <script src="app.js?v=26" defer></script>
+    <script src="app.js?v=27" defer></script>
   </body>
 </html>

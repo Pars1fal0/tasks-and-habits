@@ -20,10 +20,10 @@ module.exports = [
     },
   },
   {
-    name: "calculates progress from real linked tasks",
+    name: "calculates progress only from goal checkpoints",
     fn() {
-      const tasks = [{ done: true }, { done: false }, { done: true }, { done: false }];
-      assert.equal(goalsView.goalProgress({ status: "active", taskIds: ["a", "b", "c", "d"] }, tasks), 50);
+      const steps = [{ done: true }, { done: false }, { done: true }, { done: false }];
+      assert.equal(goalsView.goalProgress({ status: "active", steps }), 50);
     },
   },
   {
@@ -40,7 +40,13 @@ module.exports = [
       assert.equal(steps[1].id, "b");
       assert.equal(steps[1].done, false);
       assert.equal(goalsView.goalProgress({ status: "active", steps }), 33);
-      assert.equal(goalsView.goalProgress({ status: "done", steps }), 100);
+      assert.equal(goalsView.goalProgress({ status: "done", steps }), 33);
+    },
+  },
+  {
+    name: "sorts achieved goals after active and overdue goals",
+    fn() {
+      assert.ok(goalsView.goalSortRank({ dueDate: "2026-07-01", status: "done" }, "2026-07-12") > goalsView.goalSortRank({ dueDate: "2026-07-20", status: "active" }, "2026-07-12"));
     },
   },
 ];

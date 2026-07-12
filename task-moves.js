@@ -81,12 +81,141 @@
     state.taskOrder[dateKey] = state.taskOrder[dateKey].filter((id) => id !== taskId);
   }
 
+  function updateRecurringTaskSchedule({ state, task, dateKey, schedule, scope, helpers = {} }) {
+    if (task.repeat === "none") {
+      applyTaskSchedule(task, schedule);
+      return task;
+    }
+    if (scope === "occurrence") return createScheduledOccurrence(state, task, dateKey, schedule, helpers);
+    if (scope === "following") return splitRecurringSeries(state, task, dateKey, schedule, helpers);
+    return null;
+  }
+
+  function createScheduledOccurrence(state, task, dateKey, schedule, helpers = {}) {
+    const now = new Date().toISOString();
+    const completed = task.completed?.[dateKey] === true ? { [dateKey]: true } : {};
+    task.excludedDates ||= {};
+    task.excludedDates[dateKey] = true;
+    delete task.completed?.[dateKey];
+    delete task.acknowledgedOverdue?.[dateKey];
+    delete task.notified?.[dateKey];
+    task.updatedAt = now;
+
+    const occurrence = {
+      ...copyTaskIdentity(task),
+      id: helpers.createId?.() || createFallbackId(),
+      date: dateKey,
+      repeat: "none",
+      repeatUntil: "",
+      customRepeat: {},
+      sourceTaskId: task.id,
+      movedFromDate: dateKey,
+      completed,
+      acknowledgedOverdue: {},
+      excludedDates: {},
+      notified: {},
+      createdAt: now,
+      updatedAt: now,
+    };
+    applyTaskSchedule(occurrence, schedule);
+    state.tasks.push(occurrence);
+    replaceTaskInOrder(state, dateKey, task.id, occurrence.id);
+    return occurrence;
+  }
+
+  function splitRecurringSeries(state, task, dateKey, schedule, helpers = {}) {
+    if (dateKey <= task.date) {
+      applyTaskSchedule(task, schedule);
+      task.updatedAt = new Date().toISOString();
+      return task;
+    }
+
+    const now = new Date().toISOString();
+    const originalRepeatUntil = task.repeatUntil || "";
+    const nextSeries = {
+      ...copyTaskIdentity(task),
+      id: helpers.createId?.() || createFallbackId(),
+      date: dateKey,
+      repeat: task.repeat,
+      repeatUntil: originalRepeatUntil,
+      customRepeat: clone(task.customRepeat || {}),
+      sourceTaskId: "",
+      movedFromDate: "",
+      completed: takeFlagsFrom(task, "completed", dateKey),
+      acknowledgedOverdue: takeFlagsFrom(task, "acknowledgedOverdue", dateKey),
+      excludedDates: takeFlagsFrom(task, "excludedDates", dateKey),
+      notified: takeFlagsFrom(task, "notified", dateKey),
+      createdAt: now,
+      updatedAt: now,
+    };
+    applyTaskSchedule(nextSeries, schedule);
+
+    task.repeatUntil = previousDateKey(dateKey);
+    task.updatedAt = now;
+    state.tasks.push(nextSeries);
+    Object.keys(state.taskOrder || {}).forEach((orderDate) => {
+      if (orderDate >= dateKey) replaceTaskInOrder(state, orderDate, task.id, nextSeries.id);
+    });
+    return nextSeries;
+  }
+
+  function copyTaskIdentity(task) {
+    return {
+      title: task.title,
+      time: task.time || "",
+      scheduleMode: task.scheduleMode || "deadline",
+      startTime: task.startTime || "",
+      endTime: task.endTime || "",
+      categoryId: task.categoryId || "",
+      priority: task.priority || "medium",
+      reminderOffset: task.reminderOffset || "none",
+    };
+  }
+
+  function applyTaskSchedule(task, schedule = {}) {
+    task.scheduleMode = schedule.scheduleMode === "block" ? "block" : "deadline";
+    task.startTime = task.scheduleMode === "block" ? schedule.startTime || "" : "";
+    task.endTime = task.scheduleMode === "block" ? schedule.endTime || "" : "";
+    task.time = task.scheduleMode === "block" ? task.endTime : schedule.time || "";
+  }
+
+  function takeFlagsFrom(task, field, fromDate) {
+    const future = {};
+    Object.entries(task[field] || {}).forEach(([dateKey, value]) => {
+      if (dateKey >= fromDate) {
+        future[dateKey] = value;
+        delete task[field][dateKey];
+      }
+    });
+    return future;
+  }
+
+  function replaceTaskInOrder(state, dateKey, sourceId, replacementId) {
+    if (!Array.isArray(state.taskOrder?.[dateKey])) return;
+    state.taskOrder[dateKey] = state.taskOrder[dateKey].map((id) => (id === sourceId ? replacementId : id));
+  }
+
+  function previousDateKey(dateKey) {
+    const [year, month, day] = String(dateKey).split("-").map(Number);
+    const date = new Date(year, month - 1, day - 1);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  }
+
+  function clone(value) {
+    return JSON.parse(JSON.stringify(value));
+  }
+
+  function createFallbackId() {
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  }
+
   const api = {
     moveRecurringOccurrence,
     moveSingleTask,
     postponeTask,
     removeTaskFromOrder,
     shouldClearTimeForToday,
+    updateRecurringTaskSchedule,
   };
 
   global.RhythmTaskMoves = api;

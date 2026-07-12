@@ -1,4 +1,6 @@
 (function (global) {
+  const taskMovesApi = global.RhythmTaskMoves || (typeof require !== "undefined" ? require("./task-moves.js") : null);
+
   function createTimelineController(ctx) {
     function deleteTask(taskId) {
       const task = ctx.findTask(taskId);
@@ -7,24 +9,8 @@
       if (task.repeat !== "none" && ctx.confirmAction) {
         return deleteRecurringTask(task);
       }
-      if ((ctx.getLinkedGoals?.(task.id) || []).length && ctx.confirmAction) return deleteLinkedTask(task);
       const undo = ctx.createUndoSnapshot();
       ctx.deleteTask(taskId);
-      commit(ctx.messages.deleted, undo);
-      return true;
-    }
-
-    async function deleteLinkedTask(task) {
-      const linkedGoals = ctx.getLinkedGoals(task.id);
-      const confirmed = await ctx.confirmAction({
-        title: "Удалить связанную задачу?",
-        message: `Связь исчезнет из целей: ${linkedGoals.map((goal) => goal.title).join(", ")}.`,
-        confirmLabel: "Удалить задачу",
-        tone: "danger",
-      });
-      if (!confirmed) return false;
-      const undo = ctx.createUndoSnapshot();
-      ctx.deleteTask(task.id);
       commit(ctx.messages.deleted, undo);
       return true;
     }
@@ -152,32 +138,44 @@
       const nextTime = ctx.cleanTimeValue(targetTime);
       if (!task || !nextTime || ctx.taskSortTime(task) === nextTime) return false;
 
-      const undo = ctx.createUndoSnapshot();
-      if (ctx.isTimeBlock(task)) {
-        const duration = ctx.timeToMinutes(task.endTime) - ctx.timeToMinutes(task.startTime);
-        const nextStart = ctx.timeToMinutes(nextTime);
-        const nextEnd = Math.min(23 * 60 + 59, nextStart + duration);
-        task.startTime = ctx.minutesToTime(Math.max(0, nextEnd - duration));
-        task.endTime = ctx.minutesToTime(nextEnd);
-        task.time = task.endTime;
-        task.scheduleMode = "block";
-      } else if (!ctx.cleanTimeValue(task.time)) {
-        const nextStart = ctx.timeToMinutes(nextTime);
-        const nextEnd = Math.min(23 * 60 + 59, nextStart + 60);
-        task.startTime = ctx.minutesToTime(Math.max(0, nextEnd - 60));
-        task.endTime = ctx.minutesToTime(nextEnd);
-        task.time = task.endTime;
-        task.scheduleMode = "block";
-      } else {
-        task.time = nextTime;
-        task.scheduleMode = "deadline";
-        task.startTime = "";
-        task.endTime = "";
+      const schedule = scheduleAtTime(task, nextTime, ctx);
+      if (task.repeat !== "none" && !task.sourceTaskId) {
+        return updateRecurringSchedule(task, schedule, message || ctx.messages.timeUpdated);
       }
+
+      const undo = ctx.createUndoSnapshot();
+      applySchedule(task, schedule);
       clearNotification(task, ctx.getActiveDate());
       task.updatedAt = new Date().toISOString();
       commit(message || ctx.messages.timeUpdated, undo);
       return true;
+    }
+
+    function scheduleAtTime(task, nextTime, helpers) {
+      if (ctx.isTimeBlock(task)) {
+        const duration = helpers.timeToMinutes(task.endTime) - helpers.timeToMinutes(task.startTime);
+        const nextStart = helpers.timeToMinutes(nextTime);
+        const nextEnd = Math.min(23 * 60 + 59, nextStart + duration);
+        const endTime = helpers.minutesToTime(nextEnd);
+        return {
+          scheduleMode: "block",
+          startTime: helpers.minutesToTime(Math.max(0, nextEnd - duration)),
+          endTime,
+          time: endTime,
+        };
+      }
+      if (!helpers.cleanTimeValue(task.time)) {
+        const nextStart = helpers.timeToMinutes(nextTime);
+        const nextEnd = Math.min(23 * 60 + 59, nextStart + 60);
+        const endTime = helpers.minutesToTime(nextEnd);
+        return {
+          scheduleMode: "block",
+          startTime: helpers.minutesToTime(Math.max(0, nextEnd - 60)),
+          endTime,
+          time: endTime,
+        };
+      }
+      return { scheduleMode: "deadline", startTime: "", endTime: "", time: nextTime };
     }
 
     function resizeTaskBlockTime(taskId, startTime, endTime) {
@@ -187,14 +185,40 @@
       const nextEnd = ctx.cleanTimeValue(endTime);
       if (task.startTime === nextStart && task.endTime === nextEnd) return false;
 
+      const schedule = { scheduleMode: "block", startTime: nextStart, endTime: nextEnd, time: nextEnd };
+      if (task.repeat !== "none" && !task.sourceTaskId) {
+        return updateRecurringSchedule(task, schedule, `${ctx.messages.blockUpdated}: ${nextStart}–${nextEnd}`);
+      }
+
       const undo = ctx.createUndoSnapshot();
-      task.scheduleMode = "block";
-      task.startTime = nextStart;
-      task.endTime = nextEnd;
-      task.time = nextEnd;
+      applySchedule(task, schedule);
       clearNotification(task, ctx.getActiveDate());
       task.updatedAt = new Date().toISOString();
       commit(`${ctx.messages.blockUpdated}: ${ctx.formatTaskWindow(task)}`, undo);
+      return true;
+    }
+
+    async function updateRecurringSchedule(task, schedule, message) {
+      const choice = await ctx.confirmAction({
+        title: "Изменить время повтора?",
+        message: `Выбери, изменить только ${ctx.formatLongDate(ctx.getActiveDate())} или эту дату и все последующие повторения. Прошлые дни не изменятся.`,
+        secondaryLabel: "Только этот день",
+        confirmLabel: "Этот и последующие",
+      });
+      if (!choice) return false;
+
+      const undo = ctx.createUndoSnapshot();
+      const updatedTask = taskMovesApi.updateRecurringTaskSchedule({
+        state: ctx.getState(),
+        task,
+        dateKey: ctx.getActiveDate(),
+        schedule,
+        scope: choice === "secondary" ? "occurrence" : "following",
+        helpers: { createId: ctx.createId },
+      });
+      if (!updatedTask) return false;
+      clearNotification(updatedTask, ctx.getActiveDate());
+      commit(message, undo);
       return true;
     }
 
@@ -235,6 +259,13 @@
 
   function clearNotification(task, dateKey) {
     if (task.notified) delete task.notified[dateKey];
+  }
+
+  function applySchedule(task, schedule) {
+    task.scheduleMode = schedule.scheduleMode;
+    task.startTime = schedule.startTime;
+    task.endTime = schedule.endTime;
+    task.time = schedule.time;
   }
 
   function cloneTask(task) {

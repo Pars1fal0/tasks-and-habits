@@ -1,26 +1,12 @@
 (function (global) {
   function createTaskState(ctx) {
-    function getLinkedGoals(taskId) {
-      return ctx.getState().goals.filter((goal) => (goal.taskIds || []).includes(taskId));
-    }
-
     function deleteTask(taskId) {
       const state = ctx.getState();
       markDeleted(state, "tasks", taskId);
-      const linkedGoals = [];
-      state.goals.forEach((goal) => {
-        const before = goal.taskIds?.length || 0;
-        goal.taskIds = (goal.taskIds || []).filter((id) => id !== taskId);
-        if (goal.taskIds.length !== before) {
-          goal.updatedAt = new Date().toISOString();
-          linkedGoals.push(goal.id);
-        }
-      });
       state.tasks = state.tasks.filter((item) => item.id !== taskId);
       Object.keys(state.taskOrder).forEach((dateKey) => {
         state.taskOrder[dateKey] = state.taskOrder[dateKey].filter((id) => id !== taskId);
       });
-      return { linkedGoalCount: linkedGoals.length };
     }
 
     function deleteMovedReplacement(taskId, options = {}) {
@@ -65,7 +51,7 @@
       state.tombstones[type][id] = new Date().toISOString();
     }
 
-    return { deleteGoal, deleteHabit, deleteMovedReplacement, deleteTask, getLinkedGoals, reorderHabit };
+    return { deleteGoal, deleteHabit, deleteMovedReplacement, deleteTask, reorderHabit };
   }
 
   global.RhythmTaskState = { createTaskState };

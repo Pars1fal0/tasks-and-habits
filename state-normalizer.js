@@ -101,6 +101,25 @@
         ? raw.goals.map((goal) => {
             const createdAt = goal.createdAt || new Date().toISOString();
             const status = goal.status === "done" || goal.completed === true ? "done" : "active";
+            const legacyTaskIds = normalizeGoalTaskIds(goal.taskIds);
+            let steps = normalizeGoalSteps(goal.steps, config);
+            if (!steps.length && legacyTaskIds.length) {
+              steps = legacyTaskIds
+                .map((taskId) => normalized.tasks.find((task) => task.id === taskId))
+                .filter(Boolean)
+                .map((task) => ({
+                  id: config.createId(),
+                  title: task.title,
+                  done: status === "done" || task.completed?.[task.date] === true,
+                }));
+            }
+            if (status === "done" && !steps.length) {
+              steps = [{ id: config.createId(), title: "Цель достигнута", done: true }];
+            } else if (status === "done") {
+              steps.forEach((step) => {
+                step.done = true;
+              });
+            }
             return {
               id: goal.id || config.createId(),
               title: config.cleanText(goal.title) || "Цель",
@@ -109,8 +128,7 @@
               reality: config.cleanText(goal.reality),
               why: config.cleanText(goal.why),
               dueDate: config.normalizeDateKey(goal.dueDate),
-              taskIds: normalizeGoalTaskIds(goal.taskIds),
-              steps: normalizeGoalSteps(goal.steps, config),
+              steps,
               status,
               completedAt: status === "done" ? goal.completedAt || new Date().toISOString() : "",
               createdAt,
@@ -118,11 +136,6 @@
             };
           })
         : [];
-
-      const validTaskIds = new Set(normalized.tasks.map((task) => task.id));
-      normalized.goals.forEach((goal) => {
-        goal.taskIds = goal.taskIds.filter((taskId) => validTaskIds.has(taskId));
-      });
 
       normalized.taskOrder = config.normalizeTaskOrder(raw.taskOrder);
       return normalized;
