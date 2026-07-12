@@ -75,6 +75,7 @@
           } else {
             delete habit.logs[activeDate];
           }
+          habit.updatedAt = new Date().toISOString();
           ctx.saveState();
           ctx.renderDailyPulse();
           ctx.renderOverview();
@@ -105,6 +106,7 @@
         button.addEventListener("click", () => {
           const undo = ctx.createUndoSnapshot();
           habit.logs[activeDate] = !done;
+          habit.updatedAt = new Date().toISOString();
           ctx.saveState();
           ctx.render();
           ctx.showToast(done ? "Отметка снята" : "Привычка отмечена", { undo });

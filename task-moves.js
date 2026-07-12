@@ -27,6 +27,7 @@
     delete task.notified?.[sourceDateKey];
     removeTaskFromOrder(state, task.id, sourceDateKey);
     if (wasDone) task.completed[targetDateKey] = true;
+    task.updatedAt = new Date().toISOString();
   }
 
   function moveRecurringOccurrence(state, task, sourceDateKey, targetDateKey, options = {}, helpers = {}) {
@@ -36,6 +37,7 @@
     delete task.acknowledgedOverdue?.[sourceDateKey];
     delete task.notified?.[sourceDateKey];
     removeTaskFromOrder(state, task.id, sourceDateKey);
+    task.updatedAt = new Date().toISOString();
 
     const targetHasNaturalOccurrence = targetDateKey !== sourceDateKey && helpers.taskScheduledOn?.(task, targetDateKey);
     if (targetHasNaturalOccurrence && !options.clearTime) {
@@ -64,6 +66,7 @@
       excludedDates: {},
       notified: {},
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     });
   }
 

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.5.0 - 2026-07-12
+
+- Added one-click acknowledgement for all previous-day overdue tasks, with undo and per-task restore.
+- Added entity update timestamps and deletion tombstones so stale remote state cannot overwrite newer edits or restore deleted records.
+- Bumped the local data schema to version 8 and the application release to 0.5.0.
 - Added safe deletion for moved recurring replacements and scoped duplication for recurring timeline tasks.
 - Added cached overdue history with a persistent hide/show control.
 - Limited the overdue block to the previous calendar day and made hiding remove the entire block.

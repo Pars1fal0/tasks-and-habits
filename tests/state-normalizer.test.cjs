@@ -53,9 +53,12 @@ module.exports = [
           },
         ],
         taskOrder: { "2026-06-26": [123] },
+        tombstones: {
+          tasks: { "task-deleted": "2026-06-27T10:00:00.000Z", invalid: "yesterday" },
+        },
       });
 
-      assert.equal(normalized.schemaVersion, 7);
+      assert.equal(normalized.schemaVersion, 8);
       assert.equal(normalized.categories[0].color, "#00a78e");
       assert.equal(normalized.categories[1].name, "Работа");
       assert.equal(normalized.tasks[0].title, "Задача");
@@ -86,6 +89,8 @@ module.exports = [
       assert.equal(normalized.goals[0].status, "done");
       assert.ok(normalized.goals[0].completedAt);
       assert.deepEqual(normalized.taskOrder, { "2026-06-26": ["123"] });
+      assert.deepEqual(normalized.tombstones.tasks, { "task-deleted": "2026-06-27T10:00:00.000Z" });
+      assert.ok(normalized.tasks[0].updatedAt);
     },
   },
   {

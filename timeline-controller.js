@@ -72,6 +72,7 @@
       const done = ctx.isTaskDone(task, activeDate);
       task.completed = task.completed || {};
       task.completed[activeDate] = !done;
+      task.updatedAt = new Date().toISOString();
       commit(done ? ctx.messages.active : ctx.messages.done, undo);
       return true;
     }
@@ -113,6 +114,7 @@
         excludedDates: {},
         notified: {},
         createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       };
 
       ctx.getState().tasks.push(duplicate);
@@ -173,6 +175,7 @@
         task.endTime = "";
       }
       clearNotification(task, ctx.getActiveDate());
+      task.updatedAt = new Date().toISOString();
       commit(message || ctx.messages.timeUpdated, undo);
       return true;
     }
@@ -190,6 +193,7 @@
       task.endTime = nextEnd;
       task.time = nextEnd;
       clearNotification(task, ctx.getActiveDate());
+      task.updatedAt = new Date().toISOString();
       commit(`${ctx.messages.blockUpdated}: ${ctx.formatTaskWindow(task)}`, undo);
       return true;
     }

@@ -1,4 +1,4 @@
-﻿const SCHEMA_VERSION = 7;
+﻿const SCHEMA_VERSION = 8;
 const VALID_PRIORITIES = ["high", "medium", "low"];
 const VALID_HABIT_REPEATS = ["daily", "every2days", "every3days", "weekdays", "weekends", "weekly", "custom"];
 const VALID_REMINDER_OFFSETS = ["none", "0", "5", "15", "30", "60", "1440"];
@@ -166,6 +166,7 @@ const els = {
   openBackupFolderButton: document.querySelector("#openBackupFolderButton"),
   openTaskForm: document.querySelector("#openTaskForm"),
   overdueCounter: document.querySelector("#overdueCounter"),
+  overdueAcknowledgeAll: document.querySelector("#overdueAcknowledgeAll"),
   overdueList: document.querySelector("#overdueList"),
   overduePanel: document.querySelector("#overduePanel"),
   overdueToggle: document.querySelector("#overdueToggle"),
@@ -294,6 +295,7 @@ const tasksView = window.RhythmTasksView.createTasksView({
   priorityLabels,
   addDays,
   acknowledgeOverdueTask,
+  acknowledgeAllOverdueTasks,
   clearTaskDragState,
   createUndoSnapshot,
   confirmAction,
@@ -332,6 +334,7 @@ const tasksView = window.RhythmTasksView.createTasksView({
   render: renderTaskSurfaces,
   reorderTask,
   restoreTaskDate,
+  restoreOverdueTask,
   resumeTaskSeries,
   stopTaskSeries,
   saveState,
@@ -387,8 +390,10 @@ const goalsView = window.RhythmGoalsView.createGoalsView({
     const dateKey = task.date || activeDate;
     task.completed = task.completed || {};
     task.completed[dateKey] = done;
+    task.updatedAt = new Date().toISOString();
   },
   upsertGoal: (goal) => {
+    delete state.tombstones?.goals?.[goal.id];
     const existing = state.goals.find((item) => item.id === goal.id);
     if (existing) {
       Object.assign(existing, goal);
@@ -536,6 +541,7 @@ const taskFormController = window.RhythmTaskForm.createTaskForm({
   syncTaskScheduleMode,
   syncTaskTimePresets,
   upsertTask: (task) => {
+    delete state.tombstones?.tasks?.[task.id];
     const existing = state.tasks.find((item) => item.id === task.id);
     if (existing) {
       Object.assign(existing, task);
@@ -561,6 +567,7 @@ const habitFormController = window.RhythmHabitForm.createHabitForm({
   syncHabitCustomRepeatPanel,
   syncHabitTypeFields,
   upsertHabit: (habit) => {
+    delete state.tombstones?.habits?.[habit.id];
     const existing = state.habits.find((item) => item.id === habit.id);
     if (existing) {
       Object.assign(existing, habit);
@@ -997,6 +1004,7 @@ function excludeTaskDate(task, dateKey) {
   const undo = createUndoSnapshot();
   task.excludedDates = task.excludedDates || {};
   task.excludedDates[dateKey] = true;
+  task.updatedAt = new Date().toISOString();
   delete task.completed?.[dateKey];
   delete task.notified?.[dateKey];
   if (Array.isArray(state.taskOrder[dateKey])) {
@@ -1011,9 +1019,33 @@ function acknowledgeOverdueTask(task, dateKey) {
   const undo = createUndoSnapshot();
   task.acknowledgedOverdue = task.acknowledgedOverdue || {};
   task.acknowledgedOverdue[dateKey] = true;
+  task.updatedAt = new Date().toISOString();
   saveState();
   render();
   showToast("Задача убрана из просроченных", { undo });
+}
+
+function acknowledgeAllOverdueTasks(entries) {
+  if (!entries.length) return;
+  const undo = createUndoSnapshot();
+  entries.forEach(({ task, dateKey }) => {
+    task.acknowledgedOverdue = task.acknowledgedOverdue || {};
+    task.acknowledgedOverdue[dateKey] = true;
+    task.updatedAt = new Date().toISOString();
+  });
+  saveState();
+  render();
+  showToast(`Просмотрено задач: ${entries.length}`, { undo });
+}
+
+function restoreOverdueTask(task, dateKey) {
+  if (!task.acknowledgedOverdue?.[dateKey]) return;
+  const undo = createUndoSnapshot();
+  delete task.acknowledgedOverdue[dateKey];
+  task.updatedAt = new Date().toISOString();
+  saveState();
+  render();
+  showToast("Задача снова появится в просроченных на следующем дне", { undo });
 }
 
 function restoreTaskDate(task, dateKey) {
@@ -1021,6 +1053,7 @@ function restoreTaskDate(task, dateKey) {
   if (task.excludedDates) {
     delete task.excludedDates[dateKey];
   }
+  task.updatedAt = new Date().toISOString();
   saveState();
   render();
   showToast(`Повтор возвращен на ${formatLongDate(dateKey)}`, { undo });
@@ -1031,6 +1064,7 @@ function stopTaskSeries(task, dateKey) {
   const undo = createUndoSnapshot();
   const cutoff = addDays(dateKey, -1);
   task.repeatUntil = cutoff;
+  task.updatedAt = new Date().toISOString();
   [task.completed, task.acknowledgedOverdue, task.excludedDates, task.notified].forEach((flags) => {
     Object.keys(flags || {}).forEach((key) => {
       if (key >= dateKey) delete flags[key];
@@ -1048,6 +1082,7 @@ function resumeTaskSeries(task) {
   const undo = createUndoSnapshot();
   task.date = toDateKey(new Date());
   task.repeatUntil = "";
+  task.updatedAt = new Date().toISOString();
   saveState();
   render();
   showToast("Повторяющаяся серия возобновлена с сегодняшнего дня", { undo });

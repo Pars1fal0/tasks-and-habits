@@ -17,6 +17,7 @@
         goal: type === "number" ? Math.max(1, Number(ctx.els.habitGoal.value || 1)) : 1,
         logs: existing?.logs || {},
         createdAt: existing?.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       };
 
       ctx.upsertHabit(habit);

@@ -7,7 +7,7 @@
     <title>Ритм дня</title>
     <link rel="icon" href="data:,">
     <link rel="manifest" href="manifest.webmanifest">
-    <link rel="stylesheet" href="styles.css?v=19">
+    <link rel="stylesheet" href="styles.css?v=20">
   </head>
   <body>
     <svg class="icon-sprite" aria-hidden="true">
@@ -21,6 +21,7 @@
       <symbol id="icon-clock" viewBox="0 0 24 24"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z"/><path d="M12 7v5l3 2"/></symbol>
       <symbol id="icon-download" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></symbol>
       <symbol id="icon-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4Z"/><path d="m13 7 4 4"/></symbol>
+      <symbol id="icon-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/></symbol>
       <symbol id="icon-flame" viewBox="0 0 24 24"><path d="M12 22c4 0 7-3 7-7 0-4-3-7-4-12-4 3-7 6-7 10 0 2 1 4 3 5-1-4 1-6 3-8 0 4 2 5 2 8 0 2-2 4-4 4Z"/></symbol>
       <symbol id="icon-grip" viewBox="0 0 24 24"><path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01"/></symbol>
       <symbol id="icon-habit" viewBox="0 0 24 24"><path d="M7 12a5 5 0 0 1 10 0v6H7v-6Z"/><path d="M9 9V6a3 3 0 0 1 6 0v3"/></symbol>
@@ -251,6 +252,7 @@
                   <span class="metric-label">Просроченные</span>
                   <p id="overdueCounter"></p>
                 </div>
+                <button class="ghost-button compact-button" id="overdueAcknowledgeAll" type="button" aria-label="Пометить все просроченные задачи просмотренными">Пометить все</button>
               </div>
                 <div class="overdue-list" id="overdueList"></div>
               </div>
@@ -987,6 +989,9 @@
           </div>
         </div>
         <div class="task-actions">
+          <button class="icon-button subtle restore-overdue-task" type="button" aria-label="Вернуть в просроченные" hidden>
+            <svg class="ui-icon"><use href="#icon-eye"></use></svg>
+          </button>
           <button class="icon-button subtle edit-task" type="button" aria-label="Редактировать">
             <svg class="ui-icon"><use href="#icon-edit"></use></svg>
           </button>
@@ -1028,8 +1033,8 @@
     <script src="remote-sync.js?v=1" defer></script>
     <script src="remote-sync-controller.js?v=2" defer></script>
     <script src="settings-state.js?v=1" defer></script>
-    <script src="state-normalizer.js?v=4" defer></script>
-    <script src="state-merge.js?v=2" defer></script>
+    <script src="state-normalizer.js?v=5" defer></script>
+    <script src="state-merge.js?v=3" defer></script>
     <script src="date-rollover.js?v=1" defer></script>
     <script src="storage.js?v=1" defer></script>
     <script src="archive-view.js?v=1" defer></script>
@@ -1038,26 +1043,26 @@
     <script src="calendar-view.js?v=2" defer></script>
     <script src="calendar-drag-controller.js?v=1" defer></script>
     <script src="confirm-dialog.js?v=3" defer></script>
-    <script src="categories.js?v=2" defer></script>
-    <script src="goals-view.js?v=4" defer></script>
-    <script src="habit-form.js?v=1" defer></script>
-    <script src="habits-view.js?v=1" defer></script>
+    <script src="categories.js?v=3" defer></script>
+    <script src="goals-view.js?v=5" defer></script>
+    <script src="habit-form.js?v=2" defer></script>
+    <script src="habits-view.js?v=2" defer></script>
     <script src="import-export.js?v=3" defer></script>
     <script src="notifications.js?v=1" defer></script>
     <script src="overdue-controller.js?v=4" defer></script>
-    <script src="task-form.js?v=4" defer></script>
-    <script src="tasks-view.js?v=8" defer></script>
-    <script src="task-moves.js?v=5" defer></script>
-    <script src="task-state.js?v=2" defer></script>
+    <script src="task-form.js?v=5" defer></script>
+    <script src="tasks-view.js?v=9" defer></script>
+    <script src="task-moves.js?v=6" defer></script>
+    <script src="task-state.js?v=3" defer></script>
     <script src="settings-sync.js?v=1" defer></script>
     <script src="settings-controller.js?v=3" defer></script>
     <script src="timeline-layout.js?v=1" defer></script>
     <script src="timeline-menu.js?v=1" defer></script>
     <script src="timeline-drag.js?v=1" defer></script>
     <script src="timeline-view.js?v=5" defer></script>
-    <script src="timeline-controller.js?v=4" defer></script>
+    <script src="timeline-controller.js?v=5" defer></script>
     <script src="view-renderer.js?v=1" defer></script>
     <script src="toast.js?v=1" defer></script>
-    <script src="app.js?v=24" defer></script>
+    <script src="app.js?v=26" defer></script>
   </body>
 </html>

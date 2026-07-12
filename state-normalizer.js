@@ -8,6 +8,7 @@
         goals: [],
         categories: [],
         taskOrder: {},
+        tombstones: normalizeTombstones(raw?.tombstones),
       };
 
       if (!raw || typeof raw !== "object") return normalized;
@@ -18,6 +19,7 @@
             name: config.cleanText(category.name) || "Категория",
             color: config.sanitizeColor(category.color) || config.randomCategoryColor(),
             createdAt: category.createdAt || new Date().toISOString(),
+            updatedAt: category.updatedAt || category.createdAt || new Date().toISOString(),
           }))
         : [];
 
@@ -33,6 +35,7 @@
           name: categoryName,
           color: config.randomCategoryColor(),
           createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         };
         normalized.categories.push(category);
         return category.id;
@@ -70,6 +73,7 @@
               excludedDates: config.normalizeTaskFlags(task.excludedDates),
               notified: config.normalizeTaskFlags(task.notified),
               createdAt: task.createdAt || new Date().toISOString(),
+              updatedAt: task.updatedAt || task.createdAt || new Date().toISOString(),
             };
           })
         : [];
@@ -88,6 +92,7 @@
               goal: Math.max(1, Number(habit.goal || 1)),
               logs: config.normalizeHabitLogs(habit.logs, type),
               createdAt: habit.createdAt || new Date().toISOString(),
+              updatedAt: habit.updatedAt || habit.createdAt || new Date().toISOString(),
             };
           })
         : [];
@@ -109,6 +114,7 @@
               status,
               completedAt: status === "done" ? goal.completedAt || new Date().toISOString() : "",
               createdAt,
+              updatedAt: goal.updatedAt || createdAt,
             };
           })
         : [];
@@ -151,6 +157,20 @@
   function normalizeGoalTaskIds(value) {
     if (!Array.isArray(value)) return [];
     return [...new Set(value.map((id) => String(id || "").trim()).filter(Boolean))];
+  }
+
+  function normalizeTombstones(value) {
+    const result = { tasks: {}, habits: {}, goals: {}, categories: {} };
+    Object.keys(result).forEach((type) => {
+      Object.entries(value?.[type] || {}).forEach(([id, deletedAt]) => {
+        if (id && isValidTimestamp(deletedAt)) result[type][id] = deletedAt;
+      });
+    });
+    return result;
+  }
+
+  function isValidTimestamp(value) {
+    return typeof value === "string" && Number.isFinite(Date.parse(value));
   }
 
   const api = { createStateNormalizer };

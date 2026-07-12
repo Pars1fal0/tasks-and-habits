@@ -120,9 +120,21 @@ function createWindow() {
         const overdueGoneAfterNextDay = ![...document.querySelectorAll(".overdue-item h3")].some((item) => item.textContent === "Smoke hidden overdue");
         activeDate = addDays(activeDate, -1);
         render();
+        activeDate = addDays(activeDate, -1);
+        render();
+        document.querySelector('.task-item[data-task-id="smoke-acknowledge-overdue"] .restore-overdue-task')?.click();
+        const overdueRestoreWorks = acknowledgedTask?.acknowledgedOverdue?.[addDays(toDateKey(new Date()), -1)] !== true;
+        activeDate = addDays(activeDate, 1);
+        render();
         document.querySelector("#overdueToggle")?.click();
         const overdueHideWorks = document.querySelector("#overduePanel")?.hidden === true && overdueHidden === true;
         document.querySelector("#overdueToggle")?.click();
+        document.querySelector("#overdueAcknowledgeAll")?.click();
+        const overdueBulkAcknowledgeWorks = ["smoke-overdue-toggle", "smoke-acknowledge-overdue"].every((id) => {
+          const task = state.tasks.find((item) => item.id === id);
+          const yesterday = addDays(toDateKey(new Date()), -1);
+          return task?.acknowledgedOverdue?.[yesterday] === true && task?.completed?.[yesterday] !== true;
+        }) && document.querySelector("#overduePanel")?.classList.contains("is-visible") === false;
         state.tasks = state.tasks.filter((task) => !["smoke-overdue-toggle", "smoke-acknowledge-overdue"].includes(task.id));
         state.tasks.push({
           id: "smoke-ended-series",
@@ -645,6 +657,8 @@ function createWindow() {
           formsStartCollapsed,
           overdueHideWorks,
           overdueAcknowledgeWorks,
+          overdueBulkAcknowledgeWorks,
+          overdueRestoreWorks,
           overdueVisibleOnlyNextDay: overdueVisibleOnNextDay && overdueGoneAfterNextDay,
           endedSeriesVisible,
           endedSeriesResumeWorks,

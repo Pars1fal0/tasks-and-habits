@@ -15,6 +15,8 @@ module.exports = [
       createTaskState({ getState: () => state }).deleteMovedReplacement("replacement", { restoreSourceOccurrence: true });
       assert.equal(state.tasks.length, 1);
       assert.equal(state.tasks[0].excludedDates["2026-07-12"], undefined);
+      assert.ok(state.tasks[0].updatedAt);
+      assert.ok(state.tombstones.tasks.replacement);
     },
   },
   {
@@ -30,6 +32,8 @@ module.exports = [
       assert.deepEqual(state.tasks.map((task) => task.id), ["task-2"]);
       assert.deepEqual(state.taskOrder["2026-07-11"], ["task-2"]);
       assert.deepEqual(state.goals[0].taskIds, ["task-2"]);
+      assert.ok(state.goals[0].updatedAt);
+      assert.ok(state.tombstones.tasks["task-1"]);
       assert.equal(result.linkedGoalCount, 1);
     },
   },

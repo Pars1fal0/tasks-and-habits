@@ -38,6 +38,7 @@
         excludedDates: existing?.excludedDates || {},
         notified: existing?.notified || {},
         createdAt: existing?.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       };
 
       ctx.upsertTask(task);

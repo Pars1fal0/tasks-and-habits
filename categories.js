@@ -99,11 +99,13 @@
       }
       const undo = ctx.createUndoSnapshot();
 
+      const createdAt = new Date().toISOString();
       ctx.getState().categories.push({
         id: ctx.createId(),
         name,
         color: ctx.els.categoryColor.value || "#00a78e",
-        createdAt: new Date().toISOString(),
+        createdAt,
+        updatedAt: createdAt,
       });
       ctx.els.categoryForm.reset();
       ctx.els.categoryColor.value = "#00a78e";
@@ -128,11 +130,17 @@
       if (!confirmed) return;
 
       const undo = ctx.createUndoSnapshot();
+      state.tombstones ||= { tasks: {}, habits: {}, goals: {}, categories: {} };
+      state.tombstones.categories ||= {};
+      state.tombstones.categories[categoryId] = new Date().toISOString();
       const hasTasks = state.tasks.some((task) => task.categoryId === categoryId);
       state.categories = state.categories.filter((category) => category.id !== categoryId);
       if (hasTasks) {
         state.tasks.forEach((task) => {
-          if (task.categoryId === categoryId) task.categoryId = "";
+          if (task.categoryId === categoryId) {
+            task.categoryId = "";
+            task.updatedAt = new Date().toISOString();
+          }
         });
       }
       if (ctx.getTaskCategoryFilter() === categoryId) ctx.setTaskCategoryFilter("all");

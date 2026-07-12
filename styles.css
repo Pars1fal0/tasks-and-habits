@@ -1711,6 +1711,7 @@ body.has-floating-task-form::before {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
 }
 

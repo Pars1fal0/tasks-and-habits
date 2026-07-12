@@ -90,6 +90,7 @@
         status: existing?.status === "done" ? "done" : "active",
         completedAt: existing?.completedAt || "",
         createdAt: existing?.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       };
 
       ctx.upsertGoal(nextGoal);
@@ -134,6 +135,7 @@
       const undo = ctx.createUndoSnapshot();
       goal.status = status === "done" ? "done" : "active";
       goal.completedAt = goal.status === "done" ? new Date().toISOString() : "";
+      goal.updatedAt = new Date().toISOString();
       ctx.saveState();
       renderGoals();
       ctx.showToast(goal.status === "done" ? "Цель закрыта" : "Цель снова активна", { undo });
@@ -152,6 +154,7 @@
         goal.status = "active";
         goal.completedAt = "";
       }
+      goal.updatedAt = new Date().toISOString();
       ctx.saveState();
       renderGoals();
       ctx.showToast(done ? "Шаг выполнен" : "Шаг снова активен", { undo });

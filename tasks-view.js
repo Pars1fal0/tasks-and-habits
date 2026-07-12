@@ -7,6 +7,9 @@
       ctx.setOverdueHidden(!ctx.getOverdueHidden());
       renderOverdueTasks();
     });
+    ctx.els.overdueAcknowledgeAll?.addEventListener("click", () => {
+      ctx.acknowledgeAllOverdueTasks(ctx.overdueTaskEntries());
+    });
 
     function renderTasks() {
       const activeDate = ctx.getActiveDate();
@@ -52,6 +55,7 @@
       const meta = node.querySelector(".task-meta");
       const postponeDateInput = node.querySelector(".postpone-date-input");
       const priority = node.querySelector(".priority-pill");
+      const restoreOverdue = node.querySelector(".restore-overdue-task");
 
       node.dataset.taskId = task.id;
       if (category) {
@@ -68,6 +72,10 @@
       priority.textContent = ctx.priorityLabels[task.priority] || "Средний";
       priority.classList.add(`priority-${task.priority || "medium"}`);
       renderTaskMeta(meta, task);
+      if (restoreOverdue) {
+        restoreOverdue.hidden = task.acknowledgedOverdue?.[activeDate] !== true;
+        restoreOverdue.addEventListener("click", () => ctx.restoreOverdueTask(task, activeDate));
+      }
 
       node.addEventListener("dragstart", (event) => {
         draggedTaskId = task.id;
@@ -173,6 +181,7 @@
       ctx.els.overdueCounter.textContent = overdueEntries.length
         ? `${overdueEntries.length} невыполнено${visibleEntries.length < overdueEntries.length ? ` · показано ${visibleEntries.length}` : ""}`
         : "";
+      if (ctx.els.overdueAcknowledgeAll) ctx.els.overdueAcknowledgeAll.hidden = overdueEntries.length === 0;
 
       visibleEntries.forEach((entry) => {
         const node = document.createElement("article");
