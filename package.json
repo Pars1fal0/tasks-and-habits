@@ -1,6 +1,6 @@
 {
   "name": "rhythm-day",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": true,
   "description": "Локальный десктопный трекер задач и привычек",
   "main": "desktop/main.cjs",
@@ -53,6 +53,7 @@
       "styles.css",
       "supabase-schema.sql",
       "task-form.js",
+      "task-schedule.js",
       "tasks-view.js",
       "task-moves.js",
       "task-state.js",

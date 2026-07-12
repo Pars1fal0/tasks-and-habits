@@ -1,6 +1,7 @@
 (function (global) {
   function createTimelineDrag({ ctx, formatHourMinute, minuteFromPointer, taskDragMime }) {
     let pointerHint = null;
+    let unscheduledTarget = null;
 
     function attachUnscheduledDrag(card, entry) {
       card.draggable = true;
@@ -111,6 +112,41 @@
       pointerHint = null;
     }
 
+    function showUnscheduledTarget() {
+      if (unscheduledTarget) return;
+      unscheduledTarget = document.createElement("div");
+      const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+      const copy = document.createElement("span");
+      const title = document.createElement("strong");
+      const hint = document.createElement("small");
+      unscheduledTarget.className = "timeline-unschedule-target";
+      unscheduledTarget.setAttribute("aria-hidden", "true");
+      icon.classList.add("ui-icon");
+      use.setAttribute("href", "#icon-skip");
+      title.textContent = "Без времени";
+      hint.textContent = "Перетащи сюда, чтобы убрать расписание";
+      icon.appendChild(use);
+      copy.append(title, hint);
+      unscheduledTarget.append(icon, copy);
+      document.body.appendChild(unscheduledTarget);
+    }
+
+    function isOverUnscheduledTarget(event) {
+      if (!unscheduledTarget) return false;
+      const rect = unscheduledTarget.getBoundingClientRect();
+      return event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
+    }
+
+    function setUnscheduledTargetActive(active) {
+      unscheduledTarget?.classList.toggle("is-drop-target", active);
+    }
+
+    function hideUnscheduledTarget() {
+      unscheduledTarget?.remove();
+      unscheduledTarget = null;
+    }
+
     function formatMinutes(minutes) {
       return formatHourMinute(Math.floor(minutes / 60), minutes % 60);
     }
@@ -119,8 +155,12 @@
       attachDropZone,
       attachUnscheduledDrag,
       hidePointerHint,
+      hideUnscheduledTarget,
+      isOverUnscheduledTarget,
       readDragData,
+      setUnscheduledTargetActive,
       showPointerHint,
+      showUnscheduledTarget,
     };
   }
 

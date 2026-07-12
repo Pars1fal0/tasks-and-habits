@@ -22,6 +22,9 @@
       menu.append(
         createMenuItem(entry.done ? "Снова активна" : "Завершить", "complete", () => ctx.toggleTaskDone?.(entry.task.id)),
         createMenuItem("Дублировать", "duplicate", () => ctx.duplicateTask?.(entry.task.id)),
+        ...(Number.isFinite(entry.minutes)
+          ? [createMenuItem("Убрать время", "unschedule", () => ctx.clearTaskTime?.(entry.task.id))]
+          : []),
         createMenuItem("Открыть детали", "details", () => ctx.fillTaskForm(entry.task)),
         createMenuItem("Удалить", "delete", () => ctx.deleteTask?.(entry.task.id), "danger"),
       );

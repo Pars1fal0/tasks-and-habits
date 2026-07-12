@@ -23,16 +23,16 @@
         id,
         title: ctx.cleanText(ctx.els.taskTitle.value),
         date: ctx.els.taskDate.value || ctx.getActiveDate(),
-        scheduleMode,
+        scheduleMode: scheduleMode === "block" ? "block" : "deadline",
         startTime,
         endTime,
-        time: scheduleMode === "block" ? endTime : deadlineTime,
+        time: scheduleMode === "block" ? endTime : scheduleMode === "none" ? "" : deadlineTime,
         categoryId: ctx.els.taskCategoryId.value,
         priority: ctx.els.taskPriority.value,
         repeat: ctx.els.taskRepeat.value,
         repeatUntil,
         customRepeat: ctx.els.taskRepeat.value === "custom" ? ctx.getCustomRepeatFromForm() : {},
-        reminderOffset: ctx.els.taskReminder.value,
+        reminderOffset: scheduleMode === "none" ? "none" : ctx.els.taskReminder.value,
         completed: existing?.completed || {},
         acknowledgedOverdue: existing?.acknowledgedOverdue || {},
         excludedDates: existing?.excludedDates || {},
@@ -57,7 +57,7 @@
       ctx.els.taskTitle.value = task.title;
       ctx.els.taskDate.value = task.date;
       ctx.els.taskTime.value = ctx.cleanTimeValue(task.time);
-      ctx.setTaskScheduleMode(ctx.isTimeBlock(task) ? "block" : "deadline");
+      ctx.setTaskScheduleMode(ctx.isTimeBlock(task) ? "block" : ctx.cleanTimeValue(task.time) ? "deadline" : "none");
       ctx.els.taskStartTime.value = ctx.cleanTimeValue(task.startTime);
       ctx.els.taskEndTime.value = ctx.cleanTimeValue(task.endTime);
       ctx.els.taskCategoryId.value = task.categoryId || "";

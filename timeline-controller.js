@@ -133,6 +133,23 @@
       return updateTaskTime(taskId, targetTime, `${ctx.messages.movedTo} ${ctx.formatTime(targetTime)}`);
     }
 
+    function clearTaskTime(taskId) {
+      const task = ctx.findTask(taskId);
+      if (!task || (!ctx.isTimeBlock(task) && !ctx.cleanTimeValue(task.time))) return false;
+      const schedule = { scheduleMode: "deadline", startTime: "", endTime: "", time: "" };
+      if (task.repeat !== "none" && !task.sourceTaskId) {
+        return updateRecurringSchedule(task, schedule, "Задача теперь без времени");
+      }
+
+      const undo = ctx.createUndoSnapshot();
+      applySchedule(task, schedule);
+      task.reminderOffset = "none";
+      clearNotification(task, ctx.getActiveDate());
+      task.updatedAt = new Date().toISOString();
+      commit("Задача теперь без времени", undo);
+      return true;
+    }
+
     function updateTaskTime(taskId, targetTime, message) {
       const task = ctx.findTask(taskId);
       const nextTime = ctx.cleanTimeValue(targetTime);
@@ -200,8 +217,8 @@
 
     async function updateRecurringSchedule(task, schedule, message) {
       const choice = await ctx.confirmAction({
-        title: "Изменить время повтора?",
-        message: `Выбери, изменить только ${ctx.formatLongDate(ctx.getActiveDate())} или эту дату и все последующие повторения. Прошлые дни не изменятся.`,
+        title: "Изменить расписание повтора?",
+        message: `Выбери, применить изменение только к ${ctx.formatLongDate(ctx.getActiveDate())} или к этой дате и всем последующим повторениям. Прошлые дни не изменятся.`,
         secondaryLabel: "Только этот день",
         confirmLabel: "Этот и последующие",
       });
@@ -217,6 +234,7 @@
         helpers: { createId: ctx.createId },
       });
       if (!updatedTask) return false;
+      if (!schedule.time) updatedTask.reminderOffset = "none";
       clearNotification(updatedTask, ctx.getActiveDate());
       commit(message, undo);
       return true;
@@ -246,6 +264,7 @@
 
     return {
       createTaskAtTime,
+      clearTaskTime,
       deleteTask,
       duplicateTask,
       moveTaskTime,

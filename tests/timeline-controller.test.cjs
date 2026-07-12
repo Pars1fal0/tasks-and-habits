@@ -51,6 +51,7 @@ function createHarness(ctxOverrides = {}) {
     els: {},
     findTask: (id) => state.tasks.find((task) => task.id === id),
     formatTaskWindow: (task) => `${task.startTime}-${task.endTime}`,
+    formatLongDate: (value) => value,
     formatTime: (value) => value,
     getActiveDate: () => "2026-07-02",
     getOrderedTasksForDate: (dateKey) => {
@@ -124,6 +125,49 @@ module.exports = [
       assert.equal(task.endTime, "15:15");
       assert.equal(task.time, "15:15");
       assert.equal(task.priority, "high");
+    },
+  },
+  {
+    name: "returns a time block to an unscheduled deadline task",
+    fn() {
+      const { controller, state } = createHarness();
+      const task = state.tasks[0];
+      task.scheduleMode = "block";
+      task.startTime = "14:00";
+      task.endTime = "15:00";
+      task.time = "15:00";
+      task.reminderOffset = "15";
+      task.priority = "high";
+
+      assert.equal(controller.clearTaskTime(task.id), true);
+
+      assert.equal(task.scheduleMode, "deadline");
+      assert.equal(task.startTime, "");
+      assert.equal(task.endTime, "");
+      assert.equal(task.time, "");
+      assert.equal(task.reminderOffset, "none");
+      assert.equal(task.priority, "high");
+    },
+  },
+  {
+    name: "can remove time from only one recurring timeline occurrence",
+    async fn() {
+      const { controller, state } = createHarness({ confirmAction: async () => "secondary" });
+      const task = state.tasks[0];
+      task.repeat = "daily";
+      task.scheduleMode = "block";
+      task.startTime = "14:00";
+      task.endTime = "15:00";
+      task.time = "15:00";
+      task.priority = "high";
+
+      assert.equal(await controller.clearTaskTime(task.id), true);
+
+      const occurrence = state.tasks.find((item) => item.sourceTaskId === task.id);
+      assert.equal(task.excludedDates["2026-07-02"], true);
+      assert.equal(occurrence.scheduleMode, "deadline");
+      assert.equal(occurrence.time, "");
+      assert.equal(occurrence.priority, "high");
     },
   },
   {

@@ -217,7 +217,9 @@ const els = {
   taskProgressRing: document.querySelector("#taskProgressRing"),
   taskScheduleBlock: document.querySelector("#taskScheduleBlock"),
   taskScheduleDeadline: document.querySelector("#taskScheduleDeadline"),
+  taskScheduleNone: document.querySelector("#taskScheduleNone"),
   taskReminder: document.querySelector("#taskReminder"),
+  taskReminderField: document.querySelector("#taskReminderField"),
   taskRepeat: document.querySelector("#taskRepeat"),
   taskRepeatUntil: document.querySelector("#taskRepeatUntil"),
   taskRepeatUntilField: document.querySelector("#taskRepeatUntilField"),
@@ -265,6 +267,16 @@ const toastController = window.RhythmToast.createToastController({
 const confirmDialog = window.RhythmConfirmDialog.createConfirmDialog({ els });
 const remoteSync = window.RhythmRemoteSync.createRemoteSync();
 const remoteSyncController = window.RhythmRemoteSyncController.createRemoteSyncController();
+const taskScheduleController = window.RhythmTaskSchedule.createTaskSchedule({
+  cleanTimeValue,
+  els,
+  minutesToTime,
+  timeToMinutes,
+});
+const getTaskScheduleMode = taskScheduleController.getMode;
+const setTaskScheduleMode = taskScheduleController.setMode;
+const syncTaskScheduleMode = taskScheduleController.syncMode;
+const syncTaskTimePresets = taskScheduleController.syncPresets;
 const taskFormHome = {
   next: els.taskFormPanel?.nextSibling || null,
   parent: els.taskFormPanel?.parentNode || null,
@@ -456,6 +468,7 @@ const timelineController = window.RhythmTimelineController.createTimelineControl
 
 const timelineView = window.RhythmTimelineView.createTimelineView({
   els,
+  clearTaskTime: timelineController.clearTaskTime,
   createTaskAtTime: timelineController.createTaskAtTime,
   deleteTask: timelineController.deleteTask,
   duplicateTask: timelineController.duplicateTask,
@@ -768,16 +781,7 @@ const appEvents = window.RhythmAppEvents.createAppEvents({
     resetTaskForm({ open: true });
     els.taskTitle.focus();
   },
-  applyTimePreset: (preset) => {
-    if (getTaskScheduleMode() === "block") {
-      els.taskStartTime.value = preset;
-      els.taskEndTime.value = preset ? minutesToTime(Math.min(23 * 60 + 59, timeToMinutes(preset) + 60)) : "";
-    } else {
-      els.taskTime.value = preset;
-    }
-    syncTaskTimePresets();
-    (getTaskScheduleMode() === "block" ? els.taskStartTime : els.taskTime).focus();
-  },
+  applyTimePreset: taskScheduleController.applyPreset,
   renderSaveStatus,
   requestNotifications,
   resetGoalForm,
@@ -1416,22 +1420,6 @@ function setHabitCustomRepeatMode(mode = "weekdays") {
 
 function updateHabitCustomRepeatSummary() {
   els.habitCustomRepeatSummary.textContent = window.RhythmRecurrence.customRepeatLabel(getHabitCustomRepeatFromForm());
-}
-
-function getTaskScheduleMode() {
-  return els.taskScheduleBlock?.checked ? "block" : "deadline";
-}
-
-function setTaskScheduleMode(mode = "deadline") {
-  const isBlock = mode === "block";
-  if (els.taskScheduleDeadline) els.taskScheduleDeadline.checked = !isBlock;
-  if (els.taskScheduleBlock) els.taskScheduleBlock.checked = isBlock;
-}
-
-function syncTaskScheduleMode() {
-  const isBlock = getTaskScheduleMode() === "block";
-  if (els.taskDeadlineTimeField) els.taskDeadlineTimeField.hidden = isBlock;
-  if (els.taskBlockTimeFields) els.taskBlockTimeFields.hidden = !isBlock;
 }
 
 function fillTaskForm(task) {
@@ -2313,14 +2301,6 @@ function normalizeReminderOffset(value, hasTime = true) {
   const offset = String(value ?? (hasTime ? "15" : "none"));
   if (VALID_REMINDER_OFFSETS.includes(offset)) return offset;
   return hasTime ? "15" : "none";
-}
-
-function syncTaskTimePresets() {
-  const time = getTaskScheduleMode() === "block" ? cleanTimeValue(els.taskStartTime.value) : cleanTimeValue(els.taskTime.value);
-  document.querySelectorAll("[data-time-preset]").forEach((button) => {
-    const preset = button.dataset.timePreset || "";
-    button.classList.toggle("is-active", preset === time);
-  });
 }
 
 function normalizeState(raw) {

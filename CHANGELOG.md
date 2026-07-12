@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.7.0 - 2026-07-12
+
+- Added an explicit no-time mode for task creation and editing.
+- Added drag-to-unschedule for timeline tasks with a visible drop target.
+- Added an "Убрать время" timeline menu action as a touch and keyboard-friendly alternative.
+- Preserved recurring-task scope selection when removing timeline time.
+- Extracted task schedule mode and preset handling into `task-schedule.js`.
+
 ## 0.6.0 - 2026-07-12
 
 - Replaced goal-to-task links with independent deadline-free checkpoints and automatic progress.

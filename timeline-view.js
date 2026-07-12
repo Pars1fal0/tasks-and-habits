@@ -233,11 +233,13 @@
       if (!Number.isFinite(entry.minutes) || !ctx.moveTaskTime) return;
       if (event.button !== 0 || event.target.closest(".timeline-resize-handle, .timeline-menu-button, .timeline-task-menu")) return;
       const card = event.currentTarget;
+      const startX = event.clientX;
       const startY = event.clientY;
       const originalStart = entry.minutes;
       const duration = entry.isTimeBlock ? Math.max(TIMELINE_SLOT_MINUTES, entry.endMinutes - entry.minutes) : 0;
       let didMove = false;
       let latestStart = originalStart;
+      let dropWithoutTime = false;
 
       card.setPointerCapture?.(event.pointerId);
       card.classList.add("is-dragging");
@@ -250,8 +252,17 @@
         const delta = snapMinutes(rawDelta);
         const maxStart = duration ? 23 * 60 + 59 - duration : 23 * 60 + 59;
         const nextStart = Math.max(0, Math.min(maxStart, originalStart + delta));
-        if (Math.abs(moveEvent.clientY - startY) > 3) didMove = true;
+        if (Math.hypot(moveEvent.clientX - startX, moveEvent.clientY - startY) > 3) didMove = true;
+        if (didMove) timelineDrag.showUnscheduledTarget();
+        dropWithoutTime = didMove && timelineDrag.isOverUnscheduledTarget(moveEvent);
+        timelineDrag.setUnscheduledTargetActive(dropWithoutTime);
         latestStart = nextStart;
+        if (dropWithoutTime) {
+          card.style.setProperty("--timeline-drag-y", "0px");
+          card.setAttribute("data-drag-label", "Без времени");
+          timelineDrag.showPointerHint("Без времени", moveEvent);
+          return;
+        }
         const label = duration
           ? formatBlockLabel(nextStart, nextStart + duration)
           : formatHourMinute(Math.floor(nextStart / 60), nextStart % 60);
@@ -261,13 +272,18 @@
       };
 
       const onUp = (upEvent) => {
+        const shouldClearTime = dropWithoutTime || timelineDrag.isOverUnscheduledTarget(upEvent);
         cleanup(upEvent);
-        if (!didMove || latestStart === originalStart) return;
+        if (!didMove || (!shouldClearTime && latestStart === originalStart)) return;
         card.dataset.suppressClick = "true";
         window.setTimeout(() => {
           delete card.dataset.suppressClick;
         }, 0);
-        ctx.moveTaskTime(entry.task.id, formatHourMinute(Math.floor(latestStart / 60), latestStart % 60));
+        if (shouldClearTime) {
+          ctx.clearTaskTime?.(entry.task.id);
+        } else {
+          ctx.moveTaskTime(entry.task.id, formatHourMinute(Math.floor(latestStart / 60), latestStart % 60));
+        }
       };
 
       const onCancel = (cancelEvent) => {
@@ -284,6 +300,7 @@
         card.style.removeProperty("--timeline-drag-y");
         card.removeAttribute("data-drag-label");
         timelineDrag.hidePointerHint();
+        timelineDrag.hideUnscheduledTarget();
       };
 
       window.addEventListener("pointermove", onMove);

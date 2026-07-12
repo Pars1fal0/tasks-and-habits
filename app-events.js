@@ -32,7 +32,7 @@
       });
       els.taskRepeat.addEventListener("change", ctx.syncCustomRepeatPanel);
       els.taskDate.addEventListener("change", ctx.syncCustomRepeatPanel);
-      [els.taskScheduleDeadline, els.taskScheduleBlock].forEach((input) => input?.addEventListener("change", ctx.syncTaskScheduleMode));
+      [els.taskScheduleNone, els.taskScheduleDeadline, els.taskScheduleBlock].forEach((input) => input?.addEventListener("change", ctx.syncTaskScheduleMode));
       document.querySelectorAll("[data-repeat-mode]").forEach((button) => {
         button.addEventListener("click", () => ctx.setCustomRepeatMode(button.dataset.repeatMode));
       });

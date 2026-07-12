@@ -205,6 +205,25 @@ function createWindow() {
             task.endTime === "15:30" &&
             task.time === "15:30",
         );
+        const formBlockSource = state.tasks.find((task) => task.title === "Smoke Time Block");
+        state.tasks.push({ ...structuredClone(formBlockSource), id: "smoke-form-block-to-none", title: "Smoke Form Block To None" });
+        fillTaskForm(state.tasks.find((task) => task.id === "smoke-form-block-to-none"));
+        document.querySelector("#taskScheduleNone").checked = true;
+        document.querySelector("#taskScheduleNone").dispatchEvent(new Event("change", { bubbles: true }));
+        const noTimeFieldsExclusive =
+          document.querySelector("#taskDeadlineTimeField")?.hidden &&
+          document.querySelector("#taskBlockTimeFields")?.hidden &&
+          document.querySelector("#taskReminderField")?.hidden;
+        submit(document.querySelector("#taskForm"));
+        const formBlockToNoTimeWorks = state.tasks.some(
+          (task) =>
+            task.id === "smoke-form-block-to-none" &&
+            task.scheduleMode === "deadline" &&
+            task.time === "" &&
+            task.startTime === "" &&
+            task.endTime === "" &&
+            task.reminderOffset === "none",
+        );
 
         const beforeOrder = [...document.querySelectorAll(".task-item")].map((item) => ({
           id: item.dataset.taskId,
@@ -370,6 +389,42 @@ function createWindow() {
         const timelineBlockVisible =
           [...document.querySelectorAll(".timeline-task.is-time-block")].some((item) => item.textContent.includes("Smoke Time Block")) &&
           document.querySelectorAll(".timeline-task.is-time-block .timeline-resize-handle").length >= 2;
+        const draggableBlockCard = [...document.querySelectorAll(".timeline-task.is-time-block")].find((item) => item.textContent.includes("Smoke Time Block"));
+        const draggableBlockRect = draggableBlockCard?.getBoundingClientRect();
+        if (draggableBlockCard) {
+          draggableBlockCard.setPointerCapture = () => {};
+          draggableBlockCard.releasePointerCapture = () => {};
+        }
+        draggableBlockCard?.dispatchEvent(new PointerEvent("pointerdown", {
+          bubbles: true,
+          button: 0,
+          clientX: draggableBlockRect?.left + 20,
+          clientY: draggableBlockRect?.top + 20,
+          pointerId: 41,
+        }));
+        window.dispatchEvent(new PointerEvent("pointermove", {
+          bubbles: true,
+          clientX: draggableBlockRect?.left + 28,
+          clientY: draggableBlockRect?.top + 28,
+          pointerId: 41,
+        }));
+        const unscheduleTargetRect = document.querySelector(".timeline-unschedule-target")?.getBoundingClientRect();
+        window.dispatchEvent(new PointerEvent("pointermove", {
+          bubbles: true,
+          clientX: unscheduleTargetRect?.left + unscheduleTargetRect?.width / 2,
+          clientY: unscheduleTargetRect?.top + unscheduleTargetRect?.height / 2,
+          pointerId: 41,
+        }));
+        window.dispatchEvent(new PointerEvent("pointerup", {
+          bubbles: true,
+          clientX: unscheduleTargetRect?.left + unscheduleTargetRect?.width / 2,
+          clientY: unscheduleTargetRect?.top + unscheduleTargetRect?.height / 2,
+          pointerId: 41,
+        }));
+        const timelineDragToUnscheduledWorks =
+          blockTaskForTimeline?.scheduleMode === "deadline" &&
+          blockTaskForTimeline?.time === "" &&
+          [...document.querySelectorAll('.timeline-task.is-unscheduled')].some((item) => item.textContent.includes("Smoke Time Block"));
         activeDate = timelineDateBeforeBlockCheck;
         render();
         click('[data-view="timeline"]');
@@ -518,6 +573,7 @@ function createWindow() {
           Boolean(movedTimelineCard?.querySelector(".timeline-menu-button")) &&
           movedTimelineCard?.querySelector(".timeline-menu-button")?.getAttribute("aria-expanded") === "true" &&
           !movedTimelineCard?.querySelector(".timeline-task-menu")?.hidden;
+        const timelineMenuUnscheduleVisible = Boolean(movedTimelineCard?.querySelector('.timeline-menu-item[data-action="unschedule"]'));
         movedTimelineCard?.querySelector('.timeline-menu-item[data-action="complete"]')?.click();
         const timelineMenuCompleteWorks =
           state.tasks.find((task) => task.id === "smoke-unscheduled-timeline")?.completed?.[activeDate] === true;
@@ -532,6 +588,11 @@ function createWindow() {
           document.querySelector("#taskId")?.value === "smoke-unscheduled-timeline" &&
           document.querySelector("#taskTitle")?.value === "Smoke Unscheduled Timeline";
         document.querySelector("#closeTaskForm")?.click();
+        movedTimelineCard = openTimelineTaskMenu("smoke-unscheduled-timeline");
+        movedTimelineCard?.querySelector('.timeline-menu-item[data-action="unschedule"]')?.click();
+        const timelineMenuUnscheduleWorks =
+          state.tasks.find((task) => task.id === "smoke-unscheduled-timeline")?.time === "" &&
+          Boolean(document.querySelector('.timeline-task.is-unscheduled[data-task-id="smoke-unscheduled-timeline"]'));
         movedTimelineCard = openTimelineTaskMenu("smoke-unscheduled-timeline");
         movedTimelineCard?.querySelector('.timeline-menu-item[data-action="delete"]')?.click();
         const timelineDeleteWorks = !state.tasks.some((task) => task.id === "smoke-unscheduled-timeline");
@@ -661,6 +722,7 @@ function createWindow() {
               window.RhythmStateMerge &&
               window.RhythmStorage &&
               window.RhythmTaskState &&
+              window.RhythmTaskSchedule &&
               window.RhythmTaskForm &&
               window.RhythmTasksView &&
               window.RhythmTaskMoves &&
@@ -683,7 +745,8 @@ function createWindow() {
           endedSeriesVisible,
           endedSeriesResumeWorks,
           moreMenuKeepsView,
-          scheduleFieldsExclusive: deadlineFieldsExclusive && blockFieldsExclusive,
+          scheduleFieldsExclusive: deadlineFieldsExclusive && blockFieldsExclusive && noTimeFieldsExclusive,
+          formBlockToNoTimeWorks,
           taskCreated: Boolean(taskCard),
           timeBlockCreated,
           quickTaskCreated,
@@ -737,6 +800,8 @@ function createWindow() {
           recurringTimelineFollowingWorks,
           timelineQuickActionsRemoved,
           timelineMenuButtonVisible,
+          timelineMenuUnscheduleVisible,
+          timelineMenuUnscheduleWorks,
           timelineMenuCompleteWorks,
           timelineMenuDuplicateWorks,
           timelineMenuDetailsWorks,
@@ -747,6 +812,7 @@ function createWindow() {
           timelineSummaryWorks,
           timelineVisible,
           timelineBlockVisible,
+          timelineDragToUnscheduledWorks,
           calendarDragMove,
           dndOrderChanged,
           archived,
