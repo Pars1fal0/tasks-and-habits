@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.12.8
+
+- Redesigned the weekly summary as a compact responsive panel and removed empty zero-value metrics.
+- Added a one-time PWA shell refresh to recover clients that combined new markup with stale assets.
+- Static application assets now prefer the current network version and use the cache only as an offline fallback.
+
 ## 0.12.7
 
 - Habit type, target, unit, and recurrence changes now apply from the selected date without rewriting earlier statistics.

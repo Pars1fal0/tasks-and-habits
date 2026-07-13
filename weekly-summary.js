@@ -10,6 +10,10 @@
       }
       if (ctx.els.weekSummaryBestDay) ctx.els.weekSummaryBestDay.textContent = summary.bestDayLabel;
       if (ctx.els.weekSummaryText) ctx.els.weekSummaryText.textContent = summary.text;
+      ctx.els.weeklySummaryPanel?.classList.toggle(
+        "is-empty",
+        summary.taskTotal + summary.habitTotal === 0,
+      );
       return summary;
     }
 

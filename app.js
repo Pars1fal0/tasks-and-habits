@@ -318,6 +318,7 @@ const els = {
   weeklyHabitText: document.querySelector("#weeklyHabitText"),
   weeklyTaskMetric: document.querySelector("#weeklyTaskMetric"),
   weekSummaryBestDay: document.querySelector("#weekSummaryBestDay"),
+  weeklySummaryPanel: document.querySelector("#weeklySummaryPanel"),
   weekSummaryCompleted: document.querySelector("#weekSummaryCompleted"),
   weekSummaryHabits: document.querySelector("#weekSummaryHabits"),
   weekSummaryText: document.querySelector("#weekSummaryText"),

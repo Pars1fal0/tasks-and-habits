@@ -7,7 +7,54 @@
     <title>Ритм дня</title>
     <link rel="icon" href="data:,">
     <link rel="manifest" href="manifest.webmanifest">
-    <link rel="stylesheet" href="styles.css?v=23">
+    <script>
+      (() => {
+        const shellVersion = "0.12.8";
+        const versionKey = "rhythm-shell-version";
+        const retryKey = "rhythm-shell-refresh";
+        let storedVersion = "";
+        let alreadyRetried = false;
+
+        try {
+          storedVersion = localStorage.getItem(versionKey) || "";
+          alreadyRetried = sessionStorage.getItem(retryKey) === shellVersion;
+        } catch {}
+
+        const hasOldShell =
+          storedVersion !== shellVersion &&
+          "serviceWorker" in navigator &&
+          navigator.serviceWorker.controller;
+
+        if (hasOldShell && !alreadyRetried) {
+          document.documentElement.style.visibility = "hidden";
+          try {
+            sessionStorage.setItem(retryKey, shellVersion);
+          } catch {}
+
+          const clearWorkers = navigator.serviceWorker
+            .getRegistrations()
+            .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())));
+          const clearCaches = "caches" in window
+            ? caches.keys().then((keys) =>
+                Promise.all(
+                  keys
+                    .filter((key) => key.startsWith("rhythm-day-"))
+                    .map((key) => caches.delete(key))
+                )
+              )
+            : Promise.resolve();
+
+          Promise.allSettled([clearWorkers, clearCaches]).then(() => window.location.reload());
+          return;
+        }
+
+        try {
+          localStorage.setItem(versionKey, shellVersion);
+          sessionStorage.removeItem(retryKey);
+        } catch {}
+      })();
+    </script>
+    <link rel="stylesheet" href="styles.css?v=24">
   </head>
   <body>
     <svg class="icon-sprite" aria-hidden="true">
@@ -707,7 +754,7 @@
               <strong id="weeklyHabitMetric">0%</strong>
               <p id="weeklyHabitText"></p>
             </section>
-            <section class="panel weekly-summary-panel" data-overview-panel="week" aria-labelledby="weeklySummaryHeading">
+            <section id="weeklySummaryPanel" class="panel weekly-summary-panel" data-overview-panel="week" aria-labelledby="weeklySummaryHeading">
               <div class="weekly-summary-copy">
                 <span class="metric-label">Итог недели</span>
                 <h2 id="weeklySummaryHeading">Коротко о прогрессе</h2>

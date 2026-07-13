@@ -2848,24 +2848,13 @@ body.has-floating-task-form::before {
 }
 
 @media (max-width: 680px) {
-  .update-banner,
-  .weekly-summary-panel {
+  .update-banner {
     align-items: stretch;
     grid-template-columns: 1fr;
   }
 
   .update-banner {
     flex-direction: column;
-  }
-
-  .weekly-summary-facts {
-    grid-template-columns: 1fr;
-  }
-
-  .weekly-summary-facts div {
-    padding: 10px 0;
-    border-top: 1px solid var(--line);
-    border-left: 0;
   }
 
   .timeline-unschedule-target {
@@ -3540,14 +3529,16 @@ body.has-floating-task-form::before {
 
 .weekly-summary-panel {
   display: grid;
-  grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1.2fr);
+  grid-template-columns: minmax(220px, 1fr) auto;
   align-items: center;
-  gap: 24px;
+  gap: 20px;
+  min-height: 0;
+  padding: 20px 22px;
 }
 
 .weekly-summary-copy {
   display: grid;
-  gap: 7px;
+  gap: 5px;
 }
 
 .weekly-summary-copy h2,
@@ -3557,19 +3548,25 @@ body.has-floating-task-form::before {
 
 .weekly-summary-copy p {
   color: var(--muted);
-  line-height: 1.55;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.weekly-summary-copy h2 {
+  font-size: 19px;
+  line-height: 1.3;
 }
 
 .weekly-summary-facts {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(96px, auto));
   gap: 0;
   margin: 0;
 }
 
 .weekly-summary-facts div {
   min-width: 0;
-  padding: 4px 18px;
+  padding: 2px 18px;
   border-left: 1px solid var(--line);
 }
 
@@ -3580,10 +3577,19 @@ body.has-floating-task-form::before {
 }
 
 .weekly-summary-facts dd {
-  margin: 7px 0 0;
+  margin: 5px 0 0;
   color: var(--text-strong);
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
+  line-height: 1.25;
+}
+
+.weekly-summary-panel.is-empty {
+  grid-template-columns: 1fr;
+}
+
+.weekly-summary-panel.is-empty .weekly-summary-facts {
+  display: none;
 }
 
 .metric-panel {
@@ -4368,6 +4374,30 @@ body.has-floating-task-form::before {
 }
 
 @media (max-width: 680px) {
+  .weekly-summary-panel {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    padding: 16px;
+  }
+
+  .weekly-summary-facts {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .weekly-summary-facts div {
+    padding: 0 10px;
+  }
+
+  .weekly-summary-facts div:first-child {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .weekly-summary-facts dd {
+    overflow-wrap: anywhere;
+    font-size: 16px;
+  }
+
   .topbar,
   .toolbar,
   .focus-card {

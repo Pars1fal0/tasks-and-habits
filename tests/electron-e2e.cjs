@@ -36,6 +36,8 @@ const { _electron: electron } = require("playwright-core");
     await page.locator('[data-overview-mode="week"]').click();
     const summaryBox = await page.locator(".weekly-summary-panel").boundingBox();
     assert.ok(summaryBox && summaryBox.x >= 0 && summaryBox.x + summaryBox.width <= 390.5, "weekly summary must fit mobile");
+    assert.ok(summaryBox.height < 160, "empty weekly summary must stay compact");
+    assert.equal(await page.locator(".weekly-summary-panel").evaluate((node) => node.classList.contains("is-empty")), true);
     await page.locator("#updateBanner").evaluate((node) => { node.hidden = false; });
     const updateBox = await page.locator("#updateBanner").boundingBox();
     assert.ok(updateBox && updateBox.x >= 0 && updateBox.x + updateBox.width <= 390.5, "update banner must fit mobile");
