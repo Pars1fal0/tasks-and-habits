@@ -134,9 +134,6 @@ const els = {
   exportButton: document.querySelector("#exportButton"),
   excludedList: document.querySelector("#excludedList"),
   excludedPanel: document.querySelector("#excludedPanel"),
-  endedSeriesCount: document.querySelector("#endedSeriesCount"),
-  endedSeriesList: document.querySelector("#endedSeriesList"),
-  endedSeriesPanel: document.querySelector("#endedSeriesPanel"),
   focusBar: document.querySelector("#focusBar"),
   focusMeta: document.querySelector("#focusMeta"),
   focusPercent: document.querySelector("#focusPercent"),
@@ -366,7 +363,6 @@ const tasksView = window.RhythmTasksView.createTasksView({
   escapeHtml,
   excludeTaskDate,
   excludedTasksForDate,
-  endedRecurringTasks,
   fillTaskForm,
   formatLongDate,
   formatTime,
@@ -398,7 +394,6 @@ const tasksView = window.RhythmTasksView.createTasksView({
   reorderTask,
   restoreTaskDate,
   restoreOverdueTask,
-  resumeTaskSeries,
   stopTaskSeries,
   saveState,
   setDraggedTask: (taskId, dateKey) => {
@@ -1177,16 +1172,6 @@ function stopTaskSeries(task, dateKey) {
   showToast(`Повтор завершен с ${formatLongDate(dateKey)}`, { undo });
 }
 
-function resumeTaskSeries(task) {
-  const undo = createUndoSnapshot();
-  task.date = toDateKey(new Date());
-  task.repeatUntil = "";
-  task.updatedAt = new Date().toISOString();
-  saveState();
-  render();
-  showToast("Повторяющаяся серия возобновлена с сегодняшнего дня", { undo });
-}
-
 function deleteTask(taskId) {
   return taskState.deleteTask(taskId);
 }
@@ -1648,12 +1633,6 @@ function excludedTasksForDate(dateKey) {
         !replacementSourceIds.has(task.id),
     )
     .sort(sortTasks);
-}
-
-function endedRecurringTasks(todayKey = toDateKey(new Date())) {
-  return state.tasks
-    .filter((task) => task.repeat !== "none" && task.repeatUntil && task.repeatUntil < todayKey)
-    .sort((a, b) => b.repeatUntil.localeCompare(a.repeatUntil) || a.title.localeCompare(b.title, "ru"));
 }
 
 function overdueTaskEntries(referenceDateKey = activeDate) {

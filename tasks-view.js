@@ -42,7 +42,6 @@
       ctx.els.taskProgress.textContent = `${percent}%`;
       ctx.els.taskProgressRing.style.setProperty("--progress", `${percent * 3.6}deg`);
       renderExcludedTasks();
-      renderEndedSeries();
       renderHistoricalTasks();
     }
 
@@ -458,28 +457,6 @@
         });
 
         ctx.els.excludedList.appendChild(node);
-      });
-    }
-
-    function renderEndedSeries() {
-      if (!ctx.els.endedSeriesPanel || !ctx.endedRecurringTasks) return;
-      const tasks = ctx.endedRecurringTasks();
-      ctx.els.endedSeriesPanel.hidden = tasks.length === 0;
-      ctx.els.endedSeriesCount.textContent = tasks.length ? `${tasks.length}` : "";
-      ctx.els.endedSeriesList.replaceChildren();
-      tasks.forEach((task) => {
-        const node = document.createElement("article");
-        const content = document.createElement("div");
-        const title = document.createElement("h3");
-        const meta = document.createElement("p");
-        const resume = createButton("ghost-button compact-button", "Возобновить");
-        node.className = "excluded-item";
-        title.textContent = task.title;
-        appendDetails(meta, [ctx.formatTaskRepeat(task), `завершена ${ctx.formatLongDate(task.repeatUntil)}`]);
-        content.append(title, meta);
-        node.append(content, resume);
-        resume.addEventListener("click", () => ctx.resumeTaskSeries(task));
-        ctx.els.endedSeriesList.appendChild(node);
       });
     }
 

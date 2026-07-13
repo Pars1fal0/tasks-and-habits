@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Removed the completed recurring-series manager from the task screen.
 - Added Supabase email/password authentication with local-only session storage and authenticated RLS policies.
 - Added a compact local sync history for push, pull, merge, and error events.
 - Added archive period filters and a backlog of older unfinished one-off and recurring occurrences.

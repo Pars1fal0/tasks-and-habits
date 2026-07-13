@@ -138,20 +138,6 @@ function createWindow() {
           return task?.acknowledgedOverdue?.[yesterday] === true && task?.completed?.[yesterday] !== true;
         }) && document.querySelector("#overduePanel")?.classList.contains("is-visible") === false;
         state.tasks = state.tasks.filter((task) => !["smoke-overdue-toggle", "smoke-acknowledge-overdue"].includes(task.id));
-        state.tasks.push({
-          id: "smoke-ended-series",
-          title: "Smoke ended series",
-          date: "2025-01-01",
-          repeat: "daily",
-          repeatUntil: "2025-01-03",
-          completed: {}, excludedDates: {}, notified: {},
-        });
-        render();
-        const endedSeriesVisible = document.querySelector("#endedSeriesPanel")?.hidden === false;
-        document.querySelector('#endedSeriesList button')?.click();
-        const endedSeriesResumeWorks = state.tasks.find((task) => task.id === "smoke-ended-series")?.repeatUntil === "";
-        state.tasks = state.tasks.filter((task) => task.id !== "smoke-ended-series");
-        render();
         const viewBeforeMore = activeView;
         document.querySelector(".nav-more-summary")?.click();
         const moreMenuKeepsView = activeView === viewBeforeMore && document.querySelector("#tasksView")?.classList.contains("is-active");
@@ -738,7 +724,6 @@ function createWindow() {
           hasWeekBoard,
           hasTodayButton: Boolean(document.querySelector("#todayButton")),
           hasOverdueToggle: Boolean(document.querySelector("#overdueToggle")),
-          hasEndedSeriesManager: Boolean(document.querySelector("#endedSeriesPanel")),
           hasQuickInput: Boolean(document.querySelector("#quickTaskInput")),
           hasCategories: document.querySelectorAll(".category-item").length >= 1,
           hasJsonActions: Boolean(document.querySelector("#exportButton")) && Boolean(document.querySelector("#importFile")),
@@ -784,8 +769,6 @@ function createWindow() {
           overdueBulkAcknowledgeWorks,
           overdueRestoreWorks,
           overdueVisibleOnlyNextDay: overdueVisibleOnNextDay && overdueGoneAfterNextDay,
-          endedSeriesVisible,
-          endedSeriesResumeWorks,
           moreMenuKeepsView,
           scheduleFieldsExclusive: deadlineFieldsExclusive && blockFieldsExclusive && noTimeFieldsExclusive,
           formBlockToNoTimeWorks,

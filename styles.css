@@ -2082,23 +2082,6 @@ body.has-floating-task-form::before {
   padding-top: 14px;
 }
 
-.ended-series-panel {
-  margin-top: 14px;
-  border-top: 1px solid var(--line);
-  padding-top: 14px;
-}
-
-.ended-series-panel > summary {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  cursor: pointer;
-  list-style: none;
-}
-
-.ended-series-panel > summary::-webkit-details-marker { display: none; }
-.ended-series-panel[open] > .excluded-list { margin-top: 10px; }
-
 .excluded-panel.is-visible {
   display: grid;
   gap: 10px;
