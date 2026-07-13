@@ -113,18 +113,36 @@
               startDate,
               updatedAt,
             });
+            const configHistory = config.normalizeHabitConfigHistory(habit.configHistory, {
+              fallback: {
+                type,
+                repeat: config.normalizeHabitRepeat(habit.repeat),
+                customRepeat: habit.customRepeat,
+                unit: habit.unit,
+                goal: habit.goal,
+              },
+              normalizeCustomRepeat: config.recurrence.normalizeCustomRepeat,
+              normalizeRepeat: config.normalizeHabitRepeat,
+              startDate,
+              updatedAt,
+            });
+            const latestConfig = configHistory.at(-1);
             return {
               id: habit.id || config.createId(),
               title: titleHistory.at(-1)?.title || "Привычка",
               titleHistory,
-              type,
-              repeat: config.normalizeHabitRepeat(habit.repeat),
-              customRepeat: config.recurrence.normalizeCustomRepeat(habit.customRepeat),
+              type: latestConfig.type,
+              repeat: latestConfig.repeat,
+              customRepeat: latestConfig.customRepeat,
               startDate,
-              unit: config.cleanText(habit.unit),
-              goal: Math.max(1, Number(habit.goal || 1)),
+              unit: latestConfig.unit,
+              goal: latestConfig.goal,
+              configHistory,
               archived: habit.archived === true,
               archivedAt: habit.archived === true ? habit.archivedAt || new Date().toISOString() : "",
+              archivedFromDate: habit.archived === true
+                ? config.normalizeDateKey(habit.archivedFromDate || String(habit.archivedAt || "").slice(0, 10), startDate)
+                : "",
               logs: config.normalizeHabitLogs(habit.logs, type),
               createdAt,
               updatedAt,

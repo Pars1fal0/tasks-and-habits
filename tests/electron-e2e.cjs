@@ -17,6 +17,8 @@ const { _electron: electron } = require("playwright-core");
     assert.equal(await page.locator("#categoryForm").evaluate((node) => node.closest(".view")?.id), "settingsView");
 
     await page.locator('.nav-tab[data-view="overview"]:visible').click();
+    assert.match(await page.locator("#weekSummaryText").textContent(), /недел|пока нет/i);
+    assert.equal(await page.locator("#weekSummaryCompleted").textContent(), "0 / 0");
     await page.locator('[data-overview-mode="month"]').click();
     assert.equal(await page.locator("#overviewHeading").textContent(), "Обзор месяца");
     assert.match(await page.locator("#weeklyTaskText").textContent(), /за месяц/);
@@ -29,6 +31,15 @@ const { _electron: electron } = require("playwright-core");
     assert.equal(await page.locator(".task-filter-disclosure").getAttribute("open"), null);
     assert.equal(await page.locator(".quick-task-disclosure").getAttribute("open"), null);
     assert.equal(await page.locator(".timeline-unscheduled-panel").getAttribute("open"), null);
+
+    await page.locator('.nav-tab[data-view="overview"]:visible').click();
+    await page.locator('[data-overview-mode="week"]').click();
+    const summaryBox = await page.locator(".weekly-summary-panel").boundingBox();
+    assert.ok(summaryBox && summaryBox.x >= 0 && summaryBox.x + summaryBox.width <= 390.5, "weekly summary must fit mobile");
+    await page.locator("#updateBanner").evaluate((node) => { node.hidden = false; });
+    const updateBox = await page.locator("#updateBanner").boundingBox();
+    assert.ok(updateBox && updateBox.x >= 0 && updateBox.x + updateBox.width <= 390.5, "update banner must fit mobile");
+    await page.locator("#updateBanner").evaluate((node) => { node.hidden = true; });
 
     await page.locator('.nav-tab[data-view="habits"]:visible').click();
     await page.locator("#openHabitForm").click();

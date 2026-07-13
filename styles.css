@@ -680,6 +680,38 @@ select:focus-visible {
   margin-bottom: 22px;
 }
 
+.update-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+  border: 1px solid rgba(39, 198, 165, 0.32);
+  border-radius: var(--radius-sm);
+  background: var(--teal-soft);
+  padding: 12px 14px;
+}
+
+.update-banner[hidden] {
+  display: none;
+}
+
+.update-banner > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.update-banner strong {
+  color: var(--text-strong);
+  font-size: 14px;
+}
+
+.update-banner span {
+  color: var(--text-soft);
+  font-size: 13px;
+}
+
 body:not([data-view="overview"]) .focus-board {
   display: none;
 }
@@ -2816,6 +2848,26 @@ body.has-floating-task-form::before {
 }
 
 @media (max-width: 680px) {
+  .update-banner,
+  .weekly-summary-panel {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+
+  .update-banner {
+    flex-direction: column;
+  }
+
+  .weekly-summary-facts {
+    grid-template-columns: 1fr;
+  }
+
+  .weekly-summary-facts div {
+    padding: 10px 0;
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+
   .timeline-unschedule-target {
     right: 16px;
     bottom: 92px;
@@ -3479,10 +3531,59 @@ body.has-floating-task-form::before {
 }
 
 .week-board-panel,
+.weekly-summary-panel,
 .month-panel,
 .week-panel,
 .heatmap-panel {
   grid-column: 1 / -1;
+}
+
+.weekly-summary-panel {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1.2fr);
+  align-items: center;
+  gap: 24px;
+}
+
+.weekly-summary-copy {
+  display: grid;
+  gap: 7px;
+}
+
+.weekly-summary-copy h2,
+.weekly-summary-copy p {
+  margin: 0;
+}
+
+.weekly-summary-copy p {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.weekly-summary-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+}
+
+.weekly-summary-facts div {
+  min-width: 0;
+  padding: 4px 18px;
+  border-left: 1px solid var(--line);
+}
+
+.weekly-summary-facts dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.weekly-summary-facts dd {
+  margin: 7px 0 0;
+  color: var(--text-strong);
+  font-size: 20px;
+  font-weight: 700;
 }
 
 .metric-panel {

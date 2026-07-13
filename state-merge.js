@@ -1,6 +1,7 @@
 (function (global) {
   const syncMetadata = global.RhythmSyncMetadata || require("./sync-metadata.js");
   const habitTitleHistory = global.RhythmHabitTitleHistory || require("./habit-title-history.js");
+  const habitConfigHistory = global.RhythmHabitConfigHistory || require("./habit-config-history.js");
   const TASK_DATE_FIELDS = syncMetadata.TASK_DATE_FIELDS;
 
   function mergeStates(localState = {}, remoteState = {}) {
@@ -63,10 +64,18 @@
 
   function mergeHabit(local, remote, localMeta, remoteMeta) {
     const titleHistory = habitTitleHistory.mergeHabitTitleHistory(local, remote);
+    const configHistory = habitConfigHistory.mergeHabitConfigHistory(local, remote);
+    const latestConfig = configHistory.at(-1);
     return {
       ...chooseNewest(local, remote),
       title: titleHistory.at(-1)?.title || "Привычка",
       titleHistory,
+      type: latestConfig.type,
+      repeat: latestConfig.repeat,
+      customRepeat: clone(latestConfig.customRepeat),
+      unit: latestConfig.unit,
+      goal: latestConfig.goal,
+      configHistory,
       logs: mergeDatedValues(
         local.logs,
         remote.logs,

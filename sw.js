@@ -16,6 +16,7 @@ const APP_SHELL = [
   "data-normalizers.js",
   "sync-metadata.js",
   "habit-title-history.js",
+  "habit-config-history.js",
   "pwa-controller.js",
   "state-normalizer.js",
   "state-merge.js",
@@ -26,6 +27,7 @@ const APP_SHELL = [
   "archive-view.js",
   "app-events.js",
   "heatmap-view.js",
+  "weekly-summary.js",
   "calendar-view.js",
   "calendar-drag-controller.js",
   "confirm-dialog.js",
@@ -63,9 +65,12 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(CACHE_NAME)
-      .then((cache) => cache.addAll(APP_SHELL))
-      .then(() => self.skipWaiting()),
+      .then((cache) => cache.addAll(APP_SHELL)),
   );
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {

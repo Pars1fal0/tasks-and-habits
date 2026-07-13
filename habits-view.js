@@ -21,6 +21,7 @@
       const streak = node.querySelector(".habit-streak");
       const control = node.querySelector(".habit-control");
       const habitTitle = ctx.habitTitleOnDate?.(habit, activeDate) || habit.title;
+      const habitConfig = ctx.habitConfigOnDate?.(habit, activeDate) || habit;
 
       node.draggable = true;
       node.dataset.habitId = habit.id;
@@ -34,9 +35,9 @@
       dragHandle?.setAttribute("aria-label", `Переместить привычку ${habitTitle}. Стрелки вверх и вниз меняют порядок`);
       attachHabitAccessibleMove(node, habit, dragHandle, habitTitle);
 
-      if (habit.type === "number") {
+      if (habitConfig.type === "number") {
         const current = Number(habit.logs[activeDate] || 0);
-        const goal = Number(habit.goal || 1);
+        const goal = Number(habitConfig.goal || 1);
         const percent = Math.min(100, Math.round((current / goal) * 100));
 
         const row = document.createElement("div");
@@ -54,7 +55,7 @@
         decrement.setAttribute("aria-label", `Уменьшить ${habitTitle}`);
         input.type = "number";
         input.min = "0";
-        const step = habitNumberStep(habit);
+        const step = habitNumberStep(habitConfig);
         input.step = String(step);
         input.value = String(current);
         input.setAttribute("aria-label", habitTitle);
@@ -62,7 +63,7 @@
         increment.className = "habit-stepper";
         increment.textContent = "+";
         increment.setAttribute("aria-label", `Увеличить ${habitTitle}`);
-        value.textContent = `${current} / ${goal} ${habit.unit || ""}`;
+        value.textContent = `${current} / ${goal} ${habitConfig.unit || ""}`;
         track.className = "progress-track";
         track.setAttribute("aria-hidden", "true");
         fill.className = "progress-fill";
@@ -86,7 +87,7 @@
           const loggedValue = Number(habit.logs[activeDate] || 0);
           const nextPercent = Math.min(100, Math.round((loggedValue / goal) * 100));
           fill.style.width = `${nextPercent}%`;
-          value.textContent = `${loggedValue} / ${goal} ${habit.unit || ""}`;
+          value.textContent = `${loggedValue} / ${goal} ${habitConfig.unit || ""}`;
           input.value = String(loggedValue);
         };
 
@@ -124,6 +125,7 @@
         const undo = ctx.createUndoSnapshot();
         habit.archived = true;
         habit.archivedAt = new Date().toISOString();
+        habit.archivedFromDate = activeDate;
         habit.updatedAt = habit.archivedAt;
         ctx.saveState();
         ctx.render();
@@ -168,6 +170,7 @@
           const undo = ctx.createUndoSnapshot();
           habit.archived = false;
           habit.archivedAt = "";
+          habit.archivedFromDate = "";
           habit.updatedAt = new Date().toISOString();
           ctx.saveState();
           ctx.render();
@@ -322,7 +325,8 @@
     }
 
     function habitSubtitle(habit) {
-      const repeat = ctx.formatHabitRepeat(habit);
+      const effective = ctx.habitConfigOnDate?.(habit, ctx.getActiveDate()) || habit;
+      const repeat = ctx.formatHabitRepeat({ ...habit, ...effective });
       return `Серия: ${ctx.habitStreak(habit, ctx.getActiveDate())} дн. · ${repeat}`;
     }
 

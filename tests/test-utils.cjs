@@ -5,6 +5,7 @@ const taskMoves = require("../task-moves.js");
 const stateNormalizerApi = require("../state-normalizer.js");
 const syncMetadata = require("../sync-metadata.js");
 const habitTitleHistory = require("../habit-title-history.js");
+const habitConfigHistory = require("../habit-config-history.js");
 
 function normalizeDateKey(value, fallback = "") {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ""));
@@ -43,7 +44,7 @@ function createMemoryStorage() {
 
 function createStateNormalizer() {
   return stateNormalizerApi.createStateNormalizer({
-    schemaVersion: 11,
+    schemaVersion: 12,
     validPriorities: ["high", "medium", "low"],
     cleanText,
     cleanTimeValue: (value) => {
@@ -59,15 +60,17 @@ function createStateNormalizer() {
       return () => `id-${(index += 1)}`;
     })(),
     normalizeDateKey: (value, fallback = "2026-06-26") => normalizeDateKey(value, fallback),
-    normalizeHabitLogs: (value, type) => {
+    normalizeHabitLogs: (value) => {
       const logs = {};
       Object.entries(value || {}).forEach(([dateKey, entry]) => {
         const normalizedDate = normalizeDateKey(dateKey, "");
         if (!normalizedDate) return;
-        logs[normalizedDate] = type === "number" ? Math.max(0, Number(entry || 0)) : entry === true;
+        if (entry === true) logs[normalizedDate] = true;
+        else if (Number(entry) > 0) logs[normalizedDate] = Number(entry);
       });
       return logs;
     },
+    normalizeHabitConfigHistory: habitConfigHistory.normalizeHabitConfigHistory,
     normalizeHabitRepeat: (value) =>
       ["daily", "every2days", "every3days", "weekdays", "weekends", "weekly", "custom"].includes(value)
         ? value

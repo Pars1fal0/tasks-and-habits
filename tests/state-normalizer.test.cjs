@@ -58,7 +58,7 @@ module.exports = [
         },
       });
 
-      assert.equal(normalized.schemaVersion, 11);
+      assert.equal(normalized.schemaVersion, 12);
       assert.equal(normalized.categories[0].color, "#00a78e");
       assert.equal(normalized.categories[1].name, "Работа");
       assert.equal(normalized.tasks[0].title, "Задача");
@@ -71,6 +71,7 @@ module.exports = [
       assert.deepEqual(normalized.tasks[0].acknowledgedOverdue, { "2026-06-25": true });
       assert.equal(normalized.habits[0].title, "Привычка");
       assert.equal(normalized.habits[0].titleHistory[0].title, "Привычка");
+      assert.equal(normalized.habits[0].configHistory[0].type, "number");
       assert.equal(normalized.habits[0].goal, 1);
       assert.deepEqual(normalized.habits[0].logs, { "2026-06-26": 3 });
       assert.equal(normalized.goals[0].title, "Цель");

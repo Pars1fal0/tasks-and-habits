@@ -3,6 +3,39 @@ const { createPwaController } = require("../pwa-controller.js");
 
 module.exports = [
   {
+    name: "announces a waiting update and activates it only on request",
+    async fn() {
+      const messages = [];
+      const listeners = {};
+      const registration = {
+        waiting: { postMessage: (message) => messages.push(message) },
+        addEventListener() {},
+        update: async () => {},
+      };
+      let announced = null;
+      let reloads = 0;
+      const controller = createPwaController({
+        hostname: "parsitasks.ru",
+        navigator: {
+          serviceWorker: {
+            controller: {},
+            addEventListener: (type, handler) => { listeners[type] = handler; },
+            register: async () => registration,
+          },
+        },
+        onUpdateAvailable: (value) => { announced = value; },
+        reload: () => { reloads += 1; },
+      });
+
+      await controller.register();
+      assert.equal(announced, registration);
+      assert.equal(controller.activateUpdate(registration), true);
+      assert.deepEqual(messages, [{ type: "SKIP_WAITING" }]);
+      listeners.controllerchange();
+      assert.equal(reloads, 1);
+    },
+  },
+  {
     name: "registers the production worker without browser cache",
     async fn() {
       const calls = [];

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.12.7
+
+- Habit type, target, unit, and recurrence changes now apply from the selected date without rewriting earlier statistics.
+- Numeric and check habit logs survive later type changes.
+- Archived habits remain visible when browsing dates before their archive date.
+- Added a compact weekly summary with completed totals and the strongest day.
+- Added a user-controlled PWA update banner instead of switching versions mid-session.
+
 ## 0.12.6
 
 - Habit renames now take effect from the selected date without rewriting names on earlier days.

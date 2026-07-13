@@ -1,4 +1,4 @@
-﻿const SCHEMA_VERSION = 11;
+﻿const SCHEMA_VERSION = 12;
 const VALID_PRIORITIES = ["high", "medium", "low"];
 const VALID_HABIT_REPEATS = ["daily", "every2days", "every3days", "weekdays", "weekends", "weekly", "custom"];
 const VALID_REMINDER_OFFSETS = ["none", "0", "5", "15", "30", "60", "1440"];
@@ -36,7 +36,6 @@ const {
 const dataNormalizers = window.RhythmDataNormalizers.createDataNormalizers({ normalizeDateKey });
 const { normalizeHabitLogs, normalizeTaskFlags, normalizeTaskOrder } = dataNormalizers;
 const syncMetadataTracker = window.RhythmSyncMetadata.createSyncMetadataTracker();
-const pwaController = window.RhythmPwaController.createPwaController();
 
 const storage = window.RhythmStorage.createLocalStorageAdapter({
   appName: "Ритм дня",
@@ -56,6 +55,7 @@ const stateNormalizer = window.RhythmStateNormalizer.createStateNormalizer({
   normalizeDateKey,
   normalizeHabitLogs,
   normalizeHabitRepeat,
+  normalizeHabitConfigHistory: window.RhythmHabitConfigHistory.normalizeHabitConfigHistory,
   normalizeHabitTitleHistory: window.RhythmHabitTitleHistory.normalizeHabitTitleHistory,
   normalizeReminderOffset,
   normalizeSyncMeta: window.RhythmSyncMetadata.normalizeSyncMeta,
@@ -300,6 +300,8 @@ const els = {
   todayLabel: document.querySelector("#todayLabel"),
   todayOpenMetric: document.querySelector("#todayOpenMetric"),
   toast: document.querySelector("#appToast"),
+  updateBanner: document.querySelector("#updateBanner"),
+  applyUpdateButton: document.querySelector("#applyUpdateButton"),
   views: {
     archive: document.querySelector("#archiveView"),
     goals: document.querySelector("#goalsView"),
@@ -315,8 +317,25 @@ const els = {
   weeklyHabitMetric: document.querySelector("#weeklyHabitMetric"),
   weeklyHabitText: document.querySelector("#weeklyHabitText"),
   weeklyTaskMetric: document.querySelector("#weeklyTaskMetric"),
+  weekSummaryBestDay: document.querySelector("#weekSummaryBestDay"),
+  weekSummaryCompleted: document.querySelector("#weekSummaryCompleted"),
+  weekSummaryHabits: document.querySelector("#weekSummaryHabits"),
+  weekSummaryText: document.querySelector("#weekSummaryText"),
   weeklyTaskText: document.querySelector("#weeklyTaskText"),
 };
+
+let pendingUpdateRegistration = null;
+const pwaController = window.RhythmPwaController.createPwaController({
+  onUpdateAvailable: (registration) => {
+    pendingUpdateRegistration = registration;
+    if (els.updateBanner) els.updateBanner.hidden = false;
+  },
+});
+els.applyUpdateButton?.addEventListener("click", () => {
+  if (!pwaController.activateUpdate(pendingUpdateRegistration)) return;
+  els.applyUpdateButton.disabled = true;
+  els.applyUpdateButton.textContent = "Обновляем...";
+});
 
 const toastController = window.RhythmToast.createToastController({
   element: els.toast,
@@ -434,6 +453,7 @@ const habitsView = window.RhythmHabitsView.createHabitsView({
   getState: () => state,
   isTaskDone,
   habitStreak,
+  habitConfigOnDate,
   habitTitleOnDate: window.RhythmHabitTitleHistory.habitTitleOnDate,
   habitsForDate,
   render: renderHabitSurfaces,
@@ -475,6 +495,7 @@ const goalsView = window.RhythmGoalsView.createGoalsView({
   },
 });
 
+const weeklySummary = window.RhythmWeeklySummary.createWeeklySummary({ els, formatWeekday, statsForDate });
 const calendarView = window.RhythmCalendarView.createCalendarView({
   els,
   attachTaskChipDrag,
@@ -497,6 +518,7 @@ const calendarView = window.RhythmCalendarView.createCalendarView({
   priorityLabels,
   statsForDate,
   toDateKey,
+  weeklySummary,
 });
 
 const timelineController = window.RhythmTimelineController.createTimelineController({
@@ -635,6 +657,7 @@ const taskFormController = window.RhythmTaskForm.createTaskForm({
 });
 
 const habitFormController = window.RhythmHabitForm.createHabitForm({
+  applyHabitConfigChange: window.RhythmHabitConfigHistory.applyHabitConfigChange,
   applyHabitTitleChange: window.RhythmHabitTitleHistory.applyHabitTitleChange,
   els,
   cleanText,
@@ -643,8 +666,10 @@ const habitFormController = window.RhythmHabitForm.createHabitForm({
   findHabit: (id) => state.habits.find((habit) => habit.id === id),
   getActiveDate: () => activeDate,
   getHabitCustomRepeatFromForm,
+  habitConfigOnDate,
   habitTitleOnDate: window.RhythmHabitTitleHistory.habitTitleOnDate,
   normalizeHabitRepeat,
+  normalizeCustomRepeat: window.RhythmRecurrence.normalizeCustomRepeat,
   render,
   saveState,
   setHabitCustomRepeatForm,
@@ -1670,16 +1695,20 @@ function overdueTaskEntries(referenceDateKey = activeDate) {
 }
 
 function habitsForDate(dateKey) {
-  return state.habits.filter((habit) => !habit.archived && habitOccursOn(habit, dateKey));
+  return state.habits.filter((habit) => {
+    const hiddenByArchive = window.RhythmHabitConfigHistory.habitIsArchivedOnDate(habit, dateKey);
+    return !hiddenByArchive && habitOccursOn(habit, dateKey);
+  });
 }
 
 function habitOccursOn(habit, dateKey) {
-  const repeat = normalizeHabitRepeat(habit.repeat);
+  const effective = habitConfigOnDate(habit, dateKey);
+  const repeat = normalizeHabitRepeat(effective.repeat);
   return window.RhythmRecurrence.taskScheduledOn(
     {
       date: habit.startDate || activeDate,
       repeat: repeat === "weekly" ? "weekly" : repeat,
-      customRepeat: habit.customRepeat,
+      customRepeat: effective.customRepeat,
     },
     dateKey,
   );
@@ -1690,9 +1719,17 @@ function isTaskDone(task, dateKey) {
 }
 
 function isHabitComplete(habit, dateKey) {
+  const effective = habitConfigOnDate(habit, dateKey);
   const value = habit.logs?.[dateKey];
-  if (habit.type === "number") return Number(value || 0) >= Number(habit.goal || 1);
+  if (effective.type === "number") return Number(value || 0) >= Number(effective.goal || 1);
   return value === true;
+}
+
+function habitConfigOnDate(habit, dateKey) {
+  return window.RhythmHabitConfigHistory.habitConfigOnDate(habit, dateKey, {
+    normalizeCustomRepeat: window.RhythmRecurrence.normalizeCustomRepeat,
+    normalizeRepeat: normalizeHabitRepeat,
+  });
 }
 
 function habitStreak(habit, dateKey = toDateKey(new Date())) {

@@ -159,6 +159,14 @@
           </div>
         </header>
 
+        <div class="update-banner" id="updateBanner" role="status" aria-live="polite" hidden>
+          <div>
+            <strong>Доступна новая версия</strong>
+            <span>Обновление уже загружено и займёт несколько секунд.</span>
+          </div>
+          <button class="primary-button compact-button" id="applyUpdateButton" type="button">Обновить</button>
+        </div>
+
         <section class="focus-board" aria-label="Состояние дня">
           <article class="focus-card">
             <div class="focus-copy">
@@ -699,6 +707,27 @@
               <strong id="weeklyHabitMetric">0%</strong>
               <p id="weeklyHabitText"></p>
             </section>
+            <section class="panel weekly-summary-panel" data-overview-panel="week" aria-labelledby="weeklySummaryHeading">
+              <div class="weekly-summary-copy">
+                <span class="metric-label">Итог недели</span>
+                <h2 id="weeklySummaryHeading">Коротко о прогрессе</h2>
+                <p id="weekSummaryText">Неделя ещё не заполнена.</p>
+              </div>
+              <dl class="weekly-summary-facts">
+                <div>
+                  <dt>Задачи</dt>
+                  <dd id="weekSummaryCompleted">0 / 0</dd>
+                </div>
+                <div>
+                  <dt>Привычки</dt>
+                  <dd id="weekSummaryHabits">0 / 0</dd>
+                </div>
+                <div>
+                  <dt>Лучший день</dt>
+                  <dd id="weekSummaryBestDay">Нет данных</dd>
+                </div>
+              </dl>
+            </section>
             <section class="panel week-board-panel" data-overview-panel="week">
               <div class="panel-heading compact">
                 <div>
@@ -1105,24 +1134,26 @@
     <script src="data-normalizers.js?v=1" defer></script>
     <script src="sync-metadata.js?v=1" defer></script>
     <script src="habit-title-history.js?v=1" defer></script>
+    <script src="habit-config-history.js?v=1" defer></script>
     <script src="pwa-controller.js?v=1" defer></script>
-    <script src="state-normalizer.js?v=10" defer></script>
-    <script src="state-merge.js?v=6" defer></script>
+    <script src="state-normalizer.js?v=11" defer></script>
+    <script src="state-merge.js?v=7" defer></script>
     <script src="date-rollover.js?v=1" defer></script>
     <script src="planning-history.js?v=1" defer></script>
     <script src="storage.js?v=1" defer></script>
     <script src="archive-view.js?v=2" defer></script>
     <script src="app-events.js?v=3" defer></script>
     <script src="heatmap-view.js?v=3" defer></script>
-    <script src="calendar-view.js?v=2" defer></script>
+    <script src="weekly-summary.js?v=1" defer></script>
+    <script src="calendar-view.js?v=3" defer></script>
     <script src="calendar-drag-controller.js?v=1" defer></script>
     <script src="confirm-dialog.js?v=3" defer></script>
     <script src="form-dialog.js?v=1" defer></script>
     <script src="categories.js?v=4" defer></script>
     <script src="goal-checkpoint-editor.js?v=2" defer></script>
     <script src="goals-view.js?v=8" defer></script>
-    <script src="habit-form.js?v=4" defer></script>
-    <script src="habits-view.js?v=4" defer></script>
+    <script src="habit-form.js?v=5" defer></script>
+    <script src="habits-view.js?v=5" defer></script>
     <script src="import-export.js?v=4" defer></script>
     <script src="notifications.js?v=2" defer></script>
     <script src="overdue-controller.js?v=4" defer></script>

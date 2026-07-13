@@ -35,6 +35,7 @@
       if (ctx.els.overviewHeading) ctx.els.overviewHeading.textContent = period.heading;
       ctx.els.weeklyTaskText.textContent = `${taskDone} из ${taskTotal} задач ${period.suffix}`;
       ctx.els.weeklyHabitText.textContent = `${habitDone} из ${habitTotal} отметок привычек ${period.suffix}`;
+      ctx.weeklySummary?.render(week);
       renderWeekBoard(week);
       renderMonthCalendar();
       renderHeatmap();

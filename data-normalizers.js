@@ -10,18 +10,18 @@
       return flags;
     }
 
-    function normalizeHabitLogs(value, type) {
+    function normalizeHabitLogs(value) {
       const logs = {};
       if (!value || typeof value !== "object" || Array.isArray(value)) return logs;
       Object.entries(value).forEach(([dateKey, entry]) => {
         const normalizedDate = config.normalizeDateKey(dateKey, "");
         if (!normalizedDate) return;
-        if (type === "number") {
-          const amount = Number(entry);
-          if (Number.isFinite(amount) && amount > 0) logs[normalizedDate] = amount;
-        } else if (entry === true) {
+        if (entry === true) {
           logs[normalizedDate] = true;
+          return;
         }
+        const amount = Number(entry);
+        if (Number.isFinite(amount) && amount > 0) logs[normalizedDate] = amount;
       });
       return logs;
     }

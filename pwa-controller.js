@@ -4,15 +4,38 @@
     const cachesApi = options.caches || global.caches;
     const hostname = options.hostname ?? global.location?.hostname ?? "";
     const isDesktop = options.isDesktop ?? Boolean(global.rhythmDesktop);
+    const onUpdateAvailable = options.onUpdateAvailable || (() => {});
+    const reload = options.reload || (() => global.location?.reload?.());
 
     function register() {
       if (!navigatorApi?.serviceWorker || isDesktop) return Promise.resolve(false);
       if (["localhost", "127.0.0.1", "::1"].includes(hostname)) return clearDevelopmentCaches();
       return navigatorApi.serviceWorker
         .register("sw.js", { updateViaCache: "none" })
-        .then((registration) => registration.update())
+        .then((registration) => {
+          watchRegistration(registration);
+          return registration.update();
+        })
         .then(() => true)
         .catch(() => false);
+    }
+
+    function watchRegistration(registration) {
+      if (registration.waiting && navigatorApi.serviceWorker.controller) onUpdateAvailable(registration);
+      registration.addEventListener?.("updatefound", () => {
+        const worker = registration.installing;
+        worker?.addEventListener?.("statechange", () => {
+          if (worker.state === "installed" && navigatorApi.serviceWorker.controller) onUpdateAvailable(registration);
+        });
+      });
+    }
+
+    function activateUpdate(registration) {
+      const worker = registration?.waiting || registration?.installing;
+      if (!worker) return false;
+      navigatorApi.serviceWorker.addEventListener?.("controllerchange", reload, { once: true });
+      worker.postMessage({ type: "SKIP_WAITING" });
+      return true;
     }
 
     async function clearDevelopmentCaches() {
@@ -25,7 +48,7 @@
       return false;
     }
 
-    return { register };
+    return { activateUpdate, register };
   }
 
   const api = { createPwaController };
