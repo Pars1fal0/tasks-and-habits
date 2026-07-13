@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.12.11
+
+- Reloading now preserves the active section, selected calendar period, browsed date, task filter, and archive period.
+- A view left on today still follows the calendar when the app is reopened on a later day.
+- Increased small timeline, calendar, and synchronization controls to mobile-friendly touch targets.
+
 ## 0.12.10
 
 - Voice submission now accepts `Отправь`, `Отправить`, and `Отправляй` while remaining compatible with custom phrases.

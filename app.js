@@ -3,6 +3,7 @@ const VALID_PRIORITIES = ["high", "medium", "low"];
 const VALID_HABIT_REPEATS = ["daily", "every2days", "every3days", "weekdays", "weekends", "weekly", "custom"];
 const VALID_REMINDER_OFFSETS = ["none", "0", "5", "15", "30", "60", "1440"];
 const VALID_BACKUP_SCHEDULES = ["0", "5", "15", "30", "60"];
+const VALID_VIEWS = ["tasks", "timeline", "habits", "goals", "overview", "archive", "settings"];
 
 const appUtils = window.RhythmAppUtils.createAppUtils({
   getFirstDayOfWeek: () => firstDayOfWeek,
@@ -67,17 +68,30 @@ const stateNormalizer = window.RhythmStateNormalizer.createStateNormalizer({
   toDateKey,
 });
 
+const initialUiState = storage.loadUiState();
 let state = normalizeState(storage.loadState());
 let persistedStateSnapshot = window.RhythmSyncMetadata.clone(state);
-let activeDate = toDateKey(new Date());
-let currentToday = activeDate;
-let activeView = "tasks";
-let taskFilter = "all";
-const initialUiState = storage.loadUiState();
+const startupToday = toDateKey(new Date());
+const storedActiveDate = normalizeDateKey(initialUiState.activeDate, "");
+const storedToday = normalizeDateKey(initialUiState.currentToday, "");
+let activeDate = storedActiveDate && storedToday && storedActiveDate !== storedToday
+  ? storedActiveDate
+  : startupToday;
+let currentToday = startupToday;
+let taskFilter = ["all", "open", "done"].includes(initialUiState.taskFilter)
+  ? initialUiState.taskFilter
+  : "all";
+let activeView = VALID_VIEWS.includes(initialUiState.activeView) ? initialUiState.activeView : "tasks";
+let overviewMode = ["week", "month", "year"].includes(initialUiState.overviewMode)
+  ? initialUiState.overviewMode
+  : "week";
 let taskCategoryFilter = initialUiState.taskCategoryFilter || "all";
 let taskSearchQuery = initialUiState.taskSearchQuery || "";
 let archiveCategoryFilter = initialUiState.archiveCategoryFilter || "all";
 let archiveSearchQuery = initialUiState.archiveSearchQuery || "";
+let archivePeriod = ["all", "week", "month", "quarter"].includes(initialUiState.archivePeriod)
+  ? initialUiState.archivePeriod
+  : "all";
 let overdueHidden = initialUiState.overdueHidden === true;
 let themePreference = normalizeThemePreference(initialUiState.themePreference);
 let notificationSetting = normalizeNotificationSetting(initialUiState.notificationSetting);
@@ -409,6 +423,7 @@ const tasksView = window.RhythmTasksView.createTasksView({
   matchesCategoryFilter,
   openDate: (dateKey) => {
     activeDate = dateKey;
+    saveUiState();
     resetTaskForm({ open: false });
     render();
     scrollWorkspaceTop();
@@ -581,6 +596,7 @@ const timelineView = window.RhythmTimelineView.createTimelineView({
 
 const archiveView = window.RhythmArchiveView.createArchiveView({
   addDays,
+  initialPeriod: archivePeriod,
   els,
   archiveEntries,
   archiveEntryMatchesSearch,
@@ -593,6 +609,10 @@ const archiveView = window.RhythmArchiveView.createArchiveView({
   getArchiveSearchQuery: () => archiveSearchQuery,
   getCategory,
   matchesCategoryFilter,
+  onPeriodChange: (value) => {
+    archivePeriod = value;
+    saveUiState();
+  },
   postponeTask,
   priorityLabels,
   render: renderTaskSurfaces,
@@ -830,12 +850,17 @@ const viewRenderer = window.RhythmViewRenderer.createViewRenderer({
 const appEvents = window.RhythmAppEvents.createAppEvents({
   calendarDragController,
   changeOverviewMode: (mode, activeButton) => {
-    els.views.overview.dataset.mode = ["week", "month", "year"].includes(mode) ? mode : "week";
-    document.querySelectorAll("[data-overview-mode]").forEach((item) => item.classList.toggle("is-active", item === activeButton));
+    overviewMode = ["week", "month", "year"].includes(mode) ? mode : "week";
+    els.views.overview.dataset.mode = overviewMode;
+    document.querySelectorAll("[data-overview-mode]").forEach((item) => {
+      item.classList.toggle("is-active", item === activeButton);
+    });
+    saveUiState();
     renderOverview();
   },
   changeActiveDate: (value) => {
     activeDate = value || toDateKey(new Date());
+    saveUiState();
     resetTaskForm({ open: false });
     render();
   },
@@ -857,6 +882,7 @@ const appEvents = window.RhythmAppEvents.createAppEvents({
   changeTaskFilter: (value, activeButton) => {
     taskFilter = value;
     document.querySelectorAll("[data-task-filter]").forEach((item) => item.classList.toggle("is-active", item === activeButton));
+    saveUiState();
     renderTasks();
   },
   changeTaskSearch: (value) => {
@@ -867,6 +893,7 @@ const appEvents = window.RhythmAppEvents.createAppEvents({
   changeView: (nextView) => {
     if (!nextView || !els.views[nextView]) return;
     activeView = nextView;
+    saveUiState();
     els.navMore?.removeAttribute("open");
     render();
     scrollWorkspaceTop();
@@ -958,6 +985,13 @@ function init() {
   els.activeDate.value = activeDate;
   els.taskSearch.value = taskSearchQuery;
   els.archiveSearch.value = archiveSearchQuery;
+  els.views.overview.dataset.mode = overviewMode;
+  document.querySelectorAll("[data-overview-mode]").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.overviewMode === overviewMode);
+  });
+  document.querySelectorAll("[data-task-filter]").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.taskFilter === taskFilter);
+  });
   applyThemePreference();
   applySettingsPreferences();
   settingsController.syncControls();
@@ -992,6 +1026,7 @@ function handleDateRollover() {
     resetTaskForm({ open: false });
     resetHabitForm({ open: false });
   }
+  saveUiState();
   render();
 }
 
@@ -1242,6 +1277,7 @@ function deleteGoal(goalId) {
 function openDateTasks(dateKey) {
   activeDate = dateKey;
   activeView = "tasks";
+  saveUiState();
   resetTaskForm({ open: false });
   render();
   scrollWorkspaceTop();
@@ -1948,12 +1984,14 @@ function shiftDate(days) {
   const date = parseDate(activeDate);
   date.setDate(date.getDate() + days);
   activeDate = toDateKey(date);
+  saveUiState();
   resetTaskForm({ open: false });
   render();
 }
 
 function goToday() {
   activeDate = toDateKey(new Date());
+  saveUiState();
   resetTaskForm({ open: false });
   render();
 }
@@ -1965,19 +2003,25 @@ function shiftMonth(months) {
   const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
   target.setDate(Math.min(targetDay, lastDay));
   activeDate = toDateKey(target);
+  saveUiState();
   resetTaskForm({ open: false });
   render();
 }
 
 function saveUiState() {
   storage.saveUiState({
+    activeDate,
+    activeView,
     archiveCategoryFilter,
+    archivePeriod,
     archiveSearchQuery,
     backupSchedule,
+    currentToday,
     densityPreference,
     firstDayOfWeek,
     localStateUpdatedAt,
     notificationSetting,
+    overviewMode,
     overdueHidden,
     remoteSyncAnonKey,
     remoteSyncEnabled,
@@ -1986,6 +2030,7 @@ function saveUiState() {
     remoteSyncUrl,
     remoteSyncUserKey,
     taskCategoryFilter,
+    taskFilter,
     taskSearchQuery,
     themePreference,
     timeFormat,

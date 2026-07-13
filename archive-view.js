@@ -2,7 +2,10 @@
   function createArchiveView(ctx) {
     const selectedKeys = new Set();
     let visibleEntries = [];
-    let period = "all";
+    let period = ["all", "week", "month", "quarter"].includes(ctx.initialPeriod)
+      ? ctx.initialPeriod
+      : "all";
+    if (ctx.els?.archivePeriodFilter) ctx.els.archivePeriodFilter.value = period;
 
     ctx.els?.archiveSelectAll?.addEventListener("change", () => {
       selectedKeys.clear();
@@ -13,6 +16,7 @@
     ctx.els?.archiveBulkDelete?.addEventListener("click", deleteSelected);
     ctx.els?.archivePeriodFilter?.addEventListener("change", () => {
       period = ctx.els.archivePeriodFilter.value || "all";
+      ctx.onPeriodChange?.(period);
       renderArchive();
     });
 
@@ -212,6 +216,7 @@
     function setPeriod(value) {
       period = ["all", "week", "month", "quarter"].includes(value) ? value : "all";
       if (ctx.els.archivePeriodFilter) ctx.els.archivePeriodFilter.value = period;
+      ctx.onPeriodChange?.(period);
       renderArchive();
     }
     return { createArchiveNode, renderArchive, setPeriod };

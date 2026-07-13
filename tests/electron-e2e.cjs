@@ -17,9 +17,24 @@ const { _electron: electron } = require("playwright-core");
     assert.equal(await page.locator("#categoryForm").evaluate((node) => node.closest(".view")?.id), "settingsView");
 
     await page.locator('.nav-tab[data-view="overview"]:visible').click();
+    await page.reload();
+    await page.waitForSelector('body[data-view="overview"]');
+    assert.equal(await page.locator("#pageTitle").textContent(), "Календарь");
     await page.locator('[data-overview-mode="month"]').click();
     assert.equal(await page.locator("#overviewHeading").textContent(), "Обзор месяца");
     assert.match(await page.locator("#weeklyTaskText").textContent(), /за месяц/);
+    await page.reload();
+    await page.waitForSelector('body[data-view="overview"]');
+    assert.equal(await page.locator("#overviewHeading").textContent(), "Обзор месяца");
+    assert.equal(
+      await page.locator('[data-overview-mode="month"]').evaluate((node) => node.classList.contains("is-active")),
+      true,
+    );
+    await page.locator("#activeDate").fill("2026-07-20");
+    await page.locator("#activeDate").dispatchEvent("change");
+    await page.reload();
+    await page.waitForSelector('body[data-view="overview"]');
+    assert.equal(await page.locator("#activeDate").inputValue(), "2026-07-20");
 
     await page.locator('.nav-tab[data-view="settings"]:visible').click();
     assert.equal(await page.locator("#remoteSyncPushButton").isDisabled(), true);

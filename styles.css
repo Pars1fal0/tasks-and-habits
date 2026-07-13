@@ -4308,6 +4308,20 @@ body.has-floating-task-form::before {
 }
 
 @media (max-width: 680px) {
+  .segmented-control button,
+  .sync-technical > summary {
+    min-height: 44px;
+  }
+
+  .timeline-scale-control button {
+    min-width: 44px;
+  }
+
+  .sync-technical > summary {
+    display: flex;
+    align-items: center;
+  }
+
   .topbar,
   .toolbar,
   .focus-card {
