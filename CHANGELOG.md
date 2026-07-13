@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Prepared automatic Cloudflare Pages deployment from the private GitHub repository and `master` branch.
+- Added a clean static web build containing only the PWA application shell.
 - Added live cross-device synchronization every 30 seconds and whenever the app regains focus, visibility, or network access.
 - Merge newer remote changes before automatic pushes so two active devices do not silently overwrite each other.
 - Reworked remote storage copy around a same-account multi-device setup while keeping offline-first local data.

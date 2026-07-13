@@ -1,7 +1,7 @@
 {
   "name": "Ритм дня",
   "short_name": "Ритм",
-  "description": "Локальный трекер задач и привычек",
+  "description": "Планировщик задач, привычек и целей с синхронизацией устройств",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#090d10",

@@ -1,6 +1,6 @@
 {
   "name": "rhythm-day",
-  "version": "0.12.0",
+  "version": "0.12.1",
   "private": true,
   "description": "Локальный десктопный трекер задач и привычек",
   "main": "desktop/main.cjs",
@@ -10,6 +10,8 @@
     "test:e2e": "node tests/electron-e2e.cjs",
     "lint": "node tests/lint.cjs",
     "test": "node tests/run-tests.cjs",
+    "build:web": "node scripts/build-web.cjs",
+    "build:cloudflare": "npm test && npm run lint && npm run build:web",
     "build:win": "electron-builder --win portable nsis",
     "pack:win": "electron-builder --win portable"
   },

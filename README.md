@@ -2,6 +2,8 @@
 
 Трекер задач и привычек на русском языке. Работает как PWA в браузере и как десктопное приложение на Electron. Данные хранятся local-first в `localStorage`, а при настройке Supabase могут дополнительно сохраняться в удаленную Postgres-БД.
 
+Веб-версия подготовлена для автоматической публикации в Cloudflare Pages после каждого push в `master`.
+
 ## Возможности
 
 - задачи на выбранный день с дедлайном, временем, приоритетом, категорией и напоминанием;
@@ -85,6 +87,18 @@ python -m http.server 5173 --bind 127.0.0.1
 ```
 
 Затем открыть `http://127.0.0.1:5173/`.
+
+## Публикация сайта
+
+Cloudflare Pages подключается к приватному GitHub-репозиторию и автоматически публикует каждый push в `master`. Параметры проекта:
+
+- production branch: `master`;
+- framework preset: `None`;
+- build command: `npm run build:cloudflare`;
+- build output directory: `web-dist`;
+- root directory: оставить пустой.
+
+Команда публикации сначала запускает unit-тесты и lint, затем собирает чистый статический каталог `web-dist`. Для корректных ссылок подтверждения email полученный адрес `*.pages.dev` нужно указать в Supabase в `Authentication` → `URL Configuration` как `Site URL` и добавить в `Redirect URLs`.
 
 ## Десктопная версия
 

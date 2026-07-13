@@ -11,6 +11,10 @@ const testFiles = fs
   .readdirSync(__dirname)
   .filter((file) => file.endsWith(".cjs"))
   .map((file) => path.join(__dirname, file));
+const scriptFiles = fs
+  .readdirSync(path.join(root, "scripts"))
+  .filter((file) => file.endsWith(".cjs"))
+  .map((file) => path.join(root, "scripts", file));
 
 const forbidden = [
   { pattern: /\binnerHTML\b/, label: "innerHTML" },
@@ -26,7 +30,7 @@ sourceFiles.forEach((filePath) => {
   });
 });
 
-[...sourceFiles, ...testFiles].forEach((filePath) => {
+[...sourceFiles, ...testFiles, ...scriptFiles].forEach((filePath) => {
   const source = fs.readFileSync(filePath, "utf8");
   assert.doesNotThrow(() => new Function(source), `${path.relative(root, filePath)} has invalid JavaScript syntax`);
 });
