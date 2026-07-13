@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.10
+
+- Voice submission now accepts `Отправь`, `Отправить`, and `Отправляй` while remaining compatible with custom phrases.
+
 ## 0.12.9
 
 - Removed the weekly summary panel and its unused rendering code.

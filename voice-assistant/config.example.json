@@ -4,6 +4,7 @@
     "кодекс слушай"
   ],
   "send_phrase": "отправь",
+  "send_phrases": ["отправить", "отправляй"],
   "cancel_phrase": "отмена",
   "microphone": null,
   "composer_bottom_offset": 88,

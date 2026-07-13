@@ -12,8 +12,11 @@ module.exports = [
 
       assert.deepEqual(config.wake_phrases, ["кодекс работай", "кодекс слушай"]);
       assert.equal(config.send_phrase, "отправь");
+      assert.deepEqual(config.send_phrases, ["отправить", "отправляй"]);
       assert.match(source, /RawInputStream/);
       assert.match(source, /command_timeout_seconds/);
+      assert.match(source, /split_send_phrase/);
+      assert.match(source, /DEFAULT_SEND_PHRASES/);
       assert.doesNotMatch(source, /requests|urllib/);
       const control = fs.readFileSync(path.join(root, "codex_control.py"), "utf8");
       assert.match(control, /composer_point/);

@@ -23,6 +23,7 @@ CONFIG_PATH = ROOT / "config.json"
 PID_PATH = ROOT / "assistant.pid"
 LOG_PATH = ROOT / "assistant.log"
 SAMPLE_RATE = 16_000
+DEFAULT_SEND_PHRASES = ("отправь", "отправить", "отправляй")
 
 
 def configure_logging():
@@ -37,7 +38,14 @@ def load_config():
     config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
     phrases = [normalize_phrase(value) for value in config.get("wake_phrases", [])]
     config["wake_phrases"] = [value for value in phrases if value]
-    config["send_phrase"] = normalize_phrase(config.get("send_phrase", "отправь"))
+    configured_send_phrases = [
+        config.get("send_phrase", "отправь"),
+        *config.get("send_phrases", []),
+        *DEFAULT_SEND_PHRASES,
+    ]
+    config["send_phrases"] = list(
+        dict.fromkeys(normalize_phrase(value) for value in configured_send_phrases if normalize_phrase(value))
+    )
     config["cancel_phrase"] = normalize_phrase(config.get("cancel_phrase", "отмена"))
     if not config["wake_phrases"]:
         raise RuntimeError("В config.json не указана ключевая фраза.")
@@ -51,6 +59,16 @@ def normalize_phrase(value):
 def create_recognizer(model, phrases):
     grammar = json.dumps([*phrases, "[unk]"], ensure_ascii=False)
     return KaldiRecognizer(model, SAMPLE_RATE, grammar)
+
+
+def split_send_phrase(result, send_phrases):
+    for phrase in sorted(send_phrases, key=len, reverse=True):
+        if result == phrase:
+            return "", True
+        suffix = f" {phrase}"
+        if result.endswith(suffix):
+            return result[: -len(suffix)].strip(), True
+    return result, False
 
 
 def beep(kind):
@@ -159,8 +177,7 @@ def run():
                     wake_recognizer.Reset()
                     continue
 
-                should_send = result == config["send_phrase"] or result.endswith(f" {config['send_phrase']}")
-                spoken_part = result[: -len(config["send_phrase"])].strip() if should_send else result
+                spoken_part, should_send = split_send_phrase(result, config["send_phrases"])
                 if spoken_part:
                     command_parts.append(spoken_part)
                 if not should_send:
