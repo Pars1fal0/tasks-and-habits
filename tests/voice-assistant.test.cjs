@@ -17,7 +17,8 @@ module.exports = [
       assert.doesNotMatch(source, /requests|urllib/);
       const control = fs.readFileSync(path.join(root, "codex_control.py"), "utf8");
       assert.match(control, /composer_point/);
-      assert.match(control, /literal_key_sequence/);
+      assert.match(control, /send_unicode_text/);
+      assert.doesNotMatch(control, /pywinauto|comtypes/i);
       assert.doesNotMatch(control, /clipboard/i);
     },
   },
