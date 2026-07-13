@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added an isolated low-load Windows voice assistant with offline Russian wake-word recognition and automatic Codex prompt submission.
 - Removed the ineffective simple/advanced interface mode and its obsolete persisted setting.
 - Automatically merge duplicate categories by normalized name and preserve task-category links across devices.
 - Fixed deleted records reappearing during two-device synchronization when device clocks or migrated timestamps differ.
