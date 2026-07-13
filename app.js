@@ -317,11 +317,6 @@ const els = {
   weeklyHabitMetric: document.querySelector("#weeklyHabitMetric"),
   weeklyHabitText: document.querySelector("#weeklyHabitText"),
   weeklyTaskMetric: document.querySelector("#weeklyTaskMetric"),
-  weekSummaryBestDay: document.querySelector("#weekSummaryBestDay"),
-  weeklySummaryPanel: document.querySelector("#weeklySummaryPanel"),
-  weekSummaryCompleted: document.querySelector("#weekSummaryCompleted"),
-  weekSummaryHabits: document.querySelector("#weekSummaryHabits"),
-  weekSummaryText: document.querySelector("#weekSummaryText"),
   weeklyTaskText: document.querySelector("#weeklyTaskText"),
 };
 
@@ -496,7 +491,6 @@ const goalsView = window.RhythmGoalsView.createGoalsView({
   },
 });
 
-const weeklySummary = window.RhythmWeeklySummary.createWeeklySummary({ els, formatWeekday, statsForDate });
 const calendarView = window.RhythmCalendarView.createCalendarView({
   els,
   attachTaskChipDrag,
@@ -519,7 +513,6 @@ const calendarView = window.RhythmCalendarView.createCalendarView({
   priorityLabels,
   statsForDate,
   toDateKey,
-  weeklySummary,
 });
 
 const timelineController = window.RhythmTimelineController.createTimelineController({

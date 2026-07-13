@@ -3520,76 +3520,10 @@ body.has-floating-task-form::before {
 }
 
 .week-board-panel,
-.weekly-summary-panel,
 .month-panel,
 .week-panel,
 .heatmap-panel {
   grid-column: 1 / -1;
-}
-
-.weekly-summary-panel {
-  display: grid;
-  grid-template-columns: minmax(220px, 1fr) auto;
-  align-items: center;
-  gap: 20px;
-  min-height: 0;
-  padding: 20px 22px;
-}
-
-.weekly-summary-copy {
-  display: grid;
-  gap: 5px;
-}
-
-.weekly-summary-copy h2,
-.weekly-summary-copy p {
-  margin: 0;
-}
-
-.weekly-summary-copy p {
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.45;
-}
-
-.weekly-summary-copy h2 {
-  font-size: 19px;
-  line-height: 1.3;
-}
-
-.weekly-summary-facts {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(96px, auto));
-  gap: 0;
-  margin: 0;
-}
-
-.weekly-summary-facts div {
-  min-width: 0;
-  padding: 2px 18px;
-  border-left: 1px solid var(--line);
-}
-
-.weekly-summary-facts dt {
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 650;
-}
-
-.weekly-summary-facts dd {
-  margin: 5px 0 0;
-  color: var(--text-strong);
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 1.25;
-}
-
-.weekly-summary-panel.is-empty {
-  grid-template-columns: 1fr;
-}
-
-.weekly-summary-panel.is-empty .weekly-summary-facts {
-  display: none;
 }
 
 .metric-panel {
@@ -4374,30 +4308,6 @@ body.has-floating-task-form::before {
 }
 
 @media (max-width: 680px) {
-  .weekly-summary-panel {
-    grid-template-columns: 1fr;
-    gap: 14px;
-    padding: 16px;
-  }
-
-  .weekly-summary-facts {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .weekly-summary-facts div {
-    padding: 0 10px;
-  }
-
-  .weekly-summary-facts div:first-child {
-    padding-left: 0;
-    border-left: 0;
-  }
-
-  .weekly-summary-facts dd {
-    overflow-wrap: anywhere;
-    font-size: 16px;
-  }
-
   .topbar,
   .toolbar,
   .focus-card {

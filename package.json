@@ -1,6 +1,6 @@
 {
   "name": "rhythm-day",
-  "version": "0.12.8",
+  "version": "0.12.9",
   "private": true,
   "description": "Локальный десктопный трекер задач и привычек",
   "main": "desktop/main.cjs",
@@ -82,7 +82,6 @@
       "timeline-view.js",
       "toast.js",
       "view-renderer.js",
-      "weekly-summary.js",
       "sw.js"
     ],
     "win": {

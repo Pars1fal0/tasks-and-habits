@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.9
+
+- Removed the weekly summary panel and its unused rendering code.
+
 ## 0.12.8
 
 - Redesigned the weekly summary as a compact responsive panel and removed empty zero-value metrics.

@@ -27,7 +27,6 @@ const APP_SHELL = [
   "archive-view.js",
   "app-events.js",
   "heatmap-view.js",
-  "weekly-summary.js",
   "calendar-view.js",
   "calendar-drag-controller.js",
   "confirm-dialog.js",
