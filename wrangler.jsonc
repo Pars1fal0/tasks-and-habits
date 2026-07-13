@@ -1,0 +1,9 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "tasks-and-habits",
+  "compatibility_date": "2026-07-13",
+  "assets": {
+    "directory": "./web-dist",
+    "not_found_handling": "single-page-application"
+  }
+}
