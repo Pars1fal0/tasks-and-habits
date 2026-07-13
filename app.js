@@ -139,6 +139,7 @@ const els = {
   focusPercent: document.querySelector("#focusPercent"),
   focusTitle: document.querySelector("#focusTitle"),
   fileBackupStatus: document.querySelector("#fileBackupStatus"),
+  formBackdrop: document.querySelector("#formBackdrop"),
   firstDayOfWeek: document.querySelector("#firstDayOfWeek"),
   goalActiveMetric: document.querySelector("#goalActiveMetric"),
   addGoalCheckpoint: document.querySelector("#addGoalCheckpoint"),
@@ -202,6 +203,7 @@ const els = {
   overdueList: document.querySelector("#overdueList"),
   overduePanel: document.querySelector("#overduePanel"),
   overdueToggle: document.querySelector("#overdueToggle"),
+  overviewHeading: document.querySelector("#overviewHeading"),
   pageTitle: document.querySelector("#pageTitle"),
   prevDay: document.querySelector("#prevDay"),
   prevMonth: document.querySelector("#prevMonth"),
@@ -216,6 +218,7 @@ const els = {
   remoteSyncAnonKey: document.querySelector("#remoteSyncAnonKey"),
   remoteAuthEmail: document.querySelector("#remoteAuthEmail"),
   remoteAuthPassword: document.querySelector("#remoteAuthPassword"),
+  remoteAuthResetButton: document.querySelector("#remoteAuthResetButton"),
   remoteAuthSignInButton: document.querySelector("#remoteAuthSignInButton"),
   remoteAuthSignOutButton: document.querySelector("#remoteAuthSignOutButton"),
   remoteAuthSignUpButton: document.querySelector("#remoteAuthSignUpButton"),
@@ -245,6 +248,7 @@ const els = {
   settingsResetButton: document.querySelector("#settingsResetButton"),
   settingsRestoreBackupButton: document.querySelector("#settingsRestoreBackupButton"),
   sideProgressBar: document.querySelector("#sideProgressBar"),
+  sideProgressSummary: document.querySelector("#sideProgressSummary"),
   sideProgressValue: document.querySelector("#sideProgressValue"),
   taskCategoryId: document.querySelector("#taskCategoryId"),
   taskCategoryFilter: document.querySelector("#taskCategoryFilter"),
@@ -282,6 +286,7 @@ const els = {
   timelineEmpty: document.querySelector("#timelineEmpty"),
   timelineGrid: document.querySelector("#timelineGrid"),
   timelineSummary: document.querySelector("#timelineSummary"),
+  timelineUnscheduledCount: document.querySelector("#timelineUnscheduledCount"),
   timelineScaleButtons: [...document.querySelectorAll("[data-timeline-scale]")],
   timelineUnscheduledList: document.querySelector("#timelineUnscheduledList"),
   todayButton: document.querySelector("#todayButton"),
@@ -313,6 +318,10 @@ const toastController = window.RhythmToast.createToastController({
 });
 
 const confirmDialog = window.RhythmConfirmDialog.createConfirmDialog({ els });
+window.RhythmFormDialog.createFormDialogManager({
+  backdrop: els.formBackdrop,
+  panels: [els.taskFormPanel, els.habitFormPanel, els.goalFormPanel],
+});
 const remoteSync = window.RhythmRemoteSync.createRemoteSync();
 const remoteSyncController = window.RhythmRemoteSyncController.createRemoteSyncController();
 const remoteAuth = window.RhythmRemoteAuth.createRemoteAuth({
@@ -705,6 +714,7 @@ const remoteSyncWorkflow = window.RhythmRemoteSyncController.createRemoteSyncWor
   createImportSafetyBackup,
   createUndoSnapshot,
   describeError: describeRemoteSyncError,
+  els,
   formatDate: formatBackupDate,
   getLocalUpdatedAt: () => localStateUpdatedAt,
   getRemoteUiSettings,
@@ -745,6 +755,7 @@ const remoteSyncWorkflow = window.RhythmRemoteSyncController.createRemoteSyncWor
 const remoteAuthController = window.RhythmRemoteAuthController.createRemoteAuthController({
   auth: remoteAuth,
   els,
+  isProjectConfigured: () => Boolean(remoteSyncUrl && remoteSyncAnonKey),
   renderSyncStatus: () => remoteSyncWorkflow.renderStatus(),
   showToast,
   syncLatest: (options) => remoteSyncWorkflow.syncLatest(options),
@@ -782,6 +793,11 @@ const viewRenderer = window.RhythmViewRenderer.createViewRenderer({
 
 const appEvents = window.RhythmAppEvents.createAppEvents({
   calendarDragController,
+  changeOverviewMode: (mode, activeButton) => {
+    els.views.overview.dataset.mode = ["week", "month", "year"].includes(mode) ? mode : "week";
+    document.querySelectorAll("[data-overview-mode]").forEach((item) => item.classList.toggle("is-active", item === activeButton));
+    renderOverview();
+  },
   changeActiveDate: (value) => {
     activeDate = value || toDateKey(new Date());
     resetTaskForm({ open: false });
@@ -958,7 +974,7 @@ function render() {
     archive: "Архив",
     goals: "Цели",
     habits: "Привычки",
-    overview: "Обзор",
+    overview: "Календарь",
     settings: "Настройки",
     tasks: "Задачи на день",
     timeline: "Таймлайн дня",
@@ -1071,6 +1087,7 @@ function renderDailyPulse() {
   els.habitDoneMetric.textContent = `${doneHabits}/${habits.length}`;
   els.sideProgressValue.textContent = `${pulse}%`;
   els.sideProgressBar.style.width = `${pulse}%`;
+  els.sideProgressSummary.textContent = `Задачи ${taskPercent}% · привычки ${habitPercent}%`;
 }
 
 function renderTasks() {
@@ -2091,6 +2108,7 @@ function updateSetting(name, value) {
       saveUiState();
       settingsController.syncControls();
       renderRemoteSyncStatus();
+      remoteAuthController.render();
       break;
     case "remoteSyncAnonKey":
       remoteSyncAnonKey = cleanText(value);
@@ -2099,6 +2117,7 @@ function updateSetting(name, value) {
       saveUiState();
       settingsController.syncControls();
       renderRemoteSyncStatus();
+      remoteAuthController.render();
       break;
     case "remoteSyncUserKey":
       remoteSyncUserKey = normalizeRemoteUserKey(value);

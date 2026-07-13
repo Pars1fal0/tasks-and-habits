@@ -5,6 +5,8 @@
     function renderOverview() {
       const activeDate = ctx.getActiveDate();
       const week = ctx.getWeekDates(activeDate);
+      const mode = ctx.els.views?.overview?.dataset.mode || "week";
+      const period = overviewPeriod(mode, activeDate, week, ctx);
       let taskDone = 0;
       let taskTotal = 0;
       let habitDone = 0;
@@ -14,12 +16,15 @@
 
       week.forEach((dateKey) => {
         const stats = ctx.statsForDate(dateKey);
+        ctx.els.weekStrip.appendChild(createOverviewDayCell(dateKey, stats));
+      });
+
+      period.dates.forEach((dateKey) => {
+        const stats = ctx.statsForDate(dateKey);
         taskDone += stats.taskDone;
         taskTotal += stats.taskTotal;
         habitDone += stats.habitDone;
         habitTotal += stats.habitTotal;
-
-        ctx.els.weekStrip.appendChild(createOverviewDayCell(dateKey, stats));
       });
 
       const taskMetric = taskTotal ? Math.round((taskDone / taskTotal) * 100) : 0;
@@ -27,11 +32,31 @@
 
       ctx.els.weeklyTaskMetric.textContent = `${taskMetric}%`;
       ctx.els.weeklyHabitMetric.textContent = `${habitMetric}%`;
-      ctx.els.weeklyTaskText.textContent = `${taskDone} из ${taskTotal} задач за неделю`;
-      ctx.els.weeklyHabitText.textContent = `${habitDone} из ${habitTotal} отметок привычек`;
+      if (ctx.els.overviewHeading) ctx.els.overviewHeading.textContent = period.heading;
+      ctx.els.weeklyTaskText.textContent = `${taskDone} из ${taskTotal} задач ${period.suffix}`;
+      ctx.els.weeklyHabitText.textContent = `${habitDone} из ${habitTotal} отметок привычек ${period.suffix}`;
       renderWeekBoard(week);
       renderMonthCalendar();
       renderHeatmap();
+    }
+
+    function overviewPeriod(mode, activeDate, week, helpers) {
+      if (mode === "month") {
+        const active = helpers.parseDate(activeDate);
+        const lastDay = new Date(active.getFullYear(), active.getMonth() + 1, 0).getDate();
+        const dates = Array.from({ length: lastDay }, (_, index) => helpers.toDateKey(new Date(active.getFullYear(), active.getMonth(), index + 1)));
+        return { dates, heading: "Обзор месяца", suffix: "за месяц" };
+      }
+      if (mode === "year") {
+        const end = helpers.parseDate(activeDate);
+        const dates = Array.from({ length: 365 }, (_, index) => {
+          const date = new Date(end);
+          date.setDate(end.getDate() - (364 - index));
+          return helpers.toDateKey(date);
+        });
+        return { dates, heading: "Обзор года", suffix: "за год" };
+      }
+      return { dates: week, heading: "Обзор недели", suffix: "за неделю" };
     }
 
     function createOverviewDayCell(dateKey, stats) {

@@ -163,9 +163,11 @@
       });
 
       node.querySelector(".edit-task").addEventListener("click", () => ctx.fillTaskForm(task));
-      node.querySelector(".postpone-tomorrow").addEventListener("click", () => {
+      const postponeTomorrow = () => {
         ctx.postponeTask(task, activeDate, ctx.addDays(activeDate, 1));
-      });
+      };
+      node.querySelector(".postpone-tomorrow").addEventListener("click", postponeTomorrow);
+      node.querySelector(".postpone-tomorrow-menu").addEventListener("click", postponeTomorrow);
       node.querySelector(".postpone-week").addEventListener("click", () => {
         ctx.postponeTask(task, activeDate, ctx.addDays(activeDate, 7));
       });

@@ -26,6 +26,7 @@
           ctx.renderArchive();
           break;
         case "settings":
+          ctx.renderCategories();
           ctx.renderSettingsBackupStatus?.();
           ctx.renderRemoteSyncStatus?.();
           break;

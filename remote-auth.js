@@ -76,6 +76,18 @@
       }).catch(() => {});
     }
 
+    async function resetPassword(email) {
+      const config = requireConfig();
+      const response = await fetchFn(`${config.supabaseUrl}/auth/v1/recover`, {
+        method: "POST",
+        headers: authHeaders(config),
+        body: JSON.stringify({ email: cleanEmail(email) }),
+      });
+      const data = await readResponse(response);
+      if (!response.ok) throw createAuthError(response, data);
+      return data;
+    }
+
     function scheduleRefresh() {
       if (refreshTimer) global.clearTimeout(refreshTimer);
       refreshTimer = null;
@@ -105,7 +117,7 @@
     }
 
     scheduleRefresh();
-    return { ensureFreshSession, getSession, refreshSession, signIn, signOut, signUp };
+    return { ensureFreshSession, getSession, refreshSession, resetPassword, signIn, signOut, signUp };
   }
 
   function authHeaders(config) {

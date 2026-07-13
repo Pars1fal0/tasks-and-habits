@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "rhythm-day-";
-const CACHE_NAME = `${CACHE_PREFIX}app-v40`;
+const CACHE_NAME = `${CACHE_PREFIX}app-v41`;
 const APP_SHELL = [
   "./",
   "index.html",
@@ -24,6 +24,7 @@ const APP_SHELL = [
   "calendar-view.js",
   "calendar-drag-controller.js",
   "confirm-dialog.js",
+  "form-dialog.js",
   "categories.js",
   "goal-checkpoint-editor.js",
   "goals-view.js",

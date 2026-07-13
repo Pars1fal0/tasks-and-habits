@@ -688,9 +688,12 @@ function createWindow() {
         await new Promise((resolve) => setTimeout(resolve, 80));
         click('[data-view="tasks"]');
         const mobileTaskPanel = document.querySelector("#tasksView .main-panel")?.getBoundingClientRect();
-        const mobileTaskRail = document.querySelector("#tasksView .right-rail")?.getBoundingClientRect();
+        const mobileTaskRailNode = document.querySelector("#tasksView .right-rail");
+        const mobileTaskRail = mobileTaskRailNode?.getBoundingClientRect();
         const mobileTaskListComesFirst =
-          window.innerWidth <= 400 && mobileTaskPanel?.top < mobileTaskRail?.top && getComputedStyle(document.querySelector(".focus-board")).display === "none";
+          window.innerWidth <= 400 &&
+          (getComputedStyle(mobileTaskRailNode).display === "none" || mobileTaskPanel?.top < mobileTaskRail?.top) &&
+          getComputedStyle(document.querySelector(".focus-board")).display === "none";
         const mobileNavColumns = getComputedStyle(document.querySelector(".nav-tabs")).gridTemplateColumns.split(" ").filter(Boolean).length;
         const mobileNavigationFits = mobileNavColumns === 5;
         click('[data-view="overview"]');
@@ -735,6 +738,7 @@ function createWindow() {
               window.RhythmCalendarView &&
               window.RhythmCategories &&
               window.RhythmConfirmDialog &&
+              window.RhythmFormDialog &&
               window.RhythmGoalCheckpointEditor &&
               window.RhythmGoalsView &&
               window.RhythmHabitForm &&

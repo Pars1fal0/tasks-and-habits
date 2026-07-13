@@ -38,6 +38,14 @@
       return ctx.remoteSync.isConfigured(getConfig());
     }
 
+    function hasCredentials() {
+      return ctx.remoteSync.isConfigured({ ...getConfig(), enabled: true });
+    }
+
+    function getOperationConfig() {
+      return { ...getConfig(), enabled: true };
+    }
+
     function clearError() {
       lastError = "";
     }
@@ -45,8 +53,9 @@
     function renderStatus() {
       if (!ctx.statusElement) return;
       const settings = ctx.getSettings();
-      if (!settings.enabled) return setStatus("БД: не настроено · синхронизация выключена");
-      if (!isReady()) return setStatus("БД: не настроено · войди в аккаунт или подключи legacy-ключ");
+      syncActionState();
+      if (!hasCredentials()) return setStatus("БД: не настроено · войди в аккаунт или подключи legacy-ключ");
+      if (!settings.enabled) return setStatus("БД: подключение готово · автоматическая синхронизация выключена");
       if (lastError) return setStatus(`БД: ошибка · ${lastError}`);
       if (inFlight) return setStatus("БД: синхронизация...");
       if (!settings.userId && !ctx.isSecurePrivateKey(settings.userKey)) {
@@ -75,7 +84,7 @@
     async function push(options = {}) {
       options?.preventDefault?.();
       const manual = !options?.silent;
-      if (!isReady()) {
+      if (!hasCredentials()) {
         renderStatus();
         if (manual) ctx.showToast("Заполни настройки удаленной БД");
         return;
@@ -85,7 +94,7 @@
       try {
         if (!(await confirmOverwriteIfNeeded({ manual }))) return;
         const pushedAt = new Date().toISOString();
-        await ctx.remoteSync.pushState(getConfig(), {
+        await ctx.remoteSync.pushState(getOperationConfig(), {
           clientUpdatedAt: pushedAt,
           schemaVersion: ctx.schemaVersion,
           state: ctx.getState(),
@@ -106,7 +115,7 @@
     }
 
     async function confirmOverwriteIfNeeded({ manual }) {
-      const remoteSnapshot = await ctx.remoteSync.pullState(getConfig());
+      const remoteSnapshot = await ctx.remoteSync.pullState(getOperationConfig());
       const meta = ctx.getSyncMeta();
       if (!remoteSnapshot.found || !remoteSnapshot.clientUpdatedAt) return true;
       if (!ctx.isRemoteVersionNewer(remoteSnapshot.clientUpdatedAt, meta.lastPulledAt, meta.lastPushedAt)) return true;
@@ -125,7 +134,7 @@
 
     async function check(options = {}) {
       options?.preventDefault?.();
-      if (!isReady()) {
+      if (!hasCredentials()) {
         renderStatus();
         ctx.showToast("Заполни настройки удаленной БД");
         return;
@@ -133,7 +142,7 @@
       if (inFlight) return;
       begin();
       try {
-        const result = await ctx.remoteSync.checkConnection(getConfig());
+        const result = await ctx.remoteSync.checkConnection(getOperationConfig());
         ctx.showToast(result.found ? "Подключение к БД работает" : "Подключение работает, сохранений пока нет");
       } catch (error) {
         lastError = ctx.describeError(error);
@@ -145,7 +154,7 @@
 
     async function pull(options = {}) {
       options?.preventDefault?.();
-      if (!isReady()) {
+      if (!hasCredentials()) {
         renderStatus();
         ctx.showToast("Заполни настройки удаленной БД");
         return;
@@ -154,7 +163,7 @@
       begin();
       let pulled;
       try {
-        pulled = await ctx.remoteSync.pullState(getConfig());
+        pulled = await ctx.remoteSync.pullState(getOperationConfig());
       } catch (error) {
         lastError = ctx.describeError(error);
         ctx.showToast("Не удалось загрузить данные из БД");
@@ -251,6 +260,13 @@
 
     function setStatus(message) {
       ctx.statusElement.textContent = message;
+    }
+
+    function syncActionState() {
+      const disabled = !hasCredentials() || inFlight;
+      [ctx.els?.remoteSyncPushButton, ctx.els?.remoteSyncPullButton, ctx.els?.remoteSyncCheckButton]
+        .filter(Boolean)
+        .forEach((button) => { button.disabled = disabled; });
     }
 
     function getStatus() {

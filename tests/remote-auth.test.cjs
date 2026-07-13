@@ -53,4 +53,22 @@ module.exports = [
       assert.equal(storage.getItem(SESSION_KEY), null);
     },
   },
+  {
+    name: "requests a password recovery email without storing credentials",
+    async fn() {
+      const calls = [];
+      const auth = createRemoteAuth({
+        fetch: async (url, options) => {
+          calls.push({ url, options });
+          return { ok: true, text: async () => "{}" };
+        },
+        getConfig: () => ({ anonKey: "anon", supabaseUrl: "https://demo.supabase.co" }),
+        storage: createStorage(),
+      });
+
+      await auth.resetPassword(" ME@example.com ");
+      assert.match(calls[0].url, /auth\/v1\/recover$/);
+      assert.equal(JSON.parse(calls[0].options.body).email, "me@example.com");
+    },
+  },
 ];

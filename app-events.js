@@ -2,9 +2,14 @@
   function createAppEvents(ctx) {
     function bind() {
       const { els } = ctx;
-      if (global.matchMedia?.("(max-width: 680px)").matches) {
-        document.querySelector(".task-filter-disclosure")?.removeAttribute("open");
-      }
+      const compactQuery = global.matchMedia?.("(max-width: 680px)");
+      const syncCompactDisclosures = (event = compactQuery) => {
+        document.querySelector(".task-filter-disclosure")?.toggleAttribute("open", !event?.matches);
+        document.querySelector(".quick-task-disclosure")?.toggleAttribute("open", !event?.matches);
+        document.querySelector(".timeline-unscheduled-panel")?.toggleAttribute("open", !event?.matches);
+      };
+      syncCompactDisclosures();
+      compactQuery?.addEventListener?.("change", syncCompactDisclosures);
       els.activeDate.addEventListener("change", () => ctx.changeActiveDate(els.activeDate.value));
       els.prevDay.addEventListener("click", () => ctx.shiftDate(-1));
       els.nextDay.addEventListener("click", () => ctx.shiftDate(1));
@@ -13,10 +18,7 @@
       els.nextMonth.addEventListener("click", () => ctx.shiftMonth(1));
       els.navTabs.forEach((button) => button.addEventListener("click", () => ctx.changeView(button.dataset.view)));
       document.querySelectorAll("[data-overview-mode]").forEach((button) => {
-        button.addEventListener("click", () => {
-          els.views.overview.dataset.mode = button.dataset.overviewMode;
-          document.querySelectorAll("[data-overview-mode]").forEach((item) => item.classList.toggle("is-active", item === button));
-        });
+        button.addEventListener("click", () => ctx.changeOverviewMode(button.dataset.overviewMode, button));
       });
 
       els.taskCategoryFilter.addEventListener("change", () => ctx.changeTaskCategoryFilter(els.taskCategoryFilter.value));

@@ -59,6 +59,8 @@
       const title = document.createElement("h3");
       const meta = document.createElement("p");
       const restoreButton = document.createElement("button");
+      const deleteButton = document.createElement("button");
+      const actions = document.createElement("div");
       const select = document.createElement("input");
       const category = ctx.getCategory(entry.task.categoryId);
 
@@ -106,8 +108,16 @@
         ctx.render();
         ctx.showToast("Задача возвращена в план", { undo });
       });
+      deleteButton.className = "icon-button subtle archive-delete-entry";
+      deleteButton.type = "button";
+      deleteButton.setAttribute("aria-label", `Удалить запись ${entry.task.title}`);
+      deleteButton.title = "Удалить запись";
+      deleteButton.appendChild(createIcon("trash"));
+      deleteButton.addEventListener("click", () => deleteEntry(entry));
+      actions.className = "archive-item-actions";
+      actions.append(restoreButton, deleteButton);
       content.append(title, meta);
-      node.append(select, content, restoreButton);
+      node.append(select, content, actions);
 
       return node;
     }
@@ -152,16 +162,30 @@
       });
       if (!confirmed) return;
       const undo = ctx.createUndoSnapshot();
-      const deletedTaskIds = new Set();
-      entries.forEach((entry) => {
-        if (entry.task.repeat === "none") deletedTaskIds.add(entry.task.id);
-        else delete entry.task.completed[entry.dateKey];
-      });
+      const deletedTaskIds = removeArchiveEntries(entries);
       deletedTaskIds.forEach(ctx.deleteTask);
       selectedKeys.clear();
       ctx.saveState();
       ctx.render();
       ctx.showToast(`Удалено записей: ${entries.length}`, { undo });
+    }
+
+    async function deleteEntry(entry) {
+      const confirmed = await ctx.confirmAction({
+        title: "Удалить запись из архива?",
+        message: entry.task.repeat === "none"
+          ? `Задача «${entry.task.title}» будет удалена.`
+          : `Из серии «${entry.task.title}» будет удалено только повторение за ${ctx.formatLongDate(entry.dateKey)}.`,
+        confirmLabel: "Удалить",
+        tone: "danger",
+      });
+      if (!confirmed) return;
+      const undo = ctx.createUndoSnapshot();
+      removeArchiveEntries([entry]).forEach(ctx.deleteTask);
+      selectedKeys.delete(entryKey(entry));
+      ctx.saveState();
+      ctx.render();
+      ctx.showToast("Запись удалена из архива", { undo });
     }
 
     function entryKey(entry) {
@@ -176,6 +200,15 @@
         meta.append(document.createTextNode(value));
       }
     }
+
+    function createIcon(name) {
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+      svg.classList.add("ui-icon");
+      use.setAttribute("href", `#icon-${name}`);
+      svg.appendChild(use);
+      return svg;
+    }
     function setPeriod(value) {
       period = ["all", "week", "month", "quarter"].includes(value) ? value : "all";
       if (ctx.els.archivePeriodFilter) ctx.els.archivePeriodFilter.value = period;
@@ -184,7 +217,23 @@
     return { createArchiveNode, renderArchive, setPeriod };
   }
 
-  const api = { createArchiveView };
+  function removeArchiveEntries(entries) {
+    const deletedTaskIds = new Set();
+    entries.forEach((entry) => {
+      if (entry.task.repeat === "none") {
+        deletedTaskIds.add(entry.task.id);
+        return;
+      }
+      if (!entry.task.completed) entry.task.completed = {};
+      if (!entry.task.excludedDates) entry.task.excludedDates = {};
+      delete entry.task.completed[entry.dateKey];
+      entry.task.excludedDates[entry.dateKey] = true;
+      entry.task.updatedAt = new Date().toISOString();
+    });
+    return deletedTaskIds;
+  }
+
+  const api = { createArchiveView, removeArchiveEntries };
   global.RhythmArchiveView = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

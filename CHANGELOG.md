@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Renamed Overview to Calendar and made its week, month, and year metrics match the visible period.
+- Moved archive period filtering into Archive and added safe single-entry deletion for completed recurring occurrences.
+- Simplified mobile tasks, timeline, and habit cards with collapsible secondary controls and compact action menus.
+- Added accessible task, habit, and goal dialogs with focus trapping, Escape handling, and focus restoration.
+- Moved category management into Settings and removed duplicated data actions from the sidebar.
+- Added Supabase password recovery and clearer disabled and ready states for manual remote sync actions.
+- Clarified the sidebar progress metric with separate task and habit percentages.
 - Removed the completed recurring-series manager from the task screen.
 - Added Supabase email/password authentication with local-only session storage and authenticated RLS policies.
 - Added a compact local sync history for push, pull, merge, and error events.

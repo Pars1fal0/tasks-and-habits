@@ -142,6 +142,9 @@
         ctx.render();
         ctx.showToast("Привычка удалена", { undo });
       });
+      node.querySelectorAll(".habit-more-menu button").forEach((button) => {
+        button.addEventListener("click", () => button.closest("details")?.removeAttribute("open"));
+      });
 
       return node;
     }

@@ -51,6 +51,7 @@
       });
 
       ctx.els.timelineSummary.textContent = `${model.timedTasks.length} по времени · ${model.unscheduledTasks.length} без времени`;
+      if (ctx.els.timelineUnscheduledCount) ctx.els.timelineUnscheduledCount.textContent = String(model.unscheduledTasks.length);
       ctx.els.timelineGrid.replaceChildren();
       ctx.els.timelineUnscheduledList.replaceChildren();
       ctx.els.timelineEmpty.classList.toggle("is-visible", model.timedTasks.length === 0 && model.unscheduledTasks.length === 0);

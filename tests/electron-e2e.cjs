@@ -13,13 +13,32 @@ const { _electron: electron } = require("playwright-core");
 
   try {
     await page.waitForSelector("#pageTitle");
+    assert.equal(await page.locator("#archivePeriodFilter").evaluate((node) => node.closest(".view")?.id), "archiveView");
+    assert.equal(await page.locator("#categoryForm").evaluate((node) => node.closest(".view")?.id), "settingsView");
+
+    await page.locator('.nav-tab[data-view="overview"]:visible').click();
+    await page.locator('[data-overview-mode="month"]').click();
+    assert.equal(await page.locator("#overviewHeading").textContent(), "Обзор месяца");
+    assert.match(await page.locator("#weeklyTaskText").textContent(), /за месяц/);
+
+    await page.locator('.nav-tab[data-view="settings"]:visible').click();
+    assert.equal(await page.locator("#remoteSyncPushButton").isDisabled(), true);
+    assert.equal(await page.locator("#remoteSyncPullButton").isDisabled(), true);
+
     await page.setViewportSize({ height: 780, width: 390 });
+    assert.equal(await page.locator(".task-filter-disclosure").getAttribute("open"), null);
+    assert.equal(await page.locator(".quick-task-disclosure").getAttribute("open"), null);
+    assert.equal(await page.locator(".timeline-unscheduled-panel").getAttribute("open"), null);
 
     await page.locator('.nav-tab[data-view="habits"]:visible').click();
     await page.locator("#openHabitForm").click();
     const formBox = await page.locator("#habitFormPanel").boundingBox();
     assert.ok(formBox, "habit form should be visible");
     assert.ok(formBox.x >= 0 && formBox.x + formBox.width <= 390.5, "habit form must fit the mobile viewport");
+    assert.equal(await page.locator("#habitFormPanel").getAttribute("role"), "dialog");
+    assert.equal(await page.locator("#habitFormPanel").getAttribute("aria-modal"), "true");
+    await page.keyboard.press("Escape");
+    assert.equal(await page.locator("#habitFormPanel").getAttribute("role"), null);
 
     await page.locator('.nav-tab[data-view="timeline"]:visible').click();
     await page.locator('[data-timeline-scale="compact"]').click();
@@ -30,7 +49,7 @@ const { _electron: electron } = require("playwright-core");
     assert.equal(await page.locator('[data-timeline-scale="large"]').getAttribute("aria-pressed"), "true");
     assert.deepEqual(pageErrors, []);
 
-    console.log("e2e ok - mobile habit form and timeline scale");
+    console.log("e2e ok - archive, calendar periods, sync states, mobile dialogs, and timeline scale");
   } finally {
     await electronApp.close();
   }

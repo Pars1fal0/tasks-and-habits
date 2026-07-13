@@ -69,8 +69,8 @@
             <span>Цели</span>
           </button>
           <button class="nav-tab" data-view="overview" type="button">
-            <svg class="ui-icon"><use href="#icon-heat"></use></svg>
-            <span>Обзор</span>
+            <svg class="ui-icon"><use href="#icon-calendar"></use></svg>
+            <span>Календарь</span>
           </button>
           <button class="nav-tab" data-view="archive" type="button">
             <svg class="ui-icon"><use href="#icon-archive"></use></svg>
@@ -103,11 +103,12 @@
         </nav>
 
         <div class="sidebar-pulse">
-          <span class="metric-label">Пульс дня</span>
+          <span class="metric-label" title="Среднее выполнения задач и привычек">Общий прогресс</span>
           <strong id="sideProgressValue">0%</strong>
           <div class="mini-meter" aria-hidden="true">
             <span id="sideProgressBar"></span>
           </div>
+          <small class="sidebar-pulse-summary" id="sideProgressSummary">Нет данных за день</small>
         </div>
 
         <div class="data-actions">
@@ -203,15 +204,6 @@
                   <option value="all">Все категории</option>
                 </select>
               </label>
-              <label class="sort-control">
-                <span>Период</span>
-                <select id="archivePeriodFilter" aria-label="Период архива">
-                  <option value="all">За всё время</option>
-                  <option value="week">7 дней</option>
-                  <option value="month">30 дней</option>
-                  <option value="quarter">3 месяца</option>
-                </select>
-              </label>
               <label class="search-control">
                 <span>Поиск</span>
                 <span class="search-box">
@@ -231,6 +223,8 @@
             </div>
           </div>
 
+          <details class="quick-task-disclosure" open>
+            <summary>Быстрый ввод</summary>
           <form class="quick-task-form" id="quickTaskForm">
             <label class="quick-task-input">
               <span>Быстрый ввод</span>
@@ -246,6 +240,7 @@
             </div>
             <div class="quick-task-preview" id="quickTaskPreview" hidden></div>
           </form>
+          </details>
 
           <div class="split-layout">
             <section class="panel main-panel" aria-labelledby="tasksHeading">
@@ -454,23 +449,6 @@
                 </form>
               </section>
 
-              <section class="panel categories-panel" aria-labelledby="categoriesHeading">
-                <div class="panel-heading compact">
-                  <div>
-                    <span class="metric-label">Справочник</span>
-                    <h2 id="categoriesHeading">Категории</h2>
-                  </div>
-                </div>
-                <form id="categoryForm" class="category-form">
-                  <input id="categoryId" type="hidden">
-                  <input id="categoryName" type="text" maxlength="28" placeholder="Новая категория" required>
-                  <input id="categoryColor" type="color" value="#00a78e" aria-label="Цвет категории">
-                  <button class="icon-button" type="submit" aria-label="Добавить категорию">
-                    <svg class="ui-icon"><use href="#icon-plus"></use></svg>
-                  </button>
-                </form>
-                <div class="category-list" id="categoryList"></div>
-              </section>
             </aside>
           </div>
         </section>
@@ -491,15 +469,16 @@
             </div>
           </div>
 
-          <section class="panel timeline-unscheduled-panel">
-            <div class="panel-heading compact">
+          <details class="panel timeline-unscheduled-panel" open>
+            <summary class="panel-heading compact timeline-unscheduled-summary">
               <div>
                 <span class="metric-label">Без времени</span>
                 <h2>Задачи без точного часа</h2>
               </div>
-            </div>
+              <span class="task-counter" id="timelineUnscheduledCount">0</span>
+            </summary>
             <div class="timeline-unscheduled-list" id="timelineUnscheduledList" role="list" aria-label="Задачи без времени"></div>
-          </section>
+          </details>
 
           <section class="panel timeline-panel">
             <div class="timeline-grid" id="timelineGrid" role="region" aria-label="Задачи по времени"></div>
@@ -799,6 +778,15 @@
                   <option value="all">Все категории</option>
                 </select>
               </label>
+              <label class="sort-control">
+                <span>Период</span>
+                <select id="archivePeriodFilter" aria-label="Период архива">
+                  <option value="all">За всё время</option>
+                  <option value="week">7 дней</option>
+                  <option value="month">30 дней</option>
+                  <option value="quarter">3 месяца</option>
+                </select>
+              </label>
               <button class="ghost-button compact-button icon-text-button" id="clearArchiveFilter" type="button">
                 <svg class="ui-icon"><use href="#icon-history"></use></svg>
                 Все записи
@@ -917,6 +905,23 @@
               </div>
               <p class="settings-status" id="settingsBackupStatus" aria-live="polite" aria-atomic="true">Авто-бэкап ожидает расписание</p>
             </details>
+            <details class="panel settings-panel settings-accordion categories-settings" aria-labelledby="categoriesHeading">
+              <summary class="panel-heading compact settings-summary">
+                <div>
+                  <span class="metric-label">Организация</span>
+                  <h2 id="categoriesHeading">Категории</h2>
+                </div>
+              </summary>
+              <form id="categoryForm" class="category-form">
+                <input id="categoryId" type="hidden">
+                <input id="categoryName" type="text" maxlength="28" placeholder="Новая категория" required>
+                <input id="categoryColor" type="color" value="#00a78e" aria-label="Цвет категории">
+                <button class="icon-button" type="submit" aria-label="Добавить категорию">
+                  <svg class="ui-icon"><use href="#icon-plus"></use></svg>
+                </button>
+              </form>
+              <div class="category-list" id="categoryList"></div>
+            </details>
             <details class="panel settings-panel settings-accordion" aria-labelledby="syncSettingsHeading">
               <summary class="panel-heading compact settings-summary">
                 <div>
@@ -968,6 +973,7 @@
                 <div class="settings-actions">
                   <button class="primary-button compact-button" id="remoteAuthSignInButton" type="button">Войти</button>
                   <button class="ghost-button compact-button" id="remoteAuthSignUpButton" type="button">Регистрация</button>
+                  <button class="ghost-button compact-button" id="remoteAuthResetButton" type="button">Сбросить пароль</button>
                   <button class="ghost-button compact-button" id="remoteAuthSignOutButton" type="button" hidden>Выйти</button>
                 </div>
                 <p class="settings-status" id="remoteAuthStatus" aria-live="polite">Вход не выполнен</p>
@@ -1022,6 +1028,7 @@
       </main>
     </div>
 
+    <div class="form-backdrop" id="formBackdrop" hidden></div>
     <div class="toast" id="appToast" role="status" aria-live="polite"></div>
 
     <div class="confirm-modal" id="confirmModal" hidden>
@@ -1058,6 +1065,7 @@
         <details class="task-actions task-more">
           <summary class="icon-button subtle" aria-label="Еще действия">...</summary>
           <div class="task-more-menu">
+            <button class="ghost-button compact-button postpone-tomorrow-menu" type="button">На завтра</button>
             <button class="ghost-button compact-button postpone-week" type="button">На следующую неделю</button>
             <button class="ghost-button compact-button postpone-date" type="button">Выбрать дату</button>
             <input class="postpone-date-input" type="date" aria-label="Дата переноса">
@@ -1080,17 +1088,14 @@
             <h3></h3>
             <p class="habit-streak"></p>
           </div>
-          <div class="habit-actions">
-            <button class="icon-button subtle edit-habit" type="button" aria-label="Редактировать">
-              <svg class="ui-icon"><use href="#icon-edit"></use></svg>
-            </button>
-            <button class="icon-button subtle archive-habit" type="button" aria-label="Приостановить привычку">
-              <svg class="ui-icon"><use href="#icon-archive"></use></svg>
-            </button>
-            <button class="icon-button subtle delete-habit" type="button" aria-label="Удалить">
-              <svg class="ui-icon"><use href="#icon-trash"></use></svg>
-            </button>
-          </div>
+          <details class="habit-actions habit-more">
+            <summary class="icon-button subtle" aria-label="Действия с привычкой">...</summary>
+            <div class="habit-more-menu">
+              <button class="habit-menu-action edit-habit" type="button"><svg class="ui-icon"><use href="#icon-edit"></use></svg>Изменить</button>
+              <button class="habit-menu-action archive-habit" type="button"><svg class="ui-icon"><use href="#icon-archive"></use></svg>Приостановить</button>
+              <button class="habit-menu-action is-danger delete-habit" type="button"><svg class="ui-icon"><use href="#icon-trash"></use></svg>Удалить</button>
+            </div>
+          </details>
         </div>
         <div class="habit-control"></div>
       </article>
@@ -1116,6 +1121,7 @@
     <script src="calendar-view.js?v=2" defer></script>
     <script src="calendar-drag-controller.js?v=1" defer></script>
     <script src="confirm-dialog.js?v=3" defer></script>
+    <script src="form-dialog.js?v=1" defer></script>
     <script src="categories.js?v=4" defer></script>
     <script src="goal-checkpoint-editor.js?v=2" defer></script>
     <script src="goals-view.js?v=8" defer></script>
