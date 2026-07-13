@@ -18,7 +18,7 @@
     task.date = targetDateKey;
     if (options.clearTime) {
       task.time = "";
-      task.scheduleMode = "deadline";
+      task.scheduleMode = "none";
       task.startTime = "";
       task.endTime = "";
     }
@@ -51,7 +51,7 @@
       title: task.title,
       date: targetDateKey,
       time: options.clearTime ? "" : task.time,
-      scheduleMode: options.clearTime ? "deadline" : task.scheduleMode || "deadline",
+      scheduleMode: options.clearTime ? "none" : task.scheduleMode || (task.time ? "deadline" : "none"),
       startTime: options.clearTime ? "" : task.startTime || "",
       endTime: options.clearTime ? "" : task.endTime || "",
       categoryId: task.categoryId,
@@ -241,7 +241,7 @@
     return {
       title: task.title,
       time: task.time || "",
-      scheduleMode: task.scheduleMode || "deadline",
+      scheduleMode: task.scheduleMode || (task.time ? "deadline" : "none"),
       startTime: task.startTime || "",
       endTime: task.endTime || "",
       categoryId: task.categoryId || "",
@@ -264,7 +264,7 @@
   }
 
   function applyTaskSchedule(task, schedule = {}) {
-    task.scheduleMode = schedule.scheduleMode === "block" ? "block" : "deadline";
+    task.scheduleMode = schedule.scheduleMode === "block" ? "block" : schedule.time ? "deadline" : "none";
     task.startTime = task.scheduleMode === "block" ? schedule.startTime || "" : "";
     task.endTime = task.scheduleMode === "block" ? schedule.endTime || "" : "";
     task.time = task.scheduleMode === "block" ? task.endTime : schedule.time || "";

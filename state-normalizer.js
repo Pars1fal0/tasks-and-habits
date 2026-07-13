@@ -80,7 +80,7 @@
               title: config.cleanText(task.title) || "Задача",
               date: config.normalizeDateKey(task.date),
               time: normalizedTime,
-              scheduleMode: hasBlock ? "block" : "deadline",
+              scheduleMode: hasBlock ? "block" : normalizedTime ? "deadline" : "none",
               startTime: hasBlock ? startTime : "",
               endTime: hasBlock ? endTime : "",
               categoryId,

@@ -61,4 +61,19 @@ module.exports = [
       assert.equal(parsed.categoryId, "cat-work");
     },
   },
+  {
+    name: "keeps quick tasks without a time unscheduled",
+    fn() {
+      const parsed = quickInput.parseQuickTaskInput("Купить продукты завтра", {
+        activeDate: "2026-07-13",
+        cleanText,
+        normalizeDateKey,
+        toDateKey,
+        toTimeValue,
+      });
+
+      assert.equal(parsed.time, "");
+      assert.equal(parsed.scheduleMode, "none");
+    },
+  },
 ];

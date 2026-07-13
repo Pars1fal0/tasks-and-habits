@@ -25,7 +25,7 @@
         id,
         title: ctx.cleanText(ctx.els.taskTitle.value),
         date: ctx.els.taskDate.value || ctx.getActiveDate(),
-        scheduleMode: scheduleMode === "block" ? "block" : "deadline",
+        scheduleMode,
         startTime,
         endTime,
         time: scheduleMode === "block" ? endTime : scheduleMode === "none" ? "" : deadlineTime,

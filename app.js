@@ -1432,7 +1432,7 @@ function saveQuickTask(event) {
     title: parsed.title,
     date: parsed.date,
     time: parsed.time,
-    scheduleMode: parsed.scheduleMode || "deadline",
+    scheduleMode: parsed.scheduleMode || (parsed.time ? "deadline" : "none"),
     startTime: parsed.startTime || "",
     endTime: parsed.endTime || "",
     categoryId: parsed.categoryId,

@@ -208,7 +208,7 @@ function createWindow() {
         const formBlockToNoTimeWorks = state.tasks.some(
           (task) =>
             task.id === "smoke-form-block-to-none" &&
-            task.scheduleMode === "deadline" &&
+            task.scheduleMode === "none" &&
             task.time === "" &&
             task.startTime === "" &&
             task.endTime === "" &&
@@ -451,7 +451,7 @@ function createWindow() {
           pointerId: 41,
         }));
         const timelineDragToUnscheduledWorks =
-          blockTaskForTimeline?.scheduleMode === "deadline" &&
+          blockTaskForTimeline?.scheduleMode === "none" &&
           blockTaskForTimeline?.time === "" &&
           [...document.querySelectorAll('.timeline-task.is-unscheduled')].some((item) => item.textContent.includes("Smoke Time Block"));
         activeDate = timelineDateBeforeBlockCheck;

@@ -1,6 +1,6 @@
 {
   "name": "rhythm-day",
-  "version": "0.13.0",
+  "version": "0.13.1",
   "private": true,
   "description": "Локальный десктопный трекер задач и привычек",
   "main": "desktop/main.cjs",

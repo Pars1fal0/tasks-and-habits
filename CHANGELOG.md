@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.13.1
+
+- Fixed no-time tasks being stored as deadlines after creation, timeline removal, import, synchronization, or reload.
+- Kept all three scheduling modes (`none`, `deadline`, and `block`) consistent across forms, quick input, recurring moves, and timeline actions.
+- Added regression coverage for no-time quick tasks and schedule-mode normalization.
+
 ## 0.13.0
 
 - Added stable URL routes for every section and calendar mode, including browser back/forward navigation and direct links.

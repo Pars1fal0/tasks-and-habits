@@ -155,6 +155,24 @@ module.exports = [
     },
   },
   {
+    name: "preserves no-time, deadline, and block schedule modes",
+    fn() {
+      const normalizer = createStateNormalizer();
+      const normalized = normalizer.normalizeState({
+        tasks: [
+          { id: "no-time", title: "Без времени", date: "2026-07-13", time: "" },
+          { id: "deadline", title: "Дедлайн", date: "2026-07-13", time: "18:30" },
+          { id: "block", title: "Блок", date: "2026-07-13", startTime: "14:00", endTime: "15:00" },
+        ],
+      });
+
+      assert.deepEqual(
+        normalized.tasks.map((task) => task.scheduleMode),
+        ["none", "deadline", "block"],
+      );
+    },
+  },
+  {
     name: "migrates legacy linked goal tasks into independent checkpoints",
     fn() {
       const normalizer = createStateNormalizer();

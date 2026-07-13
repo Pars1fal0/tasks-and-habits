@@ -71,6 +71,7 @@
     text = extractRelativeDateTime(text, parsed, context);
     text = extractQuickDate(text, parsed, context);
     parsed.title = cleanText(text);
+    if (parsed.scheduleMode !== "block") parsed.scheduleMode = parsed.time ? "deadline" : "none";
 
     return parsed;
   }

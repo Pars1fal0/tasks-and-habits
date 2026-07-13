@@ -136,7 +136,7 @@
     function clearTaskTime(taskId) {
       const task = ctx.findTask(taskId);
       if (!task || (!ctx.isTimeBlock(task) && !ctx.cleanTimeValue(task.time))) return false;
-      const schedule = { scheduleMode: "deadline", startTime: "", endTime: "", time: "" };
+      const schedule = { scheduleMode: "none", startTime: "", endTime: "", time: "" };
       if (task.repeat !== "none" && !task.sourceTaskId) {
         return updateRecurringSchedule(task, schedule, "Задача теперь без времени");
       }

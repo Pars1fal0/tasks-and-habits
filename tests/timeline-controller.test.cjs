@@ -128,7 +128,7 @@ module.exports = [
     },
   },
   {
-    name: "returns a time block to an unscheduled deadline task",
+    name: "returns a time block to a no-time task",
     fn() {
       const { controller, state } = createHarness();
       const task = state.tasks[0];
@@ -141,7 +141,7 @@ module.exports = [
 
       assert.equal(controller.clearTaskTime(task.id), true);
 
-      assert.equal(task.scheduleMode, "deadline");
+      assert.equal(task.scheduleMode, "none");
       assert.equal(task.startTime, "");
       assert.equal(task.endTime, "");
       assert.equal(task.time, "");
@@ -165,7 +165,7 @@ module.exports = [
 
       const occurrence = state.tasks.find((item) => item.sourceTaskId === task.id);
       assert.equal(task.excludedDates["2026-07-02"], true);
-      assert.equal(occurrence.scheduleMode, "deadline");
+      assert.equal(occurrence.scheduleMode, "none");
       assert.equal(occurrence.time, "");
       assert.equal(occurrence.priority, "high");
     },
