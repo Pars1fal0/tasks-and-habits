@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.12.6
+
+- Habit renames now take effect from the selected date without rewriting names on earlier days.
+- Habit title history is normalized and merged safely between devices.
+
 ## 0.12.5
 
 - Dated task flags and habit logs now keep per-date revision metadata, including explicit resets.

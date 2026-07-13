@@ -104,20 +104,30 @@
       normalized.habits = Array.isArray(raw.habits)
         ? raw.habits.map((habit) => {
             const type = habit.type === "number" ? "number" : "check";
+            const createdAt = habit.createdAt || new Date().toISOString();
+            const updatedAt = habit.updatedAt || createdAt;
+            const startDate = config.normalizeDateKey(habit.startDate, config.toDateKey(new Date(createdAt)));
+            const titleHistory = config.normalizeHabitTitleHistory(habit.titleHistory, {
+              cleanText: config.cleanText,
+              fallbackTitle: config.cleanText(habit.title) || "Привычка",
+              startDate,
+              updatedAt,
+            });
             return {
               id: habit.id || config.createId(),
-              title: config.cleanText(habit.title) || "Привычка",
+              title: titleHistory.at(-1)?.title || "Привычка",
+              titleHistory,
               type,
               repeat: config.normalizeHabitRepeat(habit.repeat),
               customRepeat: config.recurrence.normalizeCustomRepeat(habit.customRepeat),
-              startDate: config.normalizeDateKey(habit.startDate, config.toDateKey(new Date(habit.createdAt || Date.now()))),
+              startDate,
               unit: config.cleanText(habit.unit),
               goal: Math.max(1, Number(habit.goal || 1)),
               archived: habit.archived === true,
               archivedAt: habit.archived === true ? habit.archivedAt || new Date().toISOString() : "",
               logs: config.normalizeHabitLogs(habit.logs, type),
-              createdAt: habit.createdAt || new Date().toISOString(),
-              updatedAt: habit.updatedAt || habit.createdAt || new Date().toISOString(),
+              createdAt,
+              updatedAt,
             };
           })
         : [];

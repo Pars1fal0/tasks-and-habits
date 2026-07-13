@@ -15,6 +15,7 @@ const APP_SHELL = [
   "settings-state.js",
   "data-normalizers.js",
   "sync-metadata.js",
+  "habit-title-history.js",
   "pwa-controller.js",
   "state-normalizer.js",
   "state-merge.js",

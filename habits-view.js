@@ -20,18 +20,19 @@
       const title = node.querySelector("h3");
       const streak = node.querySelector(".habit-streak");
       const control = node.querySelector(".habit-control");
+      const habitTitle = ctx.habitTitleOnDate?.(habit, activeDate) || habit.title;
 
       node.draggable = true;
       node.dataset.habitId = habit.id;
       node.setAttribute("aria-grabbed", "false");
       node.querySelector(".habit-drag-handle")?.setAttribute("title", "Перетащить привычку");
-      title.textContent = habit.title;
+      title.textContent = habitTitle;
       streak.textContent = habitSubtitle(habit);
       attachHabitDrag(node, habit);
       const dragHandle = node.querySelector(".habit-drag-handle");
       dragHandle?.setAttribute("title", "Перетащить привычку или переместить стрелками");
-      dragHandle?.setAttribute("aria-label", `Переместить привычку ${habit.title}. Стрелки вверх и вниз меняют порядок`);
-      attachHabitAccessibleMove(node, habit, dragHandle);
+      dragHandle?.setAttribute("aria-label", `Переместить привычку ${habitTitle}. Стрелки вверх и вниз меняют порядок`);
+      attachHabitAccessibleMove(node, habit, dragHandle, habitTitle);
 
       if (habit.type === "number") {
         const current = Number(habit.logs[activeDate] || 0);
@@ -50,17 +51,17 @@
         decrement.type = "button";
         decrement.className = "habit-stepper";
         decrement.textContent = "-";
-        decrement.setAttribute("aria-label", `Уменьшить ${habit.title}`);
+        decrement.setAttribute("aria-label", `Уменьшить ${habitTitle}`);
         input.type = "number";
         input.min = "0";
         const step = habitNumberStep(habit);
         input.step = String(step);
         input.value = String(current);
-        input.setAttribute("aria-label", habit.title);
+        input.setAttribute("aria-label", habitTitle);
         increment.type = "button";
         increment.className = "habit-stepper";
         increment.textContent = "+";
-        increment.setAttribute("aria-label", `Увеличить ${habit.title}`);
+        increment.setAttribute("aria-label", `Увеличить ${habitTitle}`);
         value.textContent = `${current} / ${goal} ${habit.unit || ""}`;
         track.className = "progress-track";
         track.setAttribute("aria-hidden", "true");
@@ -100,7 +101,7 @@
         const button = document.createElement("button");
         button.type = "button";
         button.className = `check-button${done ? " is-checked" : ""}`;
-        button.setAttribute("aria-label", `Отметить ${habit.title}`);
+        button.setAttribute("aria-label", `Отметить ${habitTitle}`);
 
         const label = document.createElement("span");
         label.textContent = done ? "Выполнено" : "Не отмечено";
@@ -131,7 +132,7 @@
       node.querySelector(".delete-habit").addEventListener("click", async () => {
         const confirmed = await ctx.confirmAction({
           confirmLabel: "Удалить",
-          message: `Удалить привычку «${habit.title}» вместе со всей историей отметок?`,
+          message: `Удалить привычку «${habitTitle}» вместе со всей историей отметок?`,
           tone: "danger",
           title: "Удалить привычку?",
         });
@@ -247,7 +248,7 @@
       return event.dataTransfer?.getData("application/x-rhythm-habit") || event.dataTransfer?.getData("text/plain") || draggedHabitId;
     }
 
-    function attachHabitAccessibleMove(node, habit, handle) {
+    function attachHabitAccessibleMove(node, habit, handle, habitTitle = habit.title) {
       if (!handle) return;
       handle.addEventListener("keydown", (event) => {
         if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
@@ -256,7 +257,7 @@
         const target = items[index + (event.key === "ArrowUp" ? -1 : 1)];
         if (!target?.dataset.habitId) return;
         event.preventDefault();
-        commitHabitReorder(habit.id, target.dataset.habitId, habit.title);
+        commitHabitReorder(habit.id, target.dataset.habitId, habitTitle);
       });
 
       handle.addEventListener("pointerdown", (event) => {
@@ -294,7 +295,7 @@
         };
         const finish = (finishEvent) => {
           cleanup(finishEvent);
-          if (moved && targetId) commitHabitReorder(habit.id, targetId, habit.title);
+          if (moved && targetId) commitHabitReorder(habit.id, targetId, habitTitle);
         };
         const cancel = (cancelEvent) => {
           targetId = "";

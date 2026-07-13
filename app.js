@@ -1,4 +1,4 @@
-﻿const SCHEMA_VERSION = 10;
+﻿const SCHEMA_VERSION = 11;
 const VALID_PRIORITIES = ["high", "medium", "low"];
 const VALID_HABIT_REPEATS = ["daily", "every2days", "every3days", "weekdays", "weekends", "weekly", "custom"];
 const VALID_REMINDER_OFFSETS = ["none", "0", "5", "15", "30", "60", "1440"];
@@ -56,6 +56,7 @@ const stateNormalizer = window.RhythmStateNormalizer.createStateNormalizer({
   normalizeDateKey,
   normalizeHabitLogs,
   normalizeHabitRepeat,
+  normalizeHabitTitleHistory: window.RhythmHabitTitleHistory.normalizeHabitTitleHistory,
   normalizeReminderOffset,
   normalizeSyncMeta: window.RhythmSyncMetadata.normalizeSyncMeta,
   normalizeTaskFlags,
@@ -433,6 +434,7 @@ const habitsView = window.RhythmHabitsView.createHabitsView({
   getState: () => state,
   isTaskDone,
   habitStreak,
+  habitTitleOnDate: window.RhythmHabitTitleHistory.habitTitleOnDate,
   habitsForDate,
   render: renderHabitSurfaces,
   renderDailyPulse,
@@ -633,6 +635,7 @@ const taskFormController = window.RhythmTaskForm.createTaskForm({
 });
 
 const habitFormController = window.RhythmHabitForm.createHabitForm({
+  applyHabitTitleChange: window.RhythmHabitTitleHistory.applyHabitTitleChange,
   els,
   cleanText,
   createId,
@@ -640,6 +643,7 @@ const habitFormController = window.RhythmHabitForm.createHabitForm({
   findHabit: (id) => state.habits.find((habit) => habit.id === id),
   getActiveDate: () => activeDate,
   getHabitCustomRepeatFromForm,
+  habitTitleOnDate: window.RhythmHabitTitleHistory.habitTitleOnDate,
   normalizeHabitRepeat,
   render,
   saveState,

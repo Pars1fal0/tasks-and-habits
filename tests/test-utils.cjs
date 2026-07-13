@@ -4,6 +4,7 @@ const storageApi = require("../storage.js");
 const taskMoves = require("../task-moves.js");
 const stateNormalizerApi = require("../state-normalizer.js");
 const syncMetadata = require("../sync-metadata.js");
+const habitTitleHistory = require("../habit-title-history.js");
 
 function normalizeDateKey(value, fallback = "") {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ""));
@@ -42,7 +43,7 @@ function createMemoryStorage() {
 
 function createStateNormalizer() {
   return stateNormalizerApi.createStateNormalizer({
-    schemaVersion: 10,
+    schemaVersion: 11,
     validPriorities: ["high", "medium", "low"],
     cleanText,
     cleanTimeValue: (value) => {
@@ -71,6 +72,7 @@ function createStateNormalizer() {
       ["daily", "every2days", "every3days", "weekdays", "weekends", "weekly", "custom"].includes(value)
         ? value
         : "daily",
+    normalizeHabitTitleHistory: habitTitleHistory.normalizeHabitTitleHistory,
     normalizeReminderOffset: (value, hasTime = true) => {
       const offset = String(value ?? (hasTime ? "15" : "none"));
       return ["none", "0", "5", "15", "30", "60", "1440"].includes(offset) ? offset : hasTime ? "15" : "none";
