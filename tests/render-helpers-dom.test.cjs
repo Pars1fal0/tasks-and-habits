@@ -66,7 +66,7 @@ module.exports = [
       assert.equal(node.classList.contains("archive-item"), true);
       assert.equal(node.querySelector("h3").textContent, "Call doctor");
       assert.equal(node.querySelector(".category-dot").style.values["--category-color"], "#34d399");
-      assert.equal(node.querySelector(".restore-task").textContent, "Вернуть");
+      assert.equal(node.querySelector(".restore-task").textContent, "Вернуть...");
     },
   },
   {

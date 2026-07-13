@@ -206,7 +206,6 @@
       const progress = document.createElement("div");
       const head = document.createElement("div");
       const label = document.createElement("span");
-      const value = document.createElement("strong");
       const bar = document.createElement("div");
       const fill = document.createElement("span");
       const completeCount = steps.filter((step) => step.done).length;
@@ -214,14 +213,13 @@
       progress.className = "goal-progress";
       head.className = "goal-progress-head";
       label.textContent = `${completeCount} из ${steps.length} чекпоинтов`;
-      value.textContent = `${progressValue}%`;
       bar.className = "goal-progress-bar";
       bar.setAttribute("role", "progressbar");
       bar.setAttribute("aria-valuemin", "0");
       bar.setAttribute("aria-valuemax", "100");
       bar.setAttribute("aria-valuenow", String(progressValue));
       fill.style.width = `${progressValue}%`;
-      head.append(label, value);
+      head.appendChild(label);
       bar.appendChild(fill);
       progress.append(head, bar);
       return progress;

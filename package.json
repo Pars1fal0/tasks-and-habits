@@ -1,6 +1,6 @@
 {
   "name": "rhythm-day",
-  "version": "0.12.11",
+  "version": "0.13.0",
   "private": true,
   "description": "Локальный десктопный трекер задач и привычек",
   "main": "desktop/main.cjs",
@@ -50,6 +50,7 @@
       "manifest.webmanifest",
       "habits-view.js",
       "notifications.js",
+      "navigation-state.js",
       "planning-history.js",
       "pwa-controller.js",
       "overdue-controller.js",

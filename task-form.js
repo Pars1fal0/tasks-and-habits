@@ -92,7 +92,7 @@
       ctx.els.taskDate.value = ctx.getActiveDate();
       ctx.els.taskDate.disabled = false;
       ctx.els.taskTime.value = "";
-      ctx.setTaskScheduleMode("deadline");
+      ctx.setTaskScheduleMode("none");
       ctx.els.taskStartTime.value = "";
       ctx.els.taskEndTime.value = "";
       ctx.els.taskCategoryId.value = "";
@@ -102,7 +102,7 @@
       ctx.setCustomRepeatForm();
       ctx.syncCustomRepeatPanel();
       ctx.syncTaskScheduleMode();
-      ctx.els.taskReminder.value = "15";
+      ctx.els.taskReminder.value = "none";
       ctx.syncTaskTimePresets();
       syncRepeatEditScope(false);
     }

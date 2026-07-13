@@ -9,7 +9,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <script>
       (() => {
-        const shellVersion = "0.12.11";
+        const shellVersion = "0.13.0";
         const versionKey = "rhythm-shell-version";
         const retryKey = "rhythm-shell-refresh";
         let storedVersion = "";
@@ -54,7 +54,7 @@
         } catch {}
       })();
     </script>
-    <link rel="stylesheet" href="styles.css?v=26">
+    <link rel="stylesheet" href="styles.css?v=27">
   </head>
   <body>
     <svg class="icon-sprite" aria-hidden="true">
@@ -150,7 +150,7 @@
         </nav>
 
         <div class="sidebar-pulse">
-          <span class="metric-label" title="Среднее выполнения задач и привычек">Общий прогресс</span>
+          <span class="metric-label" title="Среднее выполнения задач и привычек за выбранный день">Прогресс за день</span>
           <strong id="sideProgressValue">0%</strong>
           <div class="mini-meter" aria-hidden="true">
             <span id="sideProgressBar"></span>
@@ -314,7 +314,7 @@
                   <span class="metric-label">Просроченные</span>
                   <p id="overdueCounter"></p>
                 </div>
-                <button class="ghost-button compact-button" id="overdueAcknowledgeAll" type="button" aria-label="Пометить все просроченные задачи просмотренными">Пометить все</button>
+                <button class="ghost-button compact-button" id="overdueAcknowledgeAll" type="button" aria-label="Убрать все просроченные задачи из этого блока">Убрать все</button>
               </div>
                 <div class="overdue-list" id="overdueList"></div>
               </div>
@@ -354,11 +354,11 @@
                     </div>
                     <div class="schedule-mode-control" aria-label="Тип времени задачи">
                       <label>
-                        <input id="taskScheduleNone" type="radio" name="taskScheduleMode" value="none">
+                        <input id="taskScheduleNone" type="radio" name="taskScheduleMode" value="none" checked>
                         <span>Без времени</span>
                       </label>
                       <label>
-                        <input id="taskScheduleDeadline" type="radio" name="taskScheduleMode" value="deadline" checked>
+                        <input id="taskScheduleDeadline" type="radio" name="taskScheduleMode" value="deadline">
                         <span>Дедлайн</span>
                       </label>
                       <label>
@@ -402,7 +402,7 @@
                         <option value="none">Не напоминать</option>
                         <option value="0">В момент дедлайна</option>
                         <option value="5">За 5 минут</option>
-                        <option value="15" selected>За 15 минут</option>
+                      <option value="15">За 15 минут</option>
                         <option value="30">За 30 минут</option>
                         <option value="60">За 1 час</option>
                         <option value="1440">За день</option>
@@ -759,9 +759,10 @@
                 <div>
                   <span class="metric-label">Неделя</span>
                   <h2 id="weekBoardLabel">Доска задач</h2>
+                  <p class="mobile-scroll-hint">Листай дни вбок</p>
                 </div>
               </div>
-              <div class="week-board-grid" id="weekBoardGrid"></div>
+              <div class="week-board-grid" id="weekBoardGrid" tabindex="0" aria-label="Задачи по дням недели. На телефоне листай горизонтально"></div>
             </section>
             <section class="panel month-panel" data-overview-panel="month">
               <div class="panel-heading compact">
@@ -793,10 +794,6 @@
               </div>
               <div class="month-grid" id="monthGrid"></div>
             </section>
-            <section class="panel week-panel" data-overview-panel="week">
-              <h2>Неделя</h2>
-              <div class="week-strip" id="weekStrip"></div>
-            </section>
             <section class="panel heatmap-panel" data-overview-panel="year">
               <div class="panel-heading compact">
                 <div>
@@ -817,7 +814,7 @@
           <div class="toolbar">
             <div>
               <h2 id="archiveHeading">История выполнения</h2>
-              <p class="muted">История завершенных задач.</p>
+              <p class="muted">Каждая запись — выполнение за конкретную дату. Восстановление не меняет остальные повторы.</p>
             </div>
             <div class="task-toolbar-meta archive-toolbar">
               <label class="search-control">
@@ -849,11 +846,11 @@
             </div>
           </div>
           <div class="archive-bulk-bar" id="archiveBulkBar" hidden>
-            <label class="archive-select-all"><input id="archiveSelectAll" type="checkbox"> Выбрать найденное</label>
+            <label class="archive-select-all"><input id="archiveSelectAll" type="checkbox"> Выбрать видимые</label>
             <span id="archiveBulkCount">Выбрано: 0</span>
             <div class="archive-bulk-actions">
-              <button class="ghost-button compact-button" id="archiveBulkRestore" type="button">Вернуть</button>
-              <button class="ghost-button compact-button danger-button" id="archiveBulkDelete" type="button">Удалить записи</button>
+              <button class="ghost-button compact-button" id="archiveBulkRestore" type="button">Вернуть в план</button>
+              <button class="ghost-button compact-button danger-button" id="archiveBulkDelete" type="button">Удалить навсегда</button>
             </div>
           </div>
           <section class="panel main-panel">
@@ -1167,23 +1164,24 @@
     <script src="date-rollover.js?v=1" defer></script>
     <script src="planning-history.js?v=1" defer></script>
     <script src="storage.js?v=1" defer></script>
-    <script src="archive-view.js?v=3" defer></script>
-    <script src="app-events.js?v=3" defer></script>
+    <script src="navigation-state.js?v=1" defer></script>
+    <script src="archive-view.js?v=4" defer></script>
+    <script src="app-events.js?v=4" defer></script>
     <script src="heatmap-view.js?v=3" defer></script>
-    <script src="calendar-view.js?v=3" defer></script>
+    <script src="calendar-view.js?v=4" defer></script>
     <script src="calendar-drag-controller.js?v=1" defer></script>
     <script src="confirm-dialog.js?v=3" defer></script>
     <script src="form-dialog.js?v=1" defer></script>
     <script src="categories.js?v=4" defer></script>
     <script src="goal-checkpoint-editor.js?v=2" defer></script>
-    <script src="goals-view.js?v=8" defer></script>
+    <script src="goals-view.js?v=9" defer></script>
     <script src="habit-form.js?v=5" defer></script>
     <script src="habits-view.js?v=5" defer></script>
     <script src="import-export.js?v=4" defer></script>
     <script src="notifications.js?v=2" defer></script>
     <script src="overdue-controller.js?v=4" defer></script>
     <script src="task-schedule.js?v=1" defer></script>
-    <script src="task-form.js?v=8" defer></script>
+    <script src="task-form.js?v=9" defer></script>
     <script src="tasks-view.js?v=11" defer></script>
     <script src="task-moves.js?v=8" defer></script>
     <script src="task-state.js?v=4" defer></script>
@@ -1192,10 +1190,10 @@
     <script src="timeline-layout.js?v=1" defer></script>
     <script src="timeline-menu.js?v=2" defer></script>
     <script src="timeline-drag.js?v=2" defer></script>
-    <script src="timeline-view.js?v=7" defer></script>
+    <script src="timeline-view.js?v=8" defer></script>
     <script src="timeline-controller.js?v=7" defer></script>
     <script src="view-renderer.js?v=1" defer></script>
     <script src="toast.js?v=1" defer></script>
-    <script src="app.js?v=34" defer></script>
+    <script src="app.js?v=35" defer></script>
   </body>
 </html>

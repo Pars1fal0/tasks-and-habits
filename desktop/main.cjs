@@ -142,6 +142,8 @@ function createWindow() {
         document.querySelector(".nav-more-summary")?.click();
         const moreMenuKeepsView = activeView === viewBeforeMore && document.querySelector("#tasksView")?.classList.contains("is-active");
         document.querySelector(".nav-more")?.removeAttribute("open");
+        document.querySelector("#taskScheduleDeadline").checked = true;
+        document.querySelector("#taskScheduleDeadline").dispatchEvent(new Event("change", { bubbles: true }));
         const deadlineFieldsExclusive =
           !document.querySelector("#taskDeadlineTimeField")?.hidden &&
           document.querySelector("#taskBlockTimeFields")?.hidden &&
@@ -342,14 +344,16 @@ function createWindow() {
           [...document.querySelectorAll(".goal-checkpoint-row input")].map((input) => input.value).join("|") ===
           "Smoke checkpoint two|Smoke checkpoint one";
         submit(document.querySelector("#goalForm"));
+        const smokeGoalItem = [...document.querySelectorAll(".goal-item")].find((item) => item.textContent.includes("Smoke Goal"));
         const goalCreated =
           document.body.dataset.view === "goals" &&
           state.goals.some((goal) => goal.title === "Smoke Goal" && goal.dueDate === "2026-07-20" && !("taskIds" in goal) && goal.steps?.length === 2) &&
-          [...document.querySelectorAll(".goal-item")].some((item) => item.textContent.includes("Smoke Goal") && item.textContent.includes("0%"));
+          smokeGoalItem?.querySelector('[role="progressbar"]')?.getAttribute("aria-valuenow") === "0";
         document.querySelector(".goal-step input")?.click();
+        const updatedSmokeGoalItem = [...document.querySelectorAll(".goal-item")].find((item) => item.textContent.includes("Smoke Goal"));
         const goalStepProgressWorks =
           state.goals.find((goal) => goal.title === "Smoke Goal")?.steps?.[0]?.done === true &&
-          [...document.querySelectorAll(".goal-item")].some((item) => item.textContent.includes("Smoke Goal") && item.textContent.includes("50%"));
+          updatedSmokeGoalItem?.querySelector('[role="progressbar"]')?.getAttribute("aria-valuenow") === "50";
         document.querySelectorAll(".goal-step input")[1]?.click();
         const goalCompleteWorks =
           state.goals.some((goal) => goal.title === "Smoke Goal" && goal.status === "done") &&

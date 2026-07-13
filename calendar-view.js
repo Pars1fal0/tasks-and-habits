@@ -12,13 +12,6 @@
       let habitDone = 0;
       let habitTotal = 0;
 
-      ctx.els.weekStrip.replaceChildren();
-
-      week.forEach((dateKey) => {
-        const stats = ctx.statsForDate(dateKey);
-        ctx.els.weekStrip.appendChild(createOverviewDayCell(dateKey, stats));
-      });
-
       period.dates.forEach((dateKey) => {
         const stats = ctx.statsForDate(dateKey);
         taskDone += stats.taskDone;
@@ -57,35 +50,6 @@
         return { dates, heading: "Обзор года", suffix: "за год" };
       }
       return { dates: week, heading: "Обзор недели", suffix: "за неделю" };
-    }
-
-    function createOverviewDayCell(dateKey, stats) {
-      const dayCell = document.createElement("article");
-      const dayName = document.createElement("span");
-      const score = document.createElement("strong");
-      const bars = document.createElement("div");
-
-      dayCell.className = "day-cell";
-      dayName.className = "day-name";
-      dayName.textContent = ctx.formatWeekday(dateKey);
-      score.className = "day-score";
-      score.textContent = `${Math.round((stats.taskPercent + stats.habitPercent) / 2)}%`;
-      bars.className = "day-bars";
-      bars.append(createMiniBar(stats.taskPercent), createMiniBar(stats.habitPercent, "habit"));
-      dayCell.append(dayName, score, bars);
-
-      return dayCell;
-    }
-
-    function createMiniBar(percent, type = "") {
-      const bar = document.createElement("div");
-      const fill = document.createElement("span");
-
-      bar.className = type ? `mini-bar ${type}` : "mini-bar";
-      fill.style.width = `${percent}%`;
-      bar.appendChild(fill);
-
-      return bar;
     }
 
             function renderWeekBoard(week) {

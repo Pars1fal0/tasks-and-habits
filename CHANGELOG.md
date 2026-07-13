@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.13.0
+
+- Added stable URL routes for every section and calendar mode, including browser back/forward navigation and direct links.
+- Reworked mobile navigation spacing, date controls, task cards, timeline blocks, forms, archive filters, and week-board scrolling.
+- Kept task form actions visible while scrolling and made new tasks default to the clearer no-time mode without an automatic reminder.
+- Removed duplicate weekly overview blocks and empty hourly timeline labels to reduce visual noise.
+- Simplified goal progress cards and clarified overdue and archive bulk actions, restore destinations, and recurring-task semantics.
+- Added confirmation before bulk archive restoration and expanded browser-level regression coverage.
+
 ## 0.12.11
 
 - Reloading now preserves the active section, selected calendar period, browsed date, task filter, and archive period.

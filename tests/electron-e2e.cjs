@@ -17,10 +17,12 @@ const { _electron: electron } = require("playwright-core");
     assert.equal(await page.locator("#categoryForm").evaluate((node) => node.closest(".view")?.id), "settingsView");
 
     await page.locator('.nav-tab[data-view="overview"]:visible').click();
+    assert.equal(await page.evaluate(() => window.location.hash), "#calendar/week");
     await page.reload();
     await page.waitForSelector('body[data-view="overview"]');
     assert.equal(await page.locator("#pageTitle").textContent(), "Календарь");
     await page.locator('[data-overview-mode="month"]').click();
+    assert.equal(await page.evaluate(() => window.location.hash), "#calendar/month");
     assert.equal(await page.locator("#overviewHeading").textContent(), "Обзор месяца");
     assert.match(await page.locator("#weeklyTaskText").textContent(), /за месяц/);
     await page.reload();
@@ -37,6 +39,7 @@ const { _electron: electron } = require("playwright-core");
     assert.equal(await page.locator("#activeDate").inputValue(), "2026-07-20");
 
     await page.locator('.nav-tab[data-view="settings"]:visible').click();
+    assert.equal(await page.evaluate(() => window.location.hash), "#settings");
     assert.equal(await page.locator("#remoteSyncPushButton").isDisabled(), true);
     assert.equal(await page.locator("#remoteSyncPullButton").isDisabled(), true);
 
@@ -44,6 +47,11 @@ const { _electron: electron } = require("playwright-core");
     assert.equal(await page.locator(".task-filter-disclosure").getAttribute("open"), null);
     assert.equal(await page.locator(".quick-task-disclosure").getAttribute("open"), null);
     assert.equal(await page.locator(".timeline-unscheduled-panel").getAttribute("open"), null);
+
+    await page.locator(".nav-more-summary").click();
+    await page.locator('.nav-more-menu .nav-tab[data-view="archive"]').click();
+    const archiveToolbarFits = await page.locator(".archive-toolbar").evaluate((node) => node.scrollWidth <= node.clientWidth + 1);
+    assert.equal(archiveToolbarFits, true, "archive filters must fit the mobile viewport");
 
     await page.locator('.nav-tab[data-view="overview"]:visible').click();
     await page.locator('[data-overview-mode="week"]').click();
@@ -69,6 +77,9 @@ const { _electron: electron } = require("playwright-core");
     const largeHeight = await page.locator(".timeline-hour-slot").first().evaluate((node) => node.getBoundingClientRect().height);
     assert.ok(largeHeight > compactHeight, "large timeline scale should increase the touch target");
     assert.equal(await page.locator('[data-timeline-scale="large"]').getAttribute("aria-pressed"), "true");
+    await page.goBack();
+    await page.waitForSelector('body[data-view="habits"]');
+    assert.equal(await page.evaluate(() => window.location.hash), "#habits");
     assert.deepEqual(pageErrors, []);
 
     console.log("e2e ok - archive, calendar periods, sync states, mobile dialogs, and timeline scale");

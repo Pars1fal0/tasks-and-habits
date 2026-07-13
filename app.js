@@ -69,6 +69,7 @@ const stateNormalizer = window.RhythmStateNormalizer.createStateNormalizer({
 });
 
 const initialUiState = storage.loadUiState();
+const initialRoute = window.RhythmNavigationState.parseHash(window.location.hash);
 let state = normalizeState(storage.loadState());
 let persistedStateSnapshot = window.RhythmSyncMetadata.clone(state);
 const startupToday = toDateKey(new Date());
@@ -81,10 +82,10 @@ let currentToday = startupToday;
 let taskFilter = ["all", "open", "done"].includes(initialUiState.taskFilter)
   ? initialUiState.taskFilter
   : "all";
-let activeView = VALID_VIEWS.includes(initialUiState.activeView) ? initialUiState.activeView : "tasks";
-let overviewMode = ["week", "month", "year"].includes(initialUiState.overviewMode)
+let activeView = initialRoute?.view || (VALID_VIEWS.includes(initialUiState.activeView) ? initialUiState.activeView : "tasks");
+let overviewMode = initialRoute?.overviewMode || (["week", "month", "year"].includes(initialUiState.overviewMode)
   ? initialUiState.overviewMode
-  : "week";
+  : "week");
 let taskCategoryFilter = initialUiState.taskCategoryFilter || "all";
 let taskSearchQuery = initialUiState.taskSearchQuery || "";
 let archiveCategoryFilter = initialUiState.archiveCategoryFilter || "all";
@@ -327,7 +328,6 @@ const els = {
   },
   weekBoardGrid: document.querySelector("#weekBoardGrid"),
   weekBoardLabel: document.querySelector("#weekBoardLabel"),
-  weekStrip: document.querySelector("#weekStrip"),
   weeklyHabitMetric: document.querySelector("#weeklyHabitMetric"),
   weeklyHabitText: document.querySelector("#weeklyHabitText"),
   weeklyTaskMetric: document.querySelector("#weeklyTaskMetric"),
@@ -856,6 +856,7 @@ const appEvents = window.RhythmAppEvents.createAppEvents({
       item.classList.toggle("is-active", item === activeButton);
     });
     saveUiState();
+    syncNavigationRoute();
     renderOverview();
   },
   changeActiveDate: (value) => {
@@ -894,6 +895,7 @@ const appEvents = window.RhythmAppEvents.createAppEvents({
     if (!nextView || !els.views[nextView]) return;
     activeView = nextView;
     saveUiState();
+    syncNavigationRoute();
     els.navMore?.removeAttribute("open");
     render();
     scrollWorkspaceTop();
@@ -936,6 +938,7 @@ const appEvents = window.RhythmAppEvents.createAppEvents({
   handleSystemThemeChange: () => {
     if (themePreference === "system") applyThemePreference();
   },
+  handleNavigationChange,
   importData,
   openBackupFolder,
   openGoalForm: () => {
@@ -997,6 +1000,7 @@ function init() {
   settingsController.syncControls();
   confirmDialog.bindEvents();
   appEvents.bind();
+  syncNavigationRoute({ replace: true });
   resetTaskForm({ open: false });
   resetHabitForm({ open: false });
   resetGoalForm({ open: false });
@@ -1074,6 +1078,31 @@ function render() {
 
 function scrollWorkspaceTop() {
   requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: "auto" }));
+}
+
+function syncNavigationRoute({ replace = false } = {}) {
+  const hash = window.RhythmNavigationState.buildHash(activeView, overviewMode);
+  if (window.location.hash === hash) return;
+  const method = replace ? "replaceState" : "pushState";
+  window.history[method]({ activeView, overviewMode }, "", hash);
+}
+
+function handleNavigationChange() {
+  const route = window.RhythmNavigationState.parseHash(window.location.hash);
+  if (!route) {
+    syncNavigationRoute({ replace: true });
+    return;
+  }
+  activeView = route.view;
+  if (route.overviewMode) overviewMode = route.overviewMode;
+  els.views.overview.dataset.mode = overviewMode;
+  document.querySelectorAll("[data-overview-mode]").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.overviewMode === overviewMode);
+  });
+  els.navMore?.removeAttribute("open");
+  saveUiState();
+  render();
+  scrollWorkspaceTop();
 }
 
 function renderSaveStatus() {
@@ -1278,6 +1307,7 @@ function openDateTasks(dateKey) {
   activeDate = dateKey;
   activeView = "tasks";
   saveUiState();
+  syncNavigationRoute();
   resetTaskForm({ open: false });
   render();
   scrollWorkspaceTop();
@@ -1419,6 +1449,7 @@ function saveQuickTask(event) {
   state.tasks.push(task);
   activeDate = task.date;
   activeView = "tasks";
+  syncNavigationRoute();
   els.quickTaskInput.value = "";
   updateQuickTaskPreview();
   saveState();

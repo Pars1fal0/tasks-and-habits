@@ -27,10 +27,11 @@ module.exports = [
     fn() {
       const root = path.resolve(__dirname, "..");
       const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
+      const packageVersion = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")).version;
       const serviceWorker = fs.readFileSync(path.join(root, "sw.js"), "utf8");
       const staticFetch = serviceWorker.slice(serviceWorker.indexOf("event.respondWith(\n    fetch(event.request)"));
 
-      assert.match(html, /const shellVersion = "0\.12\.11"/);
+      assert.match(html, new RegExp(`const shellVersion = "${packageVersion.replaceAll(".", "\\.")}"`));
       assert.match(html, /registration\.unregister\(\)/);
       assert.match(html, /key\.startsWith\("rhythm-day-"\)/);
       assert.ok(staticFetch.startsWith("event.respondWith"), "static resources must be fetched from the network first");

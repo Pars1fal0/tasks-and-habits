@@ -93,7 +93,7 @@
       appendArchiveMeta(meta, ctx.priorityLabels[entry.task.priority] || "Средний");
       restoreButton.className = "ghost-button restore-task";
       restoreButton.type = "button";
-      restoreButton.textContent = "Вернуть";
+      restoreButton.textContent = "Вернуть...";
       restoreButton.addEventListener("click", async () => {
         const choice = await ctx.confirmAction({
           title: "Куда вернуть задачу?",
@@ -142,9 +142,15 @@
       return ctx.archiveEntries().filter((entry) => selectedKeys.has(entryKey(entry)));
     }
 
-    function restoreSelected() {
+    async function restoreSelected() {
       const entries = selectedEntries();
       if (!entries.length) return;
+      const confirmed = await ctx.confirmAction({
+        title: "Вернуть задачи в план?",
+        message: `Задачи будут снова открыты на исходных датах. Выбрано: ${entries.length}.`,
+        confirmLabel: "Вернуть",
+      });
+      if (!confirmed) return;
       const undo = ctx.createUndoSnapshot();
       entries.forEach((entry) => {
         entry.task.completed[entry.dateKey] = false;

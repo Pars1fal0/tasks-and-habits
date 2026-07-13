@@ -80,13 +80,6 @@
           slot.appendChild(createTimelineTask(entry));
         });
 
-        if (!row.tasks.length) {
-          const empty = document.createElement("span");
-          empty.className = "timeline-slot-empty";
-          empty.textContent = "Свободно";
-          slot.appendChild(empty);
-        }
-
         rowNode.append(label, slot);
         ctx.els.timelineGrid.appendChild(rowNode);
       });
