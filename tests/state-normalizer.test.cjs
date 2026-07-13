@@ -94,6 +94,27 @@ module.exports = [
     },
   },
   {
+    name: "deduplicates categories and remaps tasks to the canonical category",
+    fn() {
+      const normalizer = createStateNormalizer();
+      const normalized = normalizer.normalizeState({
+        categories: [
+          { id: "category-b", name: "  Работа  ", color: "#ff0000" },
+          { id: "category-a", name: "работа", color: "#00ff00" },
+          { id: "category-home", name: "Дом", color: "#0000ff" },
+        ],
+        tasks: [
+          { id: "task-b", title: "Из старой категории", categoryId: "category-b" },
+          { id: "task-a", title: "Из основной категории", categoryId: "category-a" },
+        ],
+      });
+
+      assert.deepEqual(normalized.categories.map((category) => category.id), ["category-a", "category-home"]);
+      assert.deepEqual(normalized.tasks.map((task) => task.categoryId), ["category-a", "category-a"]);
+      assert.ok(normalized.tombstones.categories["category-b"]);
+    },
+  },
+  {
     name: "normalizes scheduled task blocks",
     fn() {
       const normalizer = createStateNormalizer();

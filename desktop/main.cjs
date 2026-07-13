@@ -490,12 +490,6 @@ function createWindow() {
         densitySelect.value = "compact";
         densitySelect.dispatchEvent(new Event("change", { bubbles: true }));
         const densitySettingWorks = document.documentElement.dataset.density === "compact";
-        const interfaceModeSelect = document.querySelector("#interfaceMode");
-        const defaultSimpleModeWorks =
-          interfaceModeSelect?.value === "simple" && document.documentElement.dataset.interfaceMode === "simple";
-        interfaceModeSelect.value = "advanced";
-        interfaceModeSelect.dispatchEvent(new Event("change", { bubbles: true }));
-        const advancedModeWorks = document.documentElement.dataset.interfaceMode === "advanced";
         const timeFormatSelect = document.querySelector("#timeFormat");
         timeFormatSelect.value = "12";
         timeFormatSelect.dispatchEvent(new Event("change", { bubbles: true }));
@@ -646,7 +640,6 @@ function createWindow() {
         const interfaceResetWorks =
           document.documentElement.dataset.theme === "dark" &&
           document.documentElement.dataset.density === "comfortable" &&
-          document.documentElement.dataset.interfaceMode === "simple" &&
           document.querySelector("#timeFormat")?.value === "24" &&
           document.querySelector("#firstDayOfWeek")?.value === "monday";
         const settingsPayload = {
@@ -656,7 +649,6 @@ function createWindow() {
             firstDayOfWeek: "sunday",
             notificationSetting: "on",
             themePreference: "dark",
-            interfaceMode: "advanced",
             timeFormat: "12",
           },
         };
@@ -669,7 +661,6 @@ function createWindow() {
         const settingsImportWorks =
           document.querySelector("#backupSchedule")?.value === "0" &&
           document.querySelector("#densityPreference")?.value === "compact" &&
-          document.querySelector("#interfaceMode")?.value === "advanced" &&
           document.querySelector("#notificationSetting")?.value === "on";
 
         document.querySelector('[data-view="habits"]').click();
@@ -805,8 +796,6 @@ function createWindow() {
           calendarKeyboardMove,
           confirmFocusTrapWorks: confirmInitialFocusWorks && confirmTabWrapWorks && confirmShiftTabWrapWorks,
           confirmModalWorks,
-          advancedModeWorks,
-          defaultSimpleModeWorks,
           densitySettingWorks,
           firstDaySettingWorks: Boolean(firstDaySettingWorks),
           heatmapFits,

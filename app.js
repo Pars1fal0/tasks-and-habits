@@ -76,7 +76,6 @@ let notificationSetting = normalizeNotificationSetting(initialUiState.notificati
 let backupSchedule = normalizeBackupSchedule(initialUiState.backupSchedule);
 let firstDayOfWeek = normalizeFirstDayOfWeek(initialUiState.firstDayOfWeek);
 let densityPreference = normalizeDensityPreference(initialUiState.densityPreference);
-let interfaceMode = normalizeInterfaceMode(initialUiState.interfaceMode);
 let timeFormat = normalizeTimeFormat(initialUiState.timeFormat);
 let remoteSyncEnabled = normalizeRemoteSyncEnabled(initialUiState.remoteSyncEnabled);
 let remoteSyncUrl = cleanText(initialUiState.remoteSyncUrl || "");
@@ -183,7 +182,6 @@ const els = {
   heatmapGrid: document.querySelector("#heatmapGrid"),
   importButton: document.querySelector("#importButton"),
   importFile: document.querySelector("#importFile"),
-  interfaceMode: document.querySelector("#interfaceMode"),
   monthGrid: document.querySelector("#monthGrid"),
   monthLabel: document.querySelector("#monthLabel"),
   monthWeekdays: document.querySelector("#monthWeekdays"),
@@ -1936,7 +1934,6 @@ function saveUiState() {
     backupSchedule,
     densityPreference,
     firstDayOfWeek,
-    interfaceMode,
     localStateUpdatedAt,
     notificationSetting,
     overdueHidden,
@@ -1973,10 +1970,6 @@ function normalizeDensityPreference(value) {
   return settingsState.normalizeDensityPreference(value);
 }
 
-function normalizeInterfaceMode(value) {
-  return settingsState.normalizeInterfaceMode(value);
-}
-
 function normalizeTimeFormat(value) {
   return settingsState.normalizeTimeFormat(value);
 }
@@ -1999,12 +1992,10 @@ function applyThemePreference() {
 
 function applySettingsPreferences() {
   document.documentElement.dataset.density = densityPreference;
-  document.documentElement.dataset.interfaceMode = interfaceMode;
   if (els.notificationSetting) els.notificationSetting.value = notificationSetting;
   if (els.backupSchedule) els.backupSchedule.value = backupSchedule;
   if (els.firstDayOfWeek) els.firstDayOfWeek.value = firstDayOfWeek;
   if (els.densityPreference) els.densityPreference.value = densityPreference;
-  if (els.interfaceMode) els.interfaceMode.value = interfaceMode;
   if (els.timeFormat) els.timeFormat.value = timeFormat;
   if (els.remoteSyncEnabled) els.remoteSyncEnabled.value = remoteSyncEnabled;
   if (els.remoteSyncUrl) els.remoteSyncUrl.value = remoteSyncUrl;
@@ -2019,7 +2010,6 @@ function getUiSettings() {
     backupSchedule,
     densityPreference,
     firstDayOfWeek,
-    interfaceMode,
     localStateUpdatedAt,
     notificationSetting,
     remoteSyncAnonKey,
@@ -2076,14 +2066,6 @@ function updateSetting(name, value) {
       saveUiState();
       settingsController.syncControls();
       showToast("Плотность интерфейса обновлена");
-      break;
-    case "interfaceMode":
-      interfaceMode = normalizeInterfaceMode(value);
-      applySettingsPreferences();
-      saveUiState();
-      settingsController.syncControls();
-      render();
-      showToast(interfaceMode === "advanced" ? "Расширенный режим включен" : "Простой режим включен");
       break;
     case "timeFormat":
       timeFormat = normalizeTimeFormat(value);
@@ -2180,7 +2162,6 @@ async function resetInterfaceSettings() {
 
   themePreference = "dark";
   densityPreference = "comfortable";
-  interfaceMode = "simple";
   timeFormat = "24";
   firstDayOfWeek = "monday";
   applyThemePreference();
@@ -2198,7 +2179,6 @@ function applyImportedSettings(settings = {}) {
   backupSchedule = normalized.backupSchedule;
   firstDayOfWeek = normalized.firstDayOfWeek;
   densityPreference = normalized.densityPreference;
-  interfaceMode = normalized.interfaceMode;
   timeFormat = normalized.timeFormat;
   remoteSyncEnabled = normalized.remoteSyncEnabled;
   remoteSyncUrl = normalized.remoteSyncUrl;

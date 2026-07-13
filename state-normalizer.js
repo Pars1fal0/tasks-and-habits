@@ -13,15 +13,34 @@
 
       if (!raw || typeof raw !== "object") return normalized;
 
-      normalized.categories = Array.isArray(raw.categories)
-        ? raw.categories.map((category) => ({
-            id: category.id || config.createId(),
-            name: config.cleanText(category.name) || "Категория",
-            color: config.sanitizeColor(category.color) || config.randomCategoryColor(),
-            createdAt: category.createdAt || new Date().toISOString(),
-            updatedAt: category.updatedAt || category.createdAt || new Date().toISOString(),
-          }))
-        : [];
+      const categoryAliases = new Map();
+      const categoryGroups = new Map();
+      const rawCategories = Array.isArray(raw.categories) ? raw.categories : [];
+      rawCategories.forEach((category) => {
+        const normalizedCategory = {
+          id: category.id || config.createId(),
+          name: config.cleanText(category.name) || "Категория",
+          color: config.sanitizeColor(category.color) || config.randomCategoryColor(),
+          createdAt: category.createdAt || new Date().toISOString(),
+          updatedAt: category.updatedAt || category.createdAt || new Date().toISOString(),
+        };
+        const key = normalizedCategory.name.toLocaleLowerCase("ru-RU");
+        const group = categoryGroups.get(key) || [];
+        group.push(normalizedCategory);
+        categoryGroups.set(key, group);
+      });
+
+      categoryGroups.forEach((group) => {
+        group.sort((a, b) => String(a.id).localeCompare(String(b.id)));
+        const canonical = group[0];
+        normalized.categories.push(canonical);
+        group.forEach((category) => {
+          categoryAliases.set(category.id, canonical.id);
+          if (category.id !== canonical.id && !normalized.tombstones.categories[category.id]) {
+            normalized.tombstones.categories[category.id] = new Date().toISOString();
+          }
+        });
+      });
 
       const ensureCategory = (name) => {
         const categoryName = config.cleanText(name);
@@ -48,8 +67,9 @@
             const endTime = config.cleanTimeValue(task.endTime);
             const hasBlock = isValidTimeBlock(startTime, endTime);
             const normalizedTime = hasBlock ? endTime : time;
-            const categoryId = normalized.categories.some((category) => category.id === task.categoryId)
-              ? task.categoryId
+            const aliasedCategoryId = categoryAliases.get(task.categoryId) || task.categoryId;
+            const categoryId = normalized.categories.some((category) => category.id === aliasedCategoryId)
+              ? aliasedCategoryId
               : ensureCategory(task.category);
 
             return {

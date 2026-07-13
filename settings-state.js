@@ -27,10 +27,6 @@
       return value === "compact" ? "compact" : "comfortable";
     }
 
-    function normalizeInterfaceMode(value) {
-      return value === "advanced" ? "advanced" : "simple";
-    }
-
     function normalizeTimeFormat(value) {
       return value === "12" ? "12" : "24";
     }
@@ -44,7 +40,6 @@
         backupSchedule: normalizeBackupSchedule(settings.backupSchedule),
         densityPreference: normalizeDensityPreference(settings.densityPreference),
         firstDayOfWeek: normalizeFirstDayOfWeek(settings.firstDayOfWeek),
-        interfaceMode: normalizeInterfaceMode(settings.interfaceMode),
         localStateUpdatedAt: settings.localStateUpdatedAt || "",
         notificationSetting: normalizeNotificationSetting(settings.notificationSetting),
         remoteSyncAnonKey: cleanText(settings.remoteSyncAnonKey || ""),
@@ -80,7 +75,6 @@
       normalizeDensityPreference,
       normalizeFirstDayOfWeek,
       normalizeImportedSettings,
-      normalizeInterfaceMode,
       normalizeNotificationSetting,
       normalizeRemoteSyncEnabled,
       normalizeThemePreference,
