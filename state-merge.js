@@ -1,14 +1,15 @@
 (function (global) {
   function mergeStates(localState = {}, remoteState = {}) {
     const tombstones = mergeTombstones(localState.tombstones, remoteState.tombstones);
+    const tasks = withoutDeleted(mergeEntities(localState.tasks, remoteState.tasks, mergeTask), tombstones.tasks);
     return {
       ...localState,
       ...remoteState,
       categories: withoutDeleted(mergeEntities(localState.categories, remoteState.categories), tombstones.categories),
-      tasks: withoutDeleted(mergeEntities(localState.tasks, remoteState.tasks, mergeTask), tombstones.tasks),
+      tasks,
       habits: withoutDeleted(mergeEntities(localState.habits, remoteState.habits, mergeHabit), tombstones.habits),
       goals: withoutDeleted(mergeEntities(localState.goals, remoteState.goals, mergeGoal), tombstones.goals),
-      taskOrder: mergeTaskOrder(localState.taskOrder, remoteState.taskOrder),
+      taskOrder: mergeTaskOrder(localState.taskOrder, remoteState.taskOrder, new Set(tasks.map((task) => task.id))),
       tombstones,
     };
   }
@@ -65,10 +66,7 @@
   }
 
   function withoutDeleted(entities, tombstones = {}) {
-    return entities.filter((entity) => {
-      const deletedAt = Date.parse(tombstones[entity.id] || "");
-      return !Number.isFinite(deletedAt) || timestampOf(entity) > deletedAt;
-    });
+    return entities.filter((entity) => !tombstones[entity.id]);
   }
 
   function newestTimestamp(localValue, remoteValue) {
@@ -79,10 +77,11 @@
     return remoteTime >= localTime ? remoteValue : localValue;
   }
 
-  function mergeTaskOrder(local = {}, remote = {}) {
+  function mergeTaskOrder(local = {}, remote = {}, taskIds = null) {
     const result = {};
     new Set([...Object.keys(local || {}), ...Object.keys(remote || {})]).forEach((dateKey) => {
-      result[dateKey] = [...new Set([...(local?.[dateKey] || []), ...(remote?.[dateKey] || [])])];
+      result[dateKey] = [...new Set([...(local?.[dateKey] || []), ...(remote?.[dateKey] || [])])]
+        .filter((id) => !taskIds || taskIds.has(id));
     });
     return result;
   }

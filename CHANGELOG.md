@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Fixed deleted records reappearing during two-device synchronization when device clocks or migrated timestamps differ.
+- Made deletion markers authoritative during state merges and remove deleted task IDs from synchronized ordering.
 - Prepared automatic Cloudflare Workers Static Assets deployment from the private GitHub repository and `master` branch.
 - Added a clean static web build containing only the PWA application shell.
 - Added live cross-device synchronization every 30 seconds and whenever the app regains focus, visibility, or network access.

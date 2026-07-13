@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "rhythm-day-";
-const CACHE_NAME = `${CACHE_PREFIX}app-v42`;
+const CACHE_NAME = `${CACHE_PREFIX}app-v43`;
 const APP_SHELL = [
   "./",
   "index.html",
