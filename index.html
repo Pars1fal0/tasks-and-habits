@@ -926,24 +926,25 @@
               <summary class="panel-heading compact settings-summary">
                 <div>
                   <span class="metric-label">Синхронизация</span>
-                  <h2 id="syncSettingsHeading">Удаленная база</h2>
+                  <h2 id="syncSettingsHeading">Синхронизация устройств</h2>
                 </div>
               </summary>
               <ol class="sync-wizard-steps" aria-label="Шаги подключения">
                 <li><span>1</span><strong>Проект</strong><small>Вставь адрес и публичный ключ Supabase.</small></li>
                 <li><span>2</span><strong>Аккаунт</strong><small>Войди или зарегистрируйся по email.</small></li>
-                <li><span>3</span><strong>Проверка</strong><small>Проверь связь и включи синхронизацию.</small></li>
+                <li><span>3</span><strong>Устройства</strong><small>Войди в тот же аккаунт на остальных устройствах.</small></li>
               </ol>
               <label class="settings-row">
                 <span>
-                  <strong>Удаленная БД</strong>
-                  <small>Сохраняет текущее состояние в Supabase. Локальная копия остается для офлайн-работы.</small>
+                  <strong>Синхронизация устройств</strong>
+                  <small>Автоматически объединяет изменения между устройствами. Локальная копия остается доступна без сети.</small>
                 </span>
                 <select id="remoteSyncEnabled" aria-label="Синхронизация с базой данных">
                   <option value="off">Выключена</option>
                   <option value="on">Включена</option>
                 </select>
               </label>
+              <p class="settings-status">На втором устройстве укажи тот же проект Supabase, войди в этот же аккаунт и включи синхронизацию. Открытое приложение проверяет изменения каждые 30 секунд и при возврате в окно.</p>
               <details class="sync-technical">
                 <summary>Параметры проекта Supabase</summary>
                 <label class="settings-row">
@@ -1107,7 +1108,8 @@
     <script src="remote-auth.js?v=1" defer></script>
     <script src="remote-auth-controller.js?v=1" defer></script>
     <script src="remote-sync.js?v=2" defer></script>
-    <script src="remote-sync-controller.js?v=3" defer></script>
+    <script src="remote-sync-controller.js?v=4" defer></script>
+    <script src="device-sync-controller.js?v=1" defer></script>
     <script src="sync-history.js?v=1" defer></script>
     <script src="settings-state.js?v=1" defer></script>
     <script src="state-normalizer.js?v=7" defer></script>
@@ -1144,6 +1146,6 @@
     <script src="timeline-controller.js?v=7" defer></script>
     <script src="view-renderer.js?v=1" defer></script>
     <script src="toast.js?v=1" defer></script>
-    <script src="app.js?v=31" defer></script>
+    <script src="app.js?v=32" defer></script>
   </body>
 </html>

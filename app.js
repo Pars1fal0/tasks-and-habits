@@ -760,6 +760,14 @@ const remoteAuthController = window.RhythmRemoteAuthController.createRemoteAuthC
   showToast,
   syncLatest: (options) => remoteSyncWorkflow.syncLatest(options),
 });
+const deviceSyncController = window.RhythmDeviceSyncController.createDeviceSyncController({
+  ensureFreshSession: () => remoteAuth.ensureFreshSession().catch(() => null),
+  onOnline: () => {
+    renderSaveStatus();
+    scheduleRemotePush();
+  },
+  syncLatest: (options) => remoteSyncWorkflow.syncLatest(options),
+});
 syncHistory.render(els.remoteSyncHistory, formatBackupDate);
 
 const notificationsController = window.RhythmNotifications.createNotifications({
@@ -870,12 +878,6 @@ const appEvents = window.RhythmAppEvents.createAppEvents({
   els,
   exportData,
   goToday,
-  handleOnline: async () => {
-    renderSaveStatus();
-    await remoteAuth.ensureFreshSession().catch(() => null);
-    await remoteSyncWorkflow.syncLatest({ silent: true });
-    scheduleRemotePush();
-  },
   handleSystemThemeChange: () => {
     if (themePreference === "system") applyThemePreference();
   },
@@ -943,7 +945,7 @@ function init() {
   renderRemoteSyncStatus();
   updateFileBackupStatus();
   render();
-  remoteAuth.ensureFreshSession().catch(() => null).finally(() => remoteSyncWorkflow.syncLatest({ silent: true }));
+  deviceSyncController.start();
   syncDesktopReminders();
   syncDesktopBackup();
   setInterval(checkDueNotifications, 30000);

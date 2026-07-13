@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added live cross-device synchronization every 30 seconds and whenever the app regains focus, visibility, or network access.
+- Merge newer remote changes before automatic pushes so two active devices do not silently overwrite each other.
+- Reworked remote storage copy around a same-account multi-device setup while keeping offline-first local data.
 - Renamed Overview to Calendar and made its week, month, and year metrics match the visible period.
 - Moved archive period filtering into Archive and added safe single-entry deletion for completed recurring occurrences.
 - Simplified mobile tasks, timeline, and habit cards with collapsible secondary controls and compact action menus.

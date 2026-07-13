@@ -92,19 +92,19 @@
       if (inFlight) return;
       begin();
       try {
-        if (!(await confirmOverwriteIfNeeded({ manual }))) return;
+        const mergedRemote = await mergeRemoteBeforePush();
         const pushedAt = new Date().toISOString();
-        await ctx.remoteSync.pushState(getOperationConfig(), {
+        const pushed = await ctx.remoteSync.pushState(getOperationConfig(), {
           clientUpdatedAt: pushedAt,
           schemaVersion: ctx.schemaVersion,
           state: ctx.getState(),
           uiState: ctx.getRemoteUiSettings({ remoteSyncLastPushedAt: pushedAt }),
         });
-        ctx.setSyncMeta({ lastPushedAt: pushedAt });
+        ctx.setSyncMeta({ lastPushedAt: snapshotVersion(pushed) || pushedAt });
         pending = false;
         ctx.saveUiState();
         ctx.recordSyncEvent?.("push");
-        if (manual) ctx.showToast("Данные сохранены в БД");
+        if (manual) ctx.showToast(mergedRemote ? "Данные устройств объединены и сохранены" : "Данные сохранены в БД");
       } catch (error) {
         lastError = ctx.describeError(error);
         ctx.recordSyncEvent?.("error", lastError);
@@ -114,22 +114,14 @@
       }
     }
 
-    async function confirmOverwriteIfNeeded({ manual }) {
+    async function mergeRemoteBeforePush() {
       const remoteSnapshot = await ctx.remoteSync.pullState(getOperationConfig());
       const meta = ctx.getSyncMeta();
-      if (!remoteSnapshot.found || !remoteSnapshot.clientUpdatedAt) return true;
-      if (!ctx.isRemoteVersionNewer(remoteSnapshot.clientUpdatedAt, meta.lastPulledAt, meta.lastPushedAt)) return true;
-      const remoteDate = ctx.formatDate(remoteSnapshot.clientUpdatedAt);
-      if (!manual) {
-        lastError = `удаленная версия новее (${remoteDate}); нажми "Загрузить из БД" или подтверди ручное сохранение`;
-        return false;
-      }
-      return ctx.confirmAction({
-        confirmLabel: "Перезаписать БД",
-        message: `В БД есть версия от ${remoteDate}, которую это устройство еще не загружало. Если продолжить, она будет перезаписана текущими локальными данными.`,
-        tone: "danger",
-        title: "Удаленная версия новее",
-      });
+      const remoteVersion = snapshotVersion(remoteSnapshot);
+      if (!remoteSnapshot.found || !remoteSnapshot.state || !remoteVersion) return false;
+      if (!ctx.isRemoteVersionNewer(remoteVersion, meta.lastPulledAt, meta.lastPushedAt)) return false;
+      applyMergedSnapshot(remoteSnapshot, "перед отправкой локальных изменений");
+      return true;
     }
 
     async function check(options = {}) {
@@ -175,7 +167,8 @@
         ctx.showToast("В БД пока нет сохраненных данных");
         return;
       }
-      const remoteDate = pulled.clientUpdatedAt ? ctx.formatDate(pulled.clientUpdatedAt) : "неизвестно";
+      const remoteVersion = snapshotVersion(pulled);
+      const remoteDate = remoteVersion ? ctx.formatDate(remoteVersion) : "неизвестно";
       const localUpdatedAt = ctx.getLocalUpdatedAt();
       const localWarning =
         localUpdatedAt && pulled.clientUpdatedAt && localUpdatedAt > pulled.clientUpdatedAt
@@ -196,9 +189,13 @@
         const nextState = confirmed === "secondary" ? ctx.mergeStates(ctx.getState(), pulled.state) : pulled.state;
         ctx.replaceState(nextState);
         const pulledAt = new Date().toISOString();
-        ctx.setSyncMeta({ lastPulledAt: pulledAt });
+        ctx.setSyncMeta({ lastPulledAt: remoteVersion || pulledAt });
         pending = false;
-        ctx.saveState({ localUpdatedAt: pulled.clientUpdatedAt || pulledAt, skipBackup: true, skipRemote: true });
+        ctx.saveState({
+          localUpdatedAt: ctx.latestIsoDate(localUpdatedAt, pulled.clientUpdatedAt, pulledAt),
+          skipBackup: true,
+          skipRemote: true,
+        });
         ctx.saveUiState();
         ctx.render();
         ctx.recordSyncEvent?.(confirmed === "secondary" ? "merge" : "pull", `версия от ${remoteDate}`);
@@ -219,18 +216,8 @@
         const pulled = await ctx.remoteSync.pullState(getConfig());
         if (!pulled.found || !pulled.state) return { changed: false };
         const meta = ctx.getSyncMeta();
-        if (!ctx.isRemoteVersionNewer(pulled.clientUpdatedAt, meta.lastPulledAt, meta.lastPushedAt)) return { changed: false };
-        const undo = ctx.createUndoSnapshot();
-        ctx.createImportSafetyBackup(undo);
-        const nextState = ctx.mergeStates(ctx.getState(), pulled.state);
-        ctx.replaceState(nextState);
-        const pulledAt = new Date().toISOString();
-        ctx.setSyncMeta({ lastPulledAt: pulledAt });
-        pending = false;
-        ctx.saveState({ localUpdatedAt: pulled.clientUpdatedAt || pulledAt, skipBackup: true, skipRemote: true });
-        ctx.saveUiState();
-        ctx.render();
-        ctx.recordSyncEvent?.("merge", "автоматическая синхронизация");
+        if (!ctx.isRemoteVersionNewer(snapshotVersion(pulled), meta.lastPulledAt, meta.lastPushedAt)) return { changed: false };
+        const undo = applyMergedSnapshot(pulled, "автоматическая синхронизация");
         if (!options.silent) ctx.showToast("Данные с другого устройства объединены", { undo });
         global.setTimeout(() => schedulePush(), 0);
         return { changed: true };
@@ -242,6 +229,28 @@
       } finally {
         finish();
       }
+    }
+
+    function applyMergedSnapshot(pulled, detail) {
+      const undo = ctx.createUndoSnapshot();
+      ctx.createImportSafetyBackup(undo);
+      ctx.replaceState(ctx.mergeStates(ctx.getState(), pulled.state));
+      const pulledAt = new Date().toISOString();
+      ctx.setSyncMeta({ lastPulledAt: snapshotVersion(pulled) || pulledAt });
+      pending = false;
+      ctx.saveState({
+        localUpdatedAt: ctx.latestIsoDate(ctx.getLocalUpdatedAt(), pulled.clientUpdatedAt, pulledAt),
+        skipBackup: true,
+        skipRemote: true,
+      });
+      ctx.saveUiState();
+      ctx.render();
+      ctx.recordSyncEvent?.("merge", detail);
+      return undo;
+    }
+
+    function snapshotVersion(snapshot) {
+      return snapshot?.updatedAt || snapshot?.row?.updated_at || snapshot?.clientUpdatedAt || "";
     }
 
     function begin() {

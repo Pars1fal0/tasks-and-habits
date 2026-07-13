@@ -738,6 +738,7 @@ function createWindow() {
               window.RhythmCalendarView &&
               window.RhythmCategories &&
               window.RhythmConfirmDialog &&
+              window.RhythmDeviceSyncController &&
               window.RhythmFormDialog &&
               window.RhythmGoalCheckpointEditor &&
               window.RhythmGoalsView &&

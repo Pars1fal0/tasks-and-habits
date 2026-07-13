@@ -1,6 +1,6 @@
 {
   "name": "rhythm-day",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "private": true,
   "description": "Локальный десктопный трекер задач и привычек",
   "main": "desktop/main.cjs",
@@ -31,6 +31,7 @@
       "confirm-dialog.js",
       "form-dialog.js",
       "date-rollover.js",
+      "device-sync-controller.js",
       "desktop/**/*",
       "goal-checkpoint-editor.js",
       "goals-view.js",

@@ -81,7 +81,6 @@
       els.importButton.addEventListener("click", () => els.importFile.click());
       els.importFile.addEventListener("change", ctx.importData);
       window.matchMedia?.("(prefers-color-scheme: light)")?.addEventListener("change", ctx.handleSystemThemeChange);
-      window.addEventListener("online", ctx.handleOnline);
       window.addEventListener("offline", ctx.renderSaveStatus);
 
       els.archiveSearch.addEventListener("input", () => ctx.changeArchiveSearch(els.archiveSearch.value));

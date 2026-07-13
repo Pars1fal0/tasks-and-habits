@@ -59,4 +59,56 @@ module.exports = [
       assert.deepEqual(safety, { state: "local" });
     },
   },
+  {
+    name: "merges another device before an automatic push",
+    async fn() {
+      let state = { tasks: [{ id: "local" }] };
+      let pushedState = null;
+      let lastPushedAt = "";
+      const workflow = createRemoteSyncWorkflow({
+        createImportSafetyBackup() {},
+        createUndoSnapshot: () => ({ state: "local" }),
+        describeError: (error) => error.message,
+        formatDate: (value) => value,
+        getLocalUpdatedAt: () => "2026-07-13T09:00:00.000Z",
+        getRemoteUiSettings: () => ({}),
+        getSettings: () => ({ enabled: true, anonKey: "anon", supabaseUrl: "url", userKey: "key" }),
+        getState: () => state,
+        getSyncMeta: () => ({ lastPulledAt: "", lastPushedAt: "" }),
+        isRemoteVersionNewer: () => true,
+        isSecurePrivateKey: () => true,
+        latestIsoDate: (...values) => values.filter(Boolean).sort().at(-1) || "",
+        mergeStates: () => ({ tasks: [{ id: "local" }, { id: "remote" }] }),
+        remoteSync: {
+          normalizeConfig: (config) => config,
+          isConfigured: (config) => config.enabled,
+          pullState: async () => ({
+            found: true,
+            clientUpdatedAt: "2026-07-13T10:00:00.000Z",
+            state: { tasks: [{ id: "remote" }] },
+          }),
+          pushState: async (_config, payload) => {
+            pushedState = payload.state;
+            return { row: { updated_at: "2026-07-13T10:00:01.000Z" } };
+          },
+        },
+        render() {},
+        renderSaveStatus() {},
+        replaceState: (nextState) => { state = nextState; },
+        saveState() {},
+        saveUiState() {},
+        schemaVersion: 9,
+        setSyncMeta: (meta) => { lastPushedAt = meta.lastPushedAt || lastPushedAt; },
+        showToast() {},
+        statusElement: { textContent: "" },
+        syncControls() {},
+      });
+
+      await workflow.push({ silent: true });
+
+      assert.deepEqual(pushedState, { tasks: [{ id: "local" }, { id: "remote" }] });
+      assert.equal(lastPushedAt, "2026-07-13T10:00:01.000Z");
+      assert.equal(workflow.getStatus().lastError, "");
+    },
+  },
 ];
