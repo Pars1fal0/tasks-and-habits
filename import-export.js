@@ -126,10 +126,12 @@
           });
       if (!confirmed) return;
 
-      ctx.replaceState(backup.state || backup);
-      ctx.saveState();
+      const undo = ctx.createUndoSnapshot();
+      createImportSafetyBackup(undo);
+      ctx.replaceState(ctx.normalizeState(backup.state || backup));
+      ctx.saveState({ skipBackup: true });
       ctx.render();
-      ctx.showToast("Данные восстановлены из бэкапа");
+      ctx.showToast("Данные восстановлены. Предыдущее состояние сохранено", { undo });
     }
 
     function loadBackup() {
@@ -171,5 +173,7 @@
     };
   }
 
-  global.RhythmImportExport = { createImportExport };
-})(window);
+  const api = { createImportExport };
+  global.RhythmImportExport = api;
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
+})(typeof window !== "undefined" ? window : globalThis);

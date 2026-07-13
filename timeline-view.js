@@ -105,6 +105,7 @@
       card.classList.toggle("is-done", entry.done);
       card.classList.toggle("is-overdue", entry.isOverdue);
       card.classList.toggle("is-time-block", entry.isTimeBlock);
+      card.classList.toggle("is-deadline-marker", Number.isFinite(entry.minutes) && !entry.isTimeBlock);
       card.dataset.taskId = entry.task.id;
       card.setAttribute("role", "listitem");
       if (entry.categoryColor) card.style.setProperty("--timeline-color", entry.categoryColor);

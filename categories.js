@@ -67,7 +67,10 @@
         const item = document.createElement("div");
         const dot = document.createElement("span");
         const name = document.createElement("span");
+        const editButton = document.createElement("button");
         const button = document.createElement("button");
+        const editIcon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        const editUse = document.createElementNS("http://www.w3.org/2000/svg", "use");
         const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
         const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
 
@@ -75,6 +78,14 @@
         dot.className = "category-dot";
         dot.style.setProperty("--category-color", category.color);
         name.textContent = category.name;
+        editButton.className = "icon-button subtle";
+        editButton.type = "button";
+        editButton.setAttribute("aria-label", `Изменить категорию ${category.name}`);
+        editIcon.classList.add("ui-icon");
+        editUse.setAttribute("href", "#icon-edit");
+        editIcon.appendChild(editUse);
+        editButton.appendChild(editIcon);
+        editButton.addEventListener("click", () => fillCategoryForm(category));
         button.className = "icon-button subtle";
         button.type = "button";
         button.setAttribute("aria-label", "Удалить категорию");
@@ -83,7 +94,7 @@
         icon.appendChild(use);
         button.appendChild(icon);
         button.addEventListener("click", () => deleteCategory(category.id));
-        item.append(dot, name, button);
+        item.append(dot, name, editButton, button);
         ctx.els.categoryList.appendChild(item);
       });
     }
@@ -92,26 +103,40 @@
       event.preventDefault();
       const name = ctx.cleanText(ctx.els.categoryName.value);
       if (!name) return;
-      const existing = ctx.getState().categories.find((category) => category.name.toLowerCase() === name.toLowerCase());
+      const editingId = ctx.els.categoryId?.value || "";
+      const existing = ctx.getState().categories.find((category) => category.id !== editingId && category.name.toLowerCase() === name.toLowerCase());
       if (existing) {
         ctx.showToast("Такая категория уже есть");
         return;
       }
       const undo = ctx.createUndoSnapshot();
 
-      const createdAt = new Date().toISOString();
-      ctx.getState().categories.push({
-        id: ctx.createId(),
-        name,
-        color: ctx.els.categoryColor.value || "#00a78e",
-        createdAt,
-        updatedAt: createdAt,
-      });
-      ctx.els.categoryForm.reset();
-      ctx.els.categoryColor.value = "#00a78e";
+      const now = new Date().toISOString();
+      const editing = ctx.getState().categories.find((category) => category.id === editingId);
+      if (editing) {
+        editing.name = name;
+        editing.color = ctx.els.categoryColor.value || editing.color;
+        editing.updatedAt = now;
+      } else {
+        ctx.getState().categories.push({ id: ctx.createId(), name, color: ctx.els.categoryColor.value || "#00a78e", createdAt: now, updatedAt: now });
+      }
+      resetCategoryForm();
       ctx.saveState();
       renderCategories();
-      ctx.showToast("Категория создана", { undo });
+      ctx.showToast(editing ? "Категория обновлена" : "Категория создана", { undo });
+    }
+
+    function fillCategoryForm(category) {
+      if (ctx.els.categoryId) ctx.els.categoryId.value = category.id;
+      ctx.els.categoryName.value = category.name;
+      ctx.els.categoryColor.value = category.color;
+      ctx.els.categoryName.focus();
+    }
+
+    function resetCategoryForm() {
+      ctx.els.categoryForm.reset();
+      if (ctx.els.categoryId) ctx.els.categoryId.value = "";
+      ctx.els.categoryColor.value = "#00a78e";
     }
 
     async function deleteCategory(categoryId) {

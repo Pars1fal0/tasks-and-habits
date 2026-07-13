@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 0.9.0 - 2026-07-13
+
+- Fixed time-block reminders so offsets are calculated from the block start, while overdue state still uses its end.
+- Added safety backup and undo when restoring local data, plus import access from mobile Settings.
+- Made custom task and habit repeat editors available whenever “Настроить” is selected in simple mode.
+- Added automatic merge-on-start for newer remote state and surfaced sync failures in the global save status.
+- Improved narrow-screen forms, task actions, touch and keyboard ordering, timeline deadline markers, and mobile toast placement.
+- Added a collapsed backlog for old unfinished one-off tasks and explicit restore destinations in the archive.
+- Added pausing, restoring, and safe permanent deletion for habits, with target-aware numeric steppers.
+- Added category editing, human-readable goal dates, and week/month/year modes in Overview.
+
 ## 0.8.0 - 2026-07-13
 
 - Added recurring-task edit scopes for one occurrence, this and following occurrences, or the whole series.

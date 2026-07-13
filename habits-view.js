@@ -11,6 +11,7 @@
         ? "На выбранный день привычек по расписанию нет."
         : "Добавь первую привычку.";
       ctx.els.habitEmpty.classList.toggle("is-visible", habits.length === 0);
+      renderHabitArchive();
     }
 
     function createHabitNode(habit) {
@@ -52,7 +53,8 @@
         decrement.setAttribute("aria-label", `Уменьшить ${habit.title}`);
         input.type = "number";
         input.min = "0";
-        input.step = "1";
+        const step = habitNumberStep(habit);
+        input.step = String(step);
         input.value = String(current);
         input.setAttribute("aria-label", habit.title);
         increment.type = "button";
@@ -88,8 +90,8 @@
         };
 
         input.addEventListener("input", (event) => updateValue(event.target.value));
-        decrement.addEventListener("click", () => updateValue(Number(input.value || 0) - 1));
-        increment.addEventListener("click", () => updateValue(Number(input.value || 0) + 1));
+        decrement.addEventListener("click", () => updateValue(Number(input.value || 0) - step));
+        increment.addEventListener("click", () => updateValue(Number(input.value || 0) + step));
       } else {
         const done = habit.logs[activeDate] === true;
         const row = document.createElement("div");
@@ -117,7 +119,23 @@
       }
 
       node.querySelector(".edit-habit").addEventListener("click", () => ctx.fillHabitForm(habit));
-      node.querySelector(".delete-habit").addEventListener("click", () => {
+      node.querySelector(".archive-habit")?.addEventListener("click", () => {
+        const undo = ctx.createUndoSnapshot();
+        habit.archived = true;
+        habit.archivedAt = new Date().toISOString();
+        habit.updatedAt = habit.archivedAt;
+        ctx.saveState();
+        ctx.render();
+        ctx.showToast("Привычка приостановлена", { undo });
+      });
+      node.querySelector(".delete-habit").addEventListener("click", async () => {
+        const confirmed = await ctx.confirmAction({
+          confirmLabel: "Удалить",
+          message: `Удалить привычку «${habit.title}» вместе со всей историей отметок?`,
+          tone: "danger",
+          title: "Удалить привычку?",
+        });
+        if (!confirmed) return;
         const undo = ctx.createUndoSnapshot();
         ctx.deleteHabit(habit.id);
         ctx.saveState();
@@ -126,6 +144,57 @@
       });
 
       return node;
+    }
+
+    function renderHabitArchive() {
+      if (!ctx.els.habitArchivePanel) return;
+      const archived = ctx.getState().habits.filter((habit) => habit.archived === true);
+      ctx.els.habitArchivePanel.hidden = archived.length === 0;
+      ctx.els.habitArchiveCount.textContent = String(archived.length);
+      ctx.els.habitArchiveList.replaceChildren();
+      archived.forEach((habit) => {
+        const row = document.createElement("article");
+        const title = document.createElement("strong");
+        const actions = document.createElement("div");
+        const restore = createArchiveButton("Вернуть");
+        const remove = createArchiveButton("Удалить", true);
+        row.className = "habit-archive-item";
+        title.textContent = habit.title;
+        restore.addEventListener("click", () => {
+          const undo = ctx.createUndoSnapshot();
+          habit.archived = false;
+          habit.archivedAt = "";
+          habit.updatedAt = new Date().toISOString();
+          ctx.saveState();
+          ctx.render();
+          ctx.showToast("Привычка снова активна", { undo });
+        });
+        remove.addEventListener("click", async () => {
+          const confirmed = await ctx.confirmAction({
+            confirmLabel: "Удалить",
+            message: `Удалить привычку «${habit.title}» вместе со всей историей отметок?`,
+            tone: "danger",
+            title: "Удалить привычку навсегда?",
+          });
+          if (!confirmed) return;
+          const undo = ctx.createUndoSnapshot();
+          ctx.deleteHabit(habit.id);
+          ctx.saveState();
+          ctx.render();
+          ctx.showToast("Привычка удалена", { undo });
+        });
+        actions.append(restore, remove);
+        row.append(title, actions);
+        ctx.els.habitArchiveList.appendChild(row);
+      });
+    }
+
+    function createArchiveButton(label, danger = false) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `ghost-button compact-button${danger ? " danger-button" : ""}`;
+      button.textContent = label;
+      return button;
     }
 
     function attachHabitDrag(node, habit) {
@@ -260,7 +329,15 @@
     };
   }
 
-  const api = { createHabitsView };
+  function habitNumberStep(habit) {
+    const goal = Math.max(1, Number(habit?.goal || 1));
+    if (goal <= 20) return 1;
+    if (goal <= 100) return 5;
+    if (goal <= 1000) return 50;
+    return 100;
+  }
+
+  const api = { createHabitsView, habitNumberStep };
   global.RhythmHabitsView = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

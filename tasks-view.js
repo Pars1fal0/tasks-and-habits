@@ -43,6 +43,36 @@
       ctx.els.taskProgressRing.style.setProperty("--progress", `${percent * 3.6}deg`);
       renderExcludedTasks();
       renderEndedSeries();
+      renderHistoricalTasks();
+    }
+
+    function renderHistoricalTasks() {
+      if (!ctx.els.historicalTaskPanel) return;
+      const yesterdayKey = ctx.addDays(ctx.toDateKey(new Date()), -1);
+      const entries = ctx.getState().tasks
+        .filter((task) => task.repeat === "none" && task.date < yesterdayKey && !ctx.isTaskDone(task, task.date))
+        .sort((a, b) => b.date.localeCompare(a.date) || a.title.localeCompare(b.title, "ru"));
+      ctx.els.historicalTaskPanel.hidden = entries.length === 0;
+      ctx.els.historicalTaskCount.textContent = String(entries.length);
+      ctx.els.historicalTaskList.replaceChildren();
+      entries.forEach((task) => {
+        const row = document.createElement("article");
+        const content = document.createElement("div");
+        const title = document.createElement("strong");
+        const date = document.createElement("span");
+        const actions = document.createElement("div");
+        const open = createButton("ghost-button compact-button", "Открыть день");
+        const today = createButton("primary-button compact-button", "На сегодня");
+        row.className = "historical-task-item";
+        title.textContent = task.title;
+        date.textContent = ctx.formatLongDate(task.date);
+        content.append(title, date);
+        actions.append(open, today);
+        row.append(content, actions);
+        open.addEventListener("click", () => ctx.openDate(task.date));
+        today.addEventListener("click", () => ctx.postponeTask(task, task.date, ctx.toDateKey(new Date()), { clearPastTimeToday: true }));
+        ctx.els.historicalTaskList.appendChild(row);
+      });
     }
 
     function createTaskNode(task) {
@@ -56,6 +86,7 @@
       const postponeDateInput = node.querySelector(".postpone-date-input");
       const priority = node.querySelector(".priority-pill");
       const restoreOverdue = node.querySelector(".restore-overdue-task");
+      const dragHandle = node.querySelector(".drag-handle");
 
       node.dataset.taskId = task.id;
       if (category) {
@@ -78,6 +109,10 @@
       }
 
       node.addEventListener("dragstart", (event) => {
+        if (!event.target.closest(".drag-handle") && event.target.closest("button, input, select, textarea")) {
+          event.preventDefault();
+          return;
+        }
         draggedTaskId = task.id;
         draggedTaskDate = activeDate;
         ctx.setDraggedTask(task.id, activeDate);
@@ -110,6 +145,8 @@
           ctx.showToast("Порядок задач изменен", { undo });
         }
       });
+      dragHandle?.setAttribute("aria-label", `Переместить задачу ${task.title}. Стрелки вверх и вниз меняют порядок`);
+      attachTaskAccessibleMove(node, task, dragHandle);
 
       check.addEventListener("click", () => {
         const undo = ctx.createUndoSnapshot();
@@ -147,6 +184,72 @@
       });
 
       return node;
+    }
+
+    function attachTaskAccessibleMove(node, task, handle) {
+      if (!handle) return;
+      handle.addEventListener("keydown", (event) => {
+        if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+        const items = [...ctx.els.taskList.querySelectorAll(".task-item")];
+        const index = items.indexOf(node);
+        const target = items[index + (event.key === "ArrowUp" ? -1 : 1)];
+        if (!target?.dataset.taskId) return;
+        event.preventDefault();
+        commitTaskReorder(task.id, target.dataset.taskId, task.title);
+      });
+
+      handle.addEventListener("pointerdown", (event) => {
+        if (event.button !== undefined && event.button !== 0) return;
+        event.preventDefault();
+        const startY = event.clientY;
+        let targetId = "";
+        let moved = false;
+        handle.setPointerCapture?.(event.pointerId);
+        node.classList.add("is-dragging");
+
+        const onMove = (moveEvent) => {
+          moveEvent.preventDefault();
+          moved = moved || Math.abs(moveEvent.clientY - startY) > 5;
+          if (!moved || typeof document.elementFromPoint !== "function") return;
+          const target = document.elementFromPoint(moveEvent.clientX, moveEvent.clientY)?.closest?.(".task-item");
+          clearTaskDropTargets();
+          if (!target || target === node) return void (targetId = "");
+          targetId = target.dataset.taskId || "";
+          target.classList.add("is-drop-target");
+        };
+        const cleanup = (finishEvent) => {
+          handle.releasePointerCapture?.(finishEvent.pointerId);
+          window.removeEventListener("pointermove", onMove);
+          window.removeEventListener("pointerup", finish);
+          window.removeEventListener("pointercancel", cancel);
+          node.classList.remove("is-dragging");
+          clearTaskDropTargets();
+        };
+        const finish = (finishEvent) => {
+          cleanup(finishEvent);
+          if (moved && targetId) commitTaskReorder(task.id, targetId, task.title);
+        };
+        const cancel = (cancelEvent) => {
+          targetId = "";
+          cleanup(cancelEvent);
+        };
+        window.addEventListener("pointermove", onMove, { passive: false });
+        window.addEventListener("pointerup", finish);
+        window.addEventListener("pointercancel", cancel);
+      });
+    }
+
+    function commitTaskReorder(sourceId, targetId, title) {
+      if (!sourceId || !targetId || sourceId === targetId) return;
+      const undo = ctx.createUndoSnapshot();
+      ctx.reorderTask(ctx.getActiveDate(), sourceId, targetId);
+      ctx.saveState();
+      ctx.render();
+      ctx.showToast(`${title}: порядок обновлен`, { undo });
+    }
+
+    function clearTaskDropTargets() {
+      ctx.els.taskList.querySelectorAll(".task-item.is-drop-target").forEach((item) => item.classList.remove("is-drop-target"));
     }
 
     function renderTaskMeta(meta, task) {

@@ -111,6 +111,7 @@
       ctx.els.goalDueDate.value = goal.dueDate || ctx.getActiveDate();
       ctx.checkpointEditor.setSteps(goal.steps || []);
       ctx.els.goalFormHeading.textContent = "Редактировать цель";
+      ctx.els.resetGoalForm.textContent = "Отмена";
       ctx.els.goalFormPanel.classList.remove("is-collapsed");
       ctx.els.goalTitle.focus();
     }
@@ -122,6 +123,7 @@
       ctx.els.goalDueDate.value = ctx.getActiveDate();
       ctx.checkpointEditor.setSteps();
       ctx.els.goalFormHeading.textContent = "Новая цель";
+      ctx.els.resetGoalForm.textContent = "Очистить";
     }
 
     function toggleGoalStep(goalId, stepId, done) {
@@ -330,11 +332,18 @@
   function goalDueLabel(goal, todayKey) {
     if (!goal.dueDate) return "Без срока";
     const diff = diffDays(todayKey, goal.dueDate);
-    if (goal.status === "done") return `достигнута · срок был до ${goal.dueDate}`;
+    const formattedDate = formatGoalDate(goal.dueDate);
+    if (goal.status === "done") return `достигнута · срок был до ${formattedDate}`;
     if (diff === 0) return "срок сегодня";
     if (diff === 1) return "срок завтра";
-    if (diff > 1) return `осталось ${diff} дн. · до ${goal.dueDate}`;
-    return `просрочена на ${Math.abs(diff)} дн. · до ${goal.dueDate}`;
+    if (diff > 1) return `осталось ${diff} дн. · до ${formattedDate}`;
+    return `просрочена на ${Math.abs(diff)} дн. · до ${formattedDate}`;
+  }
+
+  function formatGoalDate(dateKey) {
+    const [year, month, day] = String(dateKey || "").split("-").map(Number);
+    if (!year || !month || !day) return dateKey || "";
+    return new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(new Date(year, month - 1, day));
   }
 
   function diffDays(fromKey, toKey) {

@@ -707,6 +707,8 @@ function createWindow() {
         const mobileNavigationFits = mobileNavColumns === 5;
         click('[data-view="overview"]');
         await new Promise((resolve) => setTimeout(resolve, 30));
+        click('[data-overview-mode="year"]');
+        await new Promise((resolve) => setTimeout(resolve, 30));
         const mobileHeatmapGrid = document.querySelector("#heatmapGrid");
         const mobileHeatmapCell = document.querySelector(".heatmap-cell");
         const mobileHeatmapSplit =

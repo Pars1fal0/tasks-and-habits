@@ -4,6 +4,7 @@
 
     function bindEvents() {
       ctx.els.settingsExportButton?.addEventListener("click", ctx.exportData);
+      ctx.els.settingsImportDataButton?.addEventListener("click", () => ctx.els.importFile?.click());
       ctx.els.settingsRestoreBackupButton?.addEventListener("click", ctx.restoreBackup);
       ctx.els.settingsOpenBackupFolderButton?.addEventListener("click", ctx.openBackupFolder);
       ctx.els.settingsNotifyButton?.addEventListener("click", ctx.requestNotifications);

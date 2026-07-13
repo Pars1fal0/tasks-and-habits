@@ -129,12 +129,14 @@
     }
 
     function getReminderDate(task, dateKey) {
-      if (!task.time || task.reminderOffset === "none") return null;
+      const reminderTime = task.scheduleMode === "block" ? ctx.cleanTimeValue(task.startTime) : ctx.cleanTimeValue(task.time);
+      if (!reminderTime || task.reminderOffset === "none") return null;
       const offset = Number(task.reminderOffset || 0);
       if (!Number.isFinite(offset)) return null;
-      const due = getDueDate(task, dateKey);
-      const reminder = new Date(due);
-      reminder.setMinutes(due.getMinutes() - offset);
+      const reminder = ctx.parseDate(dateKey);
+      const [hours, minutes] = reminderTime.split(":").map(Number);
+      reminder.setHours(hours, minutes, 0, 0);
+      reminder.setMinutes(reminder.getMinutes() - offset);
       return reminder;
     }
 
@@ -150,5 +152,7 @@
     };
   }
 
-  global.RhythmNotifications = { createNotifications };
-})(window);
+  const api = { createNotifications };
+  global.RhythmNotifications = api;
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
+})(typeof window !== "undefined" ? window : globalThis);

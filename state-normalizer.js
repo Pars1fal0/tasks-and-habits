@@ -90,6 +90,8 @@
               startDate: config.normalizeDateKey(habit.startDate, config.toDateKey(new Date(habit.createdAt || Date.now()))),
               unit: config.cleanText(habit.unit),
               goal: Math.max(1, Number(habit.goal || 1)),
+              archived: habit.archived === true,
+              archivedAt: habit.archived === true ? habit.archivedAt || new Date().toISOString() : "",
               logs: config.normalizeHabitLogs(habit.logs, type),
               createdAt: habit.createdAt || new Date().toISOString(),
               updatedAt: habit.updatedAt || habit.createdAt || new Date().toISOString(),

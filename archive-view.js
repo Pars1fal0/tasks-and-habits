@@ -79,9 +79,20 @@
       restoreButton.className = "ghost-button restore-task";
       restoreButton.type = "button";
       restoreButton.textContent = "Вернуть";
-      restoreButton.addEventListener("click", () => {
+      restoreButton.addEventListener("click", async () => {
+        const choice = await ctx.confirmAction({
+          title: "Куда вернуть задачу?",
+          message: `«${entry.task.title}» была завершена ${ctx.formatLongDate(entry.dateKey)}. Можно вернуть ее на исходный день или перенести в сегодняшний план.`,
+          confirmLabel: "На сегодня",
+          secondaryLabel: "На исходную дату",
+        });
+        if (!choice) return;
         const undo = ctx.createUndoSnapshot();
         entry.task.completed[entry.dateKey] = false;
+        if (choice !== "secondary") {
+          ctx.postponeTask(entry.task, entry.dateKey, ctx.toDateKey(new Date()));
+          return;
+        }
         ctx.saveState();
         ctx.render();
         ctx.showToast("Задача возвращена в план", { undo });

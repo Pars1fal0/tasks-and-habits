@@ -87,6 +87,7 @@ const els = {
   backupSchedule: document.querySelector("#backupSchedule"),
   categoryColor: document.querySelector("#categoryColor"),
   categoryForm: document.querySelector("#categoryForm"),
+  categoryId: document.querySelector("#categoryId"),
   categoryList: document.querySelector("#categoryList"),
   categoryName: document.querySelector("#categoryName"),
   clearArchiveFilter: document.querySelector("#clearArchiveFilter"),
@@ -129,6 +130,9 @@ const els = {
   goalTitle: document.querySelector("#goalTitle"),
   habitDoneMetric: document.querySelector("#habitDoneMetric"),
   habitEmpty: document.querySelector("#habitEmpty"),
+  habitArchiveCount: document.querySelector("#habitArchiveCount"),
+  habitArchiveList: document.querySelector("#habitArchiveList"),
+  habitArchivePanel: document.querySelector("#habitArchivePanel"),
   habitForm: document.querySelector("#habitForm"),
   habitFormHeading: document.querySelector("#habitFormHeading"),
   habitFormPanel: document.querySelector("#habitFormPanel"),
@@ -139,6 +143,9 @@ const els = {
   habitCustomRepeatSummary: document.querySelector("#habitCustomRepeatSummary"),
   habitId: document.querySelector("#habitId"),
   habitList: document.querySelector("#habitList"),
+  historicalTaskCount: document.querySelector("#historicalTaskCount"),
+  historicalTaskList: document.querySelector("#historicalTaskList"),
+  historicalTaskPanel: document.querySelector("#historicalTaskPanel"),
   habitNumericFields: document.querySelector("#habitNumericFields"),
   habitRepeat: document.querySelector("#habitRepeat"),
   habitTemplate: document.querySelector("#habitTemplate"),
@@ -197,6 +204,7 @@ const els = {
   settingsExportSettingsButton: document.querySelector("#settingsExportSettingsButton"),
   settingsBackupStatus: document.querySelector("#settingsBackupStatus"),
   settingsImportFile: document.querySelector("#settingsImportFile"),
+  settingsImportDataButton: document.querySelector("#settingsImportDataButton"),
   settingsImportSettingsButton: document.querySelector("#settingsImportSettingsButton"),
   settingsNotifyButton: document.querySelector("#settingsNotifyButton"),
   settingsOpenBackupFolderButton: document.querySelector("#settingsOpenBackupFolderButton"),
@@ -324,6 +332,7 @@ const tasksView = window.RhythmTasksView.createTasksView({
   getActiveDate: () => activeDate,
   getCategory,
   getOrderedTasksForDate,
+  getState: () => state,
   getTaskCategoryFilter: () => taskCategoryFilter,
   getTaskFilter: () => taskFilter,
   getTaskSearchQuery: () => taskSearchQuery,
@@ -361,6 +370,7 @@ const tasksView = window.RhythmTasksView.createTasksView({
 
 const habitsView = window.RhythmHabitsView.createHabitsView({
   els,
+  confirmAction,
   createUndoSnapshot,
   deleteHabit,
   escapeHtml,
@@ -511,10 +521,12 @@ const archiveView = window.RhythmArchiveView.createArchiveView({
   getArchiveSearchQuery: () => archiveSearchQuery,
   getCategory,
   matchesCategoryFilter,
+  postponeTask,
   priorityLabels,
   render: renderTaskSurfaces,
   saveState,
   showToast,
+  toDateKey,
 });
 
 const taskFormController = window.RhythmTaskForm.createTaskForm({
@@ -670,6 +682,7 @@ const remoteSyncWorkflow = window.RhythmRemoteSyncController.createRemoteSyncWor
   mergeStates: window.RhythmStateMerge.mergeStates,
   remoteSync,
   render,
+  renderSaveStatus,
   replaceState,
   saveState,
   saveUiState,
@@ -769,17 +782,25 @@ const appEvents = window.RhythmAppEvents.createAppEvents({
     saveUiState();
     renderTasks();
   },
-  closeGoalForm: () => els.goalFormPanel.classList.add("is-collapsed"),
-  closeHabitForm: () => els.habitFormPanel.classList.add("is-collapsed"),
+  closeGoalForm: () => {
+    els.goalFormPanel.classList.add("is-collapsed");
+    els.openGoalForm.focus();
+  },
+  closeHabitForm: () => {
+    els.habitFormPanel.classList.add("is-collapsed");
+    els.openHabitForm.focus();
+  },
   closeTaskForm: () => {
     els.taskFormPanel.classList.add("is-collapsed");
     closeFloatingTaskForm();
+    els.openTaskForm.focus();
   },
   els,
   exportData,
   goToday,
-  handleOnline: () => {
+  handleOnline: async () => {
     renderSaveStatus();
+    await remoteSyncWorkflow.syncLatest({ silent: true });
     scheduleRemotePush();
   },
   handleSystemThemeChange: () => {
@@ -849,6 +870,7 @@ function init() {
   renderRemoteSyncStatus();
   updateFileBackupStatus();
   render();
+  remoteSyncWorkflow.syncLatest({ silent: true });
   syncDesktopReminders();
   syncDesktopBackup();
   setInterval(checkDueNotifications, 30000);
@@ -918,11 +940,20 @@ function scrollWorkspaceTop() {
 
 function renderSaveStatus() {
   if (!els.saveStatus) return;
+  const syncStatus = remoteSyncWorkflow.getStatus();
+  if (remoteSyncEnabled === "on" && syncStatus.lastError) {
+    els.saveStatus.textContent = "Ошибка синхронизации";
+    return;
+  }
+  if (remoteSyncEnabled === "on" && syncStatus.inFlight) {
+    els.saveStatus.textContent = "Синхронизация...";
+    return;
+  }
   if (navigator.onLine === false) {
     els.saveStatus.textContent = "Офлайн · сохранено локально";
     return;
   }
-  if (remoteSyncEnabled === "on" && remoteSyncWorkflow.getStatus().pending) {
+  if (remoteSyncEnabled === "on" && syncStatus.pending) {
     els.saveStatus.textContent = "Ожидает синхронизации";
     return;
   }
@@ -1275,7 +1306,11 @@ function updateQuickTaskPreview() {
   }
 
   const parsed = parseQuickTaskPreview(rawValue);
-  const category = parsed.categoryId ? getCategory(parsed.categoryId)?.name : parsed.categoryName;
+  const category = parsed.categoryId
+    ? getCategory(parsed.categoryId)?.name
+    : parsed.categoryName
+      ? `новая категория: ${parsed.categoryName}`
+      : "";
   const details = [
     formatLongDate(parsed.date),
     parsed.scheduleMode === "block" ? formatTaskWindow(parsed) : parsed.time ? formatTaskTime(parsed.time) : "без времени",
@@ -1358,7 +1393,7 @@ function setCustomRepeatForm(value = {}) {
 
 function syncCustomRepeatPanel() {
   const hasRepeat = els.taskRepeat.value !== "none";
-  const isCustom = els.taskRepeat.value === "custom" && interfaceMode === "advanced";
+  const isCustom = els.taskRepeat.value === "custom";
   els.taskRepeatUntilField.hidden = !hasRepeat;
   if (hasRepeat) els.taskRepeatUntil.min = els.taskDate.value || activeDate;
   els.customRepeatPanel.hidden = !isCustom;
@@ -1415,7 +1450,7 @@ function setHabitCustomRepeatForm(value = {}) {
 }
 
 function syncHabitCustomRepeatPanel() {
-  const isCustom = els.habitRepeat.value === "custom" && interfaceMode === "advanced";
+  const isCustom = els.habitRepeat.value === "custom";
   els.habitCustomRepeatPanel.hidden = !isCustom;
   if (isCustom) updateHabitCustomRepeatSummary();
 }
@@ -1566,7 +1601,7 @@ function overdueTaskEntries(referenceDateKey = activeDate) {
 }
 
 function habitsForDate(dateKey) {
-  return state.habits.filter((habit) => habitOccursOn(habit, dateKey));
+  return state.habits.filter((habit) => !habit.archived && habitOccursOn(habit, dateKey));
 }
 
 function habitOccursOn(habit, dateKey) {

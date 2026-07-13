@@ -99,7 +99,9 @@ module.exports = [
       assert.ok(item);
       assert.equal(item.textContent.includes("Work"), true);
       assert.equal(item.querySelector(".category-dot").style.values["--category-color"], "#38bdf8");
-      assert.equal(item.querySelector("button").getAttribute("aria-label"), "Удалить категорию");
+      const buttons = item.querySelectorAll("button");
+      assert.equal(buttons[0].getAttribute("aria-label"), "Изменить категорию Work");
+      assert.equal(buttons[1].getAttribute("aria-label"), "Удалить категорию");
     },
   },
   {

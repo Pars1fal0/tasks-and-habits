@@ -2,6 +2,9 @@
   function createAppEvents(ctx) {
     function bind() {
       const { els } = ctx;
+      if (global.matchMedia?.("(max-width: 680px)").matches) {
+        document.querySelector(".task-filter-disclosure")?.removeAttribute("open");
+      }
       els.activeDate.addEventListener("change", () => ctx.changeActiveDate(els.activeDate.value));
       els.prevDay.addEventListener("click", () => ctx.shiftDate(-1));
       els.nextDay.addEventListener("click", () => ctx.shiftDate(1));
@@ -9,6 +12,12 @@
       els.prevMonth.addEventListener("click", () => ctx.shiftMonth(-1));
       els.nextMonth.addEventListener("click", () => ctx.shiftMonth(1));
       els.navTabs.forEach((button) => button.addEventListener("click", () => ctx.changeView(button.dataset.view)));
+      document.querySelectorAll("[data-overview-mode]").forEach((button) => {
+        button.addEventListener("click", () => {
+          els.views.overview.dataset.mode = button.dataset.overviewMode;
+          document.querySelectorAll("[data-overview-mode]").forEach((item) => item.classList.toggle("is-active", item === button));
+        });
+      });
 
       els.taskCategoryFilter.addEventListener("change", () => ctx.changeTaskCategoryFilter(els.taskCategoryFilter.value));
       els.taskSearch.addEventListener("input", () => ctx.changeTaskSearch(els.taskSearch.value));

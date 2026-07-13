@@ -58,6 +58,7 @@
     function fillTaskForm(task) {
       ctx.els.taskFormPanel.classList.remove("is-collapsed");
       if (ctx.els.taskFormHeading) ctx.els.taskFormHeading.textContent = "Редактировать задачу";
+      if (ctx.els.resetTaskForm) ctx.els.resetTaskForm.textContent = "Отмена";
       ctx.els.taskId.value = task.id;
       ctx.els.taskTitle.value = task.title;
       const isRecurringSeries = task.repeat !== "none" && !task.sourceTaskId;
@@ -84,6 +85,7 @@
     function resetTaskForm(options = {}) {
       ctx.els.taskFormPanel.classList.toggle("is-collapsed", options.open === false);
       if (ctx.els.taskFormHeading) ctx.els.taskFormHeading.textContent = "Новая задача";
+      if (ctx.els.resetTaskForm) ctx.els.resetTaskForm.textContent = "Очистить";
       ctx.els.taskForm.reset();
       ctx.els.taskId.value = "";
       editingOccurrenceDate = "";

@@ -963,6 +963,14 @@ body[data-view="settings"] .date-control {
   min-width: 0;
 }
 
+.task-filter-disclosure > summary {
+  display: none;
+}
+
+.task-filter-disclosure:not([open]) > .task-toolbar-meta {
+  display: flex;
+}
+
 .right-rail {
   position: sticky;
   top: 24px;
@@ -1623,7 +1631,7 @@ body.has-floating-task-form::before {
   grid-template-columns: 4px 28px 34px minmax(0, 1fr) auto;
   gap: 10px;
   align-items: start;
-  overflow: hidden;
+  overflow: visible;
   padding: 14px 14px 14px 0;
 }
 
@@ -1810,6 +1818,122 @@ body.has-floating-task-form::before {
   min-height: 0;
   opacity: 0;
   pointer-events: none;
+}
+
+.task-more {
+  position: relative;
+  overflow: visible;
+}
+
+.task-more > summary {
+  display: grid;
+  list-style: none;
+  place-items: center;
+  font-weight: 760;
+}
+
+.task-more > summary::-webkit-details-marker {
+  display: none;
+}
+
+.task-more-menu {
+  position: absolute;
+  z-index: 35;
+  top: calc(100% + 6px);
+  right: 0;
+  display: grid;
+  width: 210px;
+  gap: 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-elevated);
+  box-shadow: var(--shadow-lift);
+  padding: 6px;
+}
+
+.task-more-menu .compact-button {
+  justify-content: flex-start;
+  width: 100%;
+}
+
+.historical-task-panel {
+  margin-top: 16px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+
+.historical-task-panel > summary {
+  display: flex;
+  justify-content: space-between;
+  cursor: pointer;
+  color: var(--text-soft);
+  font-size: 13px;
+  font-weight: 680;
+}
+
+.historical-task-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.habit-archive-panel {
+  margin-top: 16px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+
+.habit-archive-panel > summary,
+.habit-archive-item,
+.habit-archive-item > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.habit-archive-panel > summary {
+  justify-content: space-between;
+  cursor: pointer;
+  color: var(--text-soft);
+  font-size: 13px;
+  font-weight: 680;
+}
+
+.habit-archive-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.habit-archive-item {
+  justify-content: space-between;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+  padding: 10px 12px;
+}
+
+.historical-task-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+  padding: 10px 12px;
+}
+
+.historical-task-item > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.historical-task-item span {
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .overdue-panel {
@@ -2365,7 +2489,7 @@ body.has-floating-task-form::before {
 
 .category-item {
   display: grid;
-  grid-template-columns: 14px minmax(0, 1fr) 32px;
+  grid-template-columns: 14px minmax(0, 1fr) 32px 32px;
   align-items: center;
   gap: 8px;
   border: 1px solid var(--line);
@@ -2755,6 +2879,34 @@ body.has-floating-task-form::before {
   min-height: var(--block-min-height, 72px);
   background: color-mix(in srgb, var(--timeline-color, var(--teal)) 13%, var(--surface-soft));
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--timeline-color, var(--teal)) 22%, transparent);
+}
+
+.timeline-task.is-deadline-marker {
+  min-height: 32px;
+  border-left-width: 2px;
+  border-radius: var(--radius-xs);
+  background: var(--surface-elevated);
+  padding-block: 5px;
+}
+
+.timeline-task.is-deadline-marker .timeline-task-top {
+  grid-template-columns: auto auto minmax(0, 1fr);
+}
+
+.timeline-task.is-deadline-marker .timeline-task-top::before {
+  width: 8px;
+  height: 8px;
+  border: 2px solid var(--timeline-color, var(--teal));
+  border-radius: 50%;
+  background: var(--surface);
+  content: "";
+}
+
+#overviewView:not([data-mode]) [data-overview-panel]:not([data-overview-panel="week"]),
+#overviewView[data-mode="week"] [data-overview-panel]:not([data-overview-panel="week"]),
+#overviewView[data-mode="month"] [data-overview-panel]:not([data-overview-panel="month"]),
+#overviewView[data-mode="year"] [data-overview-panel]:not([data-overview-panel="year"]) {
+  display: none;
 }
 
 .timeline-task.is-short-block {
@@ -3772,9 +3924,27 @@ body.has-floating-task-form::before {
     position: static;
     order: 0;
   }
+
+  .form-panel:not(.is-collapsed) {
+    position: fixed;
+    top: 18px;
+    right: 18px;
+    z-index: 80;
+    width: min(420px, calc(100vw - 36px));
+    max-height: calc(100vh - 36px);
+    overflow: auto;
+    box-shadow: var(--shadow-lg);
+  }
 }
 
 @media (max-width: 900px) {
+  .toast {
+    z-index: 70;
+    bottom: 92px;
+  }
+  .timeline-menu-button {
+    opacity: 1;
+  }
   body {
     padding-bottom: 78px;
   }
@@ -3949,7 +4119,6 @@ body.has-floating-task-form::before {
 
   .focus-board,
   .form-grid,
-  .goal-metrics,
   .overview-grid,
   .settings-grid,
   .timeline-unscheduled-list,
@@ -3959,6 +4128,60 @@ body.has-floating-task-form::before {
 
   .focus-board {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .goal-metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .goal-metric {
+    min-height: 84px;
+    padding: 12px;
+  }
+
+  .goal-metric strong {
+    font-size: 28px;
+  }
+
+  .quick-input-hints {
+    display: none;
+  }
+
+  .task-filter-disclosure {
+    width: 100%;
+  }
+
+  .task-filter-disclosure > summary {
+    display: flex;
+    min-height: 44px;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    list-style: none;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--surface-soft);
+    color: var(--text-soft);
+    font-size: 13px;
+    font-weight: 680;
+    padding: 10px 12px;
+  }
+
+  .task-filter-disclosure:not([open]) > .task-toolbar-meta {
+    display: none;
+  }
+
+  .task-filter-disclosure[open] > .task-toolbar-meta {
+    margin-top: 10px;
+  }
+
+  .form-panel:not(.is-collapsed) {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+    width: auto;
+    max-height: calc(100vh - 98px);
   }
 
   .focus-card {
@@ -4080,6 +4303,19 @@ body.has-floating-task-form::before {
   .task-actions {
     grid-column: 4;
     justify-content: end;
+  }
+
+  .task-more-menu {
+    position: fixed;
+    right: 14px;
+    bottom: 86px;
+    left: 14px;
+    width: auto;
+  }
+
+  .historical-task-item {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .archive-item,

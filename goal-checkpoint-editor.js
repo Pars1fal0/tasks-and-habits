@@ -90,6 +90,40 @@
           ctx.els.goalCheckpointList.querySelector(`[data-step-id="${step.id}"] .goal-checkpoint-grip`)?.focus();
         }
       });
+      grip.addEventListener("pointerdown", (event) => {
+        if (event.button !== undefined && event.button !== 0) return;
+        event.preventDefault();
+        const startY = event.clientY;
+        let targetId = "";
+        let moved = false;
+        grip.setPointerCapture?.(event.pointerId);
+        row.classList.add("is-dragging");
+        const onMove = (moveEvent) => {
+          moveEvent.preventDefault();
+          moved = moved || Math.abs(moveEvent.clientY - startY) > 5;
+          if (!moved || typeof document.elementFromPoint !== "function") return;
+          const target = document.elementFromPoint(moveEvent.clientX, moveEvent.clientY)?.closest?.(".goal-checkpoint-row");
+          ctx.els.goalCheckpointList.querySelectorAll(".is-drop-target").forEach((node) => node.classList.remove("is-drop-target"));
+          targetId = target && target !== row ? target.dataset.stepId || "" : "";
+          if (targetId) target.classList.add("is-drop-target");
+        };
+        const cleanup = (finishEvent) => {
+          grip.releasePointerCapture?.(finishEvent.pointerId);
+          global.removeEventListener("pointermove", onMove);
+          global.removeEventListener("pointerup", finish);
+          global.removeEventListener("pointercancel", cancel);
+          row.classList.remove("is-dragging");
+          ctx.els.goalCheckpointList.querySelectorAll(".is-drop-target").forEach((node) => node.classList.remove("is-drop-target"));
+        };
+        const finish = (finishEvent) => {
+          cleanup(finishEvent);
+          if (moved && targetId) reorderStep(step.id, targetId);
+        };
+        const cancel = (cancelEvent) => cleanup(cancelEvent);
+        global.addEventListener("pointermove", onMove, { passive: false });
+        global.addEventListener("pointerup", finish);
+        global.addEventListener("pointercancel", cancel);
+      });
 
       input.type = "text";
       input.maxLength = 120;

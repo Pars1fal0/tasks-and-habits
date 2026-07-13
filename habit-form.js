@@ -30,6 +30,7 @@
     function fillHabitForm(habit) {
       ctx.els.habitFormPanel.classList.remove("is-collapsed");
       if (ctx.els.habitFormHeading) ctx.els.habitFormHeading.textContent = "Редактировать привычку";
+      if (ctx.els.resetHabitForm) ctx.els.resetHabitForm.textContent = "Отмена";
       ctx.els.habitId.value = habit.id;
       ctx.els.habitTitle.value = habit.title;
       ctx.els.habitType.value = habit.type;
@@ -45,6 +46,7 @@
     function resetHabitForm(options = {}) {
       ctx.els.habitFormPanel.classList.toggle("is-collapsed", options.open === false);
       if (ctx.els.habitFormHeading) ctx.els.habitFormHeading.textContent = "Новая привычка";
+      if (ctx.els.resetHabitForm) ctx.els.resetHabitForm.textContent = "Очистить";
       ctx.els.habitForm.reset();
       ctx.els.habitId.value = "";
       ctx.els.habitType.value = "check";

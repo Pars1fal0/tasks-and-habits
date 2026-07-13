@@ -7,7 +7,7 @@
     <title>Ритм дня</title>
     <link rel="icon" href="data:,">
     <link rel="manifest" href="manifest.webmanifest">
-    <link rel="stylesheet" href="styles.css?v=22">
+    <link rel="stylesheet" href="styles.css?v=23">
   </head>
   <body>
     <svg class="icon-sprite" aria-hidden="true">
@@ -189,7 +189,9 @@
 
         <section class="view is-active" id="tasksView" aria-labelledby="tasksHeading">
           <div class="toolbar">
-            <div class="task-toolbar-meta">
+            <details class="task-filter-disclosure" open>
+              <summary>Фильтры и поиск</summary>
+              <div class="task-toolbar-meta">
               <div class="filter-group" aria-label="Фильтр задач">
                 <button class="chip is-active" data-task-filter="all" type="button">Все</button>
                 <button class="chip" data-task-filter="open" type="button">Активные</button>
@@ -208,8 +210,9 @@
                   <input id="taskSearch" type="search" placeholder="Название, категория, повтор" autocomplete="off">
                 </span>
               </label>
-              <button class="ghost-button compact-button" id="clearTaskSearch" type="button">Сбросить</button>
-            </div>
+                <button class="ghost-button compact-button" id="clearTaskSearch" type="button">Сбросить</button>
+              </div>
+            </details>
             <div class="toolbar-actions">
               <button class="ghost-button compact-button" id="overdueToggle" type="button" aria-expanded="true" hidden>Скрыть просрочки</button>
               <button class="primary-button icon-text-button" id="openTaskForm" type="button">
@@ -258,6 +261,10 @@
               </div>
               <div class="task-list" id="taskList"></div>
               <div class="empty-state" id="taskEmpty">На выбранный день задач нет.</div>
+              <details class="historical-task-panel" id="historicalTaskPanel" hidden>
+                <summary><span>Незавершенные прошлых дней</span><span id="historicalTaskCount"></span></summary>
+                <div class="historical-task-list" id="historicalTaskList"></div>
+              </details>
               <div class="excluded-panel" id="excludedPanel">
                 <div class="excluded-heading">
                   <span class="metric-label">Исключенные повторы</span>
@@ -453,6 +460,7 @@
                   </div>
                 </div>
                 <form id="categoryForm" class="category-form">
+                  <input id="categoryId" type="hidden">
                   <input id="categoryName" type="text" maxlength="28" placeholder="Новая категория" required>
                   <input id="categoryColor" type="color" value="#00a78e" aria-label="Цвет категории">
                   <button class="icon-button" type="submit" aria-label="Добавить категорию">
@@ -474,11 +482,6 @@
             <span class="task-counter" id="timelineSummary" aria-live="polite" aria-atomic="true">0 по времени · 0 без времени</span>
           </div>
 
-          <section class="panel timeline-panel">
-            <div class="timeline-grid" id="timelineGrid" role="region" aria-label="Задачи по времени"></div>
-            <div class="empty-state" id="timelineEmpty">На выбранный день задач пока нет.</div>
-          </section>
-
           <section class="panel timeline-unscheduled-panel">
             <div class="panel-heading compact">
               <div>
@@ -487,6 +490,11 @@
               </div>
             </div>
             <div class="timeline-unscheduled-list" id="timelineUnscheduledList" role="list" aria-label="Задачи без времени"></div>
+          </section>
+
+          <section class="panel timeline-panel">
+            <div class="timeline-grid" id="timelineGrid" role="region" aria-label="Задачи по времени"></div>
+            <div class="empty-state" id="timelineEmpty">На выбранный день задач пока нет.</div>
           </section>
         </section>
 
@@ -506,6 +514,10 @@
             <section class="panel main-panel">
               <div class="habit-list" id="habitList"></div>
               <div class="empty-state" id="habitEmpty">Добавь первую привычку.</div>
+              <details class="habit-archive-panel" id="habitArchivePanel" hidden>
+                <summary><span>Приостановленные привычки</span><span id="habitArchiveCount"></span></summary>
+                <div class="habit-archive-list" id="habitArchiveList"></div>
+              </details>
             </section>
 
             <aside class="right-rail">
@@ -682,6 +694,11 @@
               <h2 id="overviewHeading">Обзор недели</h2>
               <p class="muted">Сводка по задачам и привычкам вокруг выбранной даты.</p>
             </div>
+            <div class="segmented-control overview-mode-control" aria-label="Период обзора">
+              <button class="is-active" type="button" data-overview-mode="week">Неделя</button>
+              <button type="button" data-overview-mode="month">Месяц</button>
+              <button type="button" data-overview-mode="year">Год</button>
+            </div>
           </div>
           <div class="overview-grid">
             <section class="panel metric-panel metric-panel-dark">
@@ -694,7 +711,7 @@
               <strong id="weeklyHabitMetric">0%</strong>
               <p id="weeklyHabitText"></p>
             </section>
-            <section class="panel week-board-panel">
+            <section class="panel week-board-panel" data-overview-panel="week">
               <div class="panel-heading compact">
                 <div>
                   <span class="metric-label">Неделя</span>
@@ -703,7 +720,7 @@
               </div>
               <div class="week-board-grid" id="weekBoardGrid"></div>
             </section>
-            <section class="panel month-panel">
+            <section class="panel month-panel" data-overview-panel="month">
               <div class="panel-heading compact">
                 <div>
                   <span class="metric-label">Месяц</span>
@@ -733,15 +750,15 @@
               </div>
               <div class="month-grid" id="monthGrid"></div>
             </section>
-            <section class="panel week-panel">
+            <section class="panel week-panel" data-overview-panel="week">
               <h2>Неделя</h2>
               <div class="week-strip" id="weekStrip"></div>
             </section>
-            <section class="panel heatmap-panel">
+            <section class="panel heatmap-panel" data-overview-panel="year">
               <div class="panel-heading compact">
                 <div>
                   <span class="metric-label">Календарь</span>
-                  <h2>Heatmap</h2>
+                  <h2>Активность за год</h2>
                 </div>
                 <div class="heatmap-legend">
                   <span>Задачи</span>
@@ -885,6 +902,7 @@
               </label>
               <div class="settings-actions">
                 <button class="ghost-button compact-button" id="settingsExportButton" type="button">Экспорт JSON</button>
+                <button class="ghost-button compact-button" id="settingsImportDataButton" type="button">Импорт JSON</button>
                 <button class="ghost-button compact-button" id="settingsRestoreBackupButton" type="button">Восстановить</button>
                 <button class="ghost-button compact-button" id="settingsOpenBackupFolderButton" type="button">Папка бэкапов</button>
               </div>
@@ -1009,25 +1027,20 @@
           <div class="task-meta"></div>
           <div class="postpone-actions" aria-label="Отложить задачу">
             <button class="ghost-button compact-button postpone-tomorrow" type="button">Завтра</button>
-            <button class="ghost-button compact-button postpone-week" type="button">Неделя</button>
-            <button class="ghost-button compact-button postpone-date" type="button">Дата</button>
-            <input class="postpone-date-input" type="date" aria-label="Дата переноса">
           </div>
         </div>
-        <div class="task-actions">
-          <button class="icon-button subtle restore-overdue-task" type="button" aria-label="Вернуть в просроченные" hidden>
-            <svg class="ui-icon"><use href="#icon-eye"></use></svg>
-          </button>
-          <button class="icon-button subtle edit-task" type="button" aria-label="Редактировать">
-            <svg class="ui-icon"><use href="#icon-edit"></use></svg>
-          </button>
-          <button class="icon-button subtle exclude-task" type="button" aria-label="Исключить этот день">
-            <svg class="ui-icon"><use href="#icon-skip"></use></svg>
-          </button>
-          <button class="icon-button subtle delete-task" type="button" aria-label="Удалить">
-            <svg class="ui-icon"><use href="#icon-trash"></use></svg>
-          </button>
-        </div>
+        <details class="task-actions task-more">
+          <summary class="icon-button subtle" aria-label="Еще действия">...</summary>
+          <div class="task-more-menu">
+            <button class="ghost-button compact-button postpone-week" type="button">На следующую неделю</button>
+            <button class="ghost-button compact-button postpone-date" type="button">Выбрать дату</button>
+            <input class="postpone-date-input" type="date" aria-label="Дата переноса">
+            <button class="ghost-button compact-button restore-overdue-task" type="button" hidden>Вернуть в просроченные</button>
+            <button class="ghost-button compact-button edit-task" type="button">Изменить</button>
+            <button class="ghost-button compact-button exclude-task" type="button">Убрать только этот день</button>
+            <button class="ghost-button compact-button danger-button delete-task" type="button">Удалить</button>
+          </div>
+        </details>
       </article>
     </template>
 
@@ -1045,6 +1058,9 @@
             <button class="icon-button subtle edit-habit" type="button" aria-label="Редактировать">
               <svg class="ui-icon"><use href="#icon-edit"></use></svg>
             </button>
+            <button class="icon-button subtle archive-habit" type="button" aria-label="Приостановить привычку">
+              <svg class="ui-icon"><use href="#icon-archive"></use></svg>
+            </button>
             <button class="icon-button subtle delete-habit" type="button" aria-label="Удалить">
               <svg class="ui-icon"><use href="#icon-trash"></use></svg>
             </button>
@@ -1057,40 +1073,40 @@
     <script src="quick-input.js?v=2" defer></script>
     <script src="recurrence.js?v=2" defer></script>
     <script src="remote-sync.js?v=1" defer></script>
-    <script src="remote-sync-controller.js?v=2" defer></script>
+    <script src="remote-sync-controller.js?v=3" defer></script>
     <script src="settings-state.js?v=1" defer></script>
-    <script src="state-normalizer.js?v=6" defer></script>
+    <script src="state-normalizer.js?v=7" defer></script>
     <script src="state-merge.js?v=3" defer></script>
     <script src="date-rollover.js?v=1" defer></script>
     <script src="storage.js?v=1" defer></script>
-    <script src="archive-view.js?v=1" defer></script>
-    <script src="app-events.js?v=2" defer></script>
+    <script src="archive-view.js?v=2" defer></script>
+    <script src="app-events.js?v=3" defer></script>
     <script src="heatmap-view.js?v=3" defer></script>
     <script src="calendar-view.js?v=2" defer></script>
     <script src="calendar-drag-controller.js?v=1" defer></script>
     <script src="confirm-dialog.js?v=3" defer></script>
-    <script src="categories.js?v=3" defer></script>
-    <script src="goal-checkpoint-editor.js?v=1" defer></script>
-    <script src="goals-view.js?v=7" defer></script>
-    <script src="habit-form.js?v=2" defer></script>
-    <script src="habits-view.js?v=2" defer></script>
-    <script src="import-export.js?v=3" defer></script>
-    <script src="notifications.js?v=1" defer></script>
+    <script src="categories.js?v=4" defer></script>
+    <script src="goal-checkpoint-editor.js?v=2" defer></script>
+    <script src="goals-view.js?v=8" defer></script>
+    <script src="habit-form.js?v=3" defer></script>
+    <script src="habits-view.js?v=3" defer></script>
+    <script src="import-export.js?v=4" defer></script>
+    <script src="notifications.js?v=2" defer></script>
     <script src="overdue-controller.js?v=4" defer></script>
     <script src="task-schedule.js?v=1" defer></script>
-    <script src="task-form.js?v=7" defer></script>
-    <script src="tasks-view.js?v=10" defer></script>
+    <script src="task-form.js?v=8" defer></script>
+    <script src="tasks-view.js?v=11" defer></script>
     <script src="task-moves.js?v=8" defer></script>
     <script src="task-state.js?v=4" defer></script>
     <script src="settings-sync.js?v=1" defer></script>
-    <script src="settings-controller.js?v=3" defer></script>
+    <script src="settings-controller.js?v=4" defer></script>
     <script src="timeline-layout.js?v=1" defer></script>
     <script src="timeline-menu.js?v=2" defer></script>
     <script src="timeline-drag.js?v=2" defer></script>
-    <script src="timeline-view.js?v=6" defer></script>
+    <script src="timeline-view.js?v=7" defer></script>
     <script src="timeline-controller.js?v=7" defer></script>
     <script src="view-renderer.js?v=1" defer></script>
     <script src="toast.js?v=1" defer></script>
-    <script src="app.js?v=30" defer></script>
+    <script src="app.js?v=31" defer></script>
   </body>
 </html>

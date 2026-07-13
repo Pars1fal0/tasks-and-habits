@@ -197,16 +197,48 @@
       }
     }
 
+    async function syncLatest(options = {}) {
+      if (!isReady() || inFlight || global.navigator?.onLine === false) return { changed: false };
+      begin();
+      try {
+        const pulled = await ctx.remoteSync.pullState(getConfig());
+        if (!pulled.found || !pulled.state) return { changed: false };
+        const meta = ctx.getSyncMeta();
+        if (!ctx.isRemoteVersionNewer(pulled.clientUpdatedAt, meta.lastPulledAt, meta.lastPushedAt)) return { changed: false };
+        const undo = ctx.createUndoSnapshot();
+        ctx.createImportSafetyBackup(undo);
+        const nextState = ctx.mergeStates(ctx.getState(), pulled.state);
+        ctx.replaceState(nextState);
+        const pulledAt = new Date().toISOString();
+        ctx.setSyncMeta({ lastPulledAt: pulledAt });
+        pending = false;
+        ctx.saveState({ localUpdatedAt: pulled.clientUpdatedAt || pulledAt, skipBackup: true, skipRemote: true });
+        ctx.saveUiState();
+        ctx.render();
+        if (!options.silent) ctx.showToast("Данные с другого устройства объединены", { undo });
+        global.setTimeout(() => schedulePush(), 0);
+        return { changed: true };
+      } catch (error) {
+        lastError = ctx.describeError(error);
+        if (!options.silent) ctx.showToast("Не удалось синхронизировать данные");
+        return { changed: false, error };
+      } finally {
+        finish();
+      }
+    }
+
     function begin() {
       inFlight = true;
       lastError = "";
       renderStatus();
+      ctx.renderSaveStatus?.();
     }
 
     function finish() {
       inFlight = false;
       ctx.syncControls();
       renderStatus();
+      ctx.renderSaveStatus?.();
     }
 
     function setStatus(message) {
@@ -217,7 +249,7 @@
       return { inFlight, lastError, pending };
     }
 
-    return { check, clearError, getConfig, getStatus, isReady, pull, push, renderStatus, schedulePush };
+    return { check, clearError, getConfig, getStatus, isReady, pull, push, renderStatus, schedulePush, syncLatest };
   }
 
   const api = { createRemoteSyncController, createRemoteSyncWorkflow };
