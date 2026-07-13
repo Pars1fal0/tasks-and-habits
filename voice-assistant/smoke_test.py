@@ -1,7 +1,10 @@
 import tkinter as tk
 import traceback
 
-import win32gui
+try:
+    import win32gui
+except ModuleNotFoundError as error:
+    raise SystemExit("Voice assistant dependencies are missing. Run install.ps1, then use .venv\\Scripts\\python.exe smoke_test.py.") from error
 
 from codex_control import activate_window, click_point, press_enter, send_unicode_text
 

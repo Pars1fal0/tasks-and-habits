@@ -1,6 +1,6 @@
 {
   "name": "rhythm-day",
-  "version": "0.13.1",
+  "version": "0.13.2",
   "private": true,
   "description": "Локальный десктопный трекер задач и привычек",
   "main": "desktop/main.cjs",
@@ -23,6 +23,7 @@
     },
     "files": [
       "app.js",
+      "app-shell-controller.js",
       "app-utils.js",
       "archive-view.js",
       "app-events.js",
@@ -66,6 +67,7 @@
       "settings-sync.js",
       "settings-controller.js",
       "state-normalizer.js",
+      "state-controller.js",
       "state-merge.js",
       "sync-metadata.js",
       "storage.js",

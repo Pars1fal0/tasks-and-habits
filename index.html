@@ -9,7 +9,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <script>
       (() => {
-        const shellVersion = "0.13.1";
+        const shellVersion = "0.13.2";
         const versionKey = "rhythm-shell-version";
         const retryKey = "rhythm-shell-refresh";
         let storedVersion = "";
@@ -54,7 +54,7 @@
         } catch {}
       })();
     </script>
-    <link rel="stylesheet" href="styles.css?v=27">
+    <link rel="stylesheet" href="styles.css?v=28">
   </head>
   <body>
     <svg class="icon-sprite" aria-hidden="true">
@@ -1031,12 +1031,12 @@
                   <button class="ghost-button compact-button" id="remoteSyncGenerateKeyButton" type="button">Создать legacy-ключ</button>
                 </div>
               </details>
-              <p class="settings-status" id="remoteSyncStatus" aria-live="polite" aria-atomic="true">Удаленная БД не настроена</p>
+              <p class="settings-status" id="remoteSyncStatus" aria-live="polite" aria-atomic="true">Облачная синхронизация не настроена</p>
               <div class="sync-history" id="remoteSyncHistory" aria-label="Последние события синхронизации"></div>
               <div class="settings-actions">
-                <button class="ghost-button compact-button" id="remoteSyncPushButton" type="button">Сохранить в БД</button>
-                <button class="ghost-button compact-button" id="remoteSyncPullButton" type="button">Загрузить из БД</button>
-                <button class="ghost-button compact-button" id="remoteSyncCheckButton" type="button">Проверить</button>
+                <button class="ghost-button compact-button" id="remoteSyncPushButton" type="button">Сохранить в облако</button>
+                <button class="ghost-button compact-button" id="remoteSyncPullButton" type="button">Загрузить из облака</button>
+                <button class="ghost-button compact-button" id="remoteSyncCheckButton" type="button">Проверить подключение</button>
               </div>
               <div class="settings-actions">
                 <button class="ghost-button compact-button" id="settingsExportSettingsButton" type="button">Экспорт настроек</button>
@@ -1160,6 +1160,7 @@
     <script src="habit-config-history.js?v=1" defer></script>
     <script src="pwa-controller.js?v=1" defer></script>
     <script src="state-normalizer.js?v=12" defer></script>
+    <script src="state-controller.js?v=1" defer></script>
     <script src="state-merge.js?v=7" defer></script>
     <script src="date-rollover.js?v=1" defer></script>
     <script src="planning-history.js?v=1" defer></script>
@@ -1193,7 +1194,8 @@
     <script src="timeline-view.js?v=8" defer></script>
     <script src="timeline-controller.js?v=8" defer></script>
     <script src="view-renderer.js?v=1" defer></script>
+    <script src="app-shell-controller.js?v=1" defer></script>
     <script src="toast.js?v=1" defer></script>
-    <script src="app.js?v=36" defer></script>
+    <script src="app.js?v=37" defer></script>
   </body>
 </html>

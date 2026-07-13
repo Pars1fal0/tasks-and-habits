@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.13.2
+
+- Extracted application-shell navigation/rendering and state persistence from `app.js` into focused controllers.
+- Kept rendering scoped to the active section and added browser layout containment for large archives.
+- Separated touch resize zones on 15-minute timeline blocks so their handles no longer compete for the same area.
+- Reworded existing synchronization controls in user-facing language without changing their behavior.
+- Added early dependency diagnostics for the optional Windows voice assistant.
+
 ## 0.13.1
 
 - Fixed no-time tasks being stored as deadlines after creation, timeline removal, import, synchronization, or reload.

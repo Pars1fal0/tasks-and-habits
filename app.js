@@ -70,8 +70,15 @@ const stateNormalizer = window.RhythmStateNormalizer.createStateNormalizer({
 
 const initialUiState = storage.loadUiState();
 const initialRoute = window.RhythmNavigationState.parseHash(window.location.hash);
-let state = normalizeState(storage.loadState());
-let persistedStateSnapshot = window.RhythmSyncMetadata.clone(state);
+const stateController = window.RhythmStateController.createStateController({
+  clone: window.RhythmSyncMetadata.clone,
+  initialState: storage.loadState(),
+  normalizeState,
+  schemaVersion: SCHEMA_VERSION,
+  storage,
+  trackChanges: (previous, next) => syncMetadataTracker.trackChanges(previous, next),
+});
+let state = stateController.getState();
 const startupToday = toDateKey(new Date());
 const storedActiveDate = normalizeDateKey(initialUiState.activeDate, "");
 const storedToday = normalizeDateKey(initialUiState.currentToday, "");
@@ -847,6 +854,22 @@ const viewRenderer = window.RhythmViewRenderer.createViewRenderer({
   renderWeekdayLabels,
 });
 
+const appShellController = window.RhythmAppShellController.createAppShellController({
+  els,
+  formatLongDate,
+  getActiveDate: () => activeDate,
+  getActiveView: () => activeView,
+  getOverviewMode: () => overviewMode,
+  navigationState: window.RhythmNavigationState,
+  renderSaveStatus,
+  restoreTaskFormPanel,
+  saveUiState,
+  setActiveView: (value) => { activeView = value; },
+  setOverviewMode: (value) => { overviewMode = value; },
+  syncTaskTimePresets,
+  viewRenderer,
+});
+
 const appEvents = window.RhythmAppEvents.createAppEvents({
   calendarDragController,
   changeOverviewMode: (mode, activeButton) => {
@@ -1035,74 +1058,19 @@ function handleDateRollover() {
 }
 
 function render() {
-  if (activeView !== "timeline") restoreTaskFormPanel();
-  els.activeDate.value = activeDate;
-  els.todayLabel.textContent = formatLongDate(activeDate);
-  renderSaveStatus();
-  els.pageTitle.textContent = {
-    archive: "Архив",
-    goals: "Цели",
-    habits: "Привычки",
-    overview: "Календарь",
-    settings: "Настройки",
-    tasks: "Задачи на день",
-    timeline: "Таймлайн дня",
-  }[activeView];
-  document.body.dataset.view = activeView;
-  syncTaskTimePresets();
-
-  els.navTabs.forEach((button) => {
-    const isActive = button.dataset.view === activeView;
-    button.classList.toggle("is-active", isActive);
-    if (isActive) {
-      button.setAttribute("aria-current", "page");
-    } else {
-      button.removeAttribute("aria-current");
-    }
-  });
-
-  const isMoreView = activeView === "goals" || activeView === "archive" || activeView === "settings";
-  els.navMoreSummary?.classList.toggle("is-active", isMoreView);
-  if (isMoreView) {
-    els.navMoreSummary?.setAttribute("aria-current", "page");
-  } else {
-    els.navMoreSummary?.removeAttribute("aria-current");
-  }
-
-  Object.entries(els.views).forEach(([view, element]) => {
-    element.classList.toggle("is-active", view === activeView);
-  });
-
-  viewRenderer.render(activeView);
+  appShellController.render();
 }
 
 function scrollWorkspaceTop() {
-  requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: "auto" }));
+  appShellController.scrollTop();
 }
 
 function syncNavigationRoute({ replace = false } = {}) {
-  const hash = window.RhythmNavigationState.buildHash(activeView, overviewMode);
-  if (window.location.hash === hash) return;
-  const method = replace ? "replaceState" : "pushState";
-  window.history[method]({ activeView, overviewMode }, "", hash);
+  appShellController.syncRoute({ replace });
 }
 
 function handleNavigationChange() {
-  const route = window.RhythmNavigationState.parseHash(window.location.hash);
-  if (!route) {
-    syncNavigationRoute({ replace: true });
-    return;
-  }
-  activeView = route.view;
-  if (route.overviewMode) overviewMode = route.overviewMode;
-  els.views.overview.dataset.mode = overviewMode;
-  document.querySelectorAll("[data-overview-mode]").forEach((button) => {
-    button.classList.toggle("is-active", button.dataset.overviewMode === overviewMode);
-  });
-  els.navMore?.removeAttribute("open");
-  saveUiState();
-  render();
-  scrollWorkspaceTop();
+  appShellController.handleNavigationChange();
 }
 
 function renderSaveStatus() {
@@ -2478,16 +2446,11 @@ function normalizeState(raw) {
 }
 
 function replaceState(nextState) {
-  state = normalizeState(nextState);
+  state = stateController.replaceState(nextState);
 }
 
 function saveState(options = {}) {
-  if (!options.skipChangeTracking) syncMetadataTracker.trackChanges(persistedStateSnapshot, state);
-  state = storage.saveState(state, {
-    schemaVersion: SCHEMA_VERSION,
-    skipBackup: options.skipBackup,
-  });
-  persistedStateSnapshot = window.RhythmSyncMetadata.clone(state);
+  state = stateController.saveState(state, options);
   localStateUpdatedAt = options.localUpdatedAt || new Date().toISOString();
   saveUiState();
   renderSaveStatus();

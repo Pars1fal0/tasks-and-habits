@@ -43,7 +43,7 @@ scriptSources.forEach((scriptSource) => {
 
 const packageJson = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
 const packagedFiles = new Set(packageJson.build?.files || []);
-["device-sync-controller.js", "form-dialog.js", "goal-checkpoint-editor.js", "remote-auth.js", "remote-auth-controller.js", "settings-state.js", "settings-sync.js", "timeline-drag.js", "timeline-layout.js", "timeline-menu.js"].forEach((file) => {
+["app-shell-controller.js", "device-sync-controller.js", "form-dialog.js", "goal-checkpoint-editor.js", "remote-auth.js", "remote-auth-controller.js", "settings-state.js", "settings-sync.js", "state-controller.js", "timeline-drag.js", "timeline-layout.js", "timeline-menu.js"].forEach((file) => {
   assert.equal(packagedFiles.has(file), true, `package.json build.files is missing ${file}`);
 });
 

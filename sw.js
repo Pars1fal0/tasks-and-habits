@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "rhythm-day-";
-const CACHE_NAME = `${CACHE_PREFIX}app-v47-__BUILD_HASH__`;
+const CACHE_NAME = `${CACHE_PREFIX}app-v48-__BUILD_HASH__`;
 const APP_SHELL = [
   "./",
   "index.html",
@@ -19,6 +19,7 @@ const APP_SHELL = [
   "habit-config-history.js",
   "pwa-controller.js",
   "state-normalizer.js",
+  "state-controller.js",
   "state-merge.js",
   "date-rollover.js",
   "device-sync-controller.js",
@@ -53,6 +54,7 @@ const APP_SHELL = [
   "timeline-view.js",
   "timeline-controller.js",
   "view-renderer.js",
+  "app-shell-controller.js",
   "toast.js",
   "app.js",
   "manifest.webmanifest",

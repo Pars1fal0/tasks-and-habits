@@ -23,6 +23,9 @@ module.exports = [
       assert.match(control, /send_unicode_text/);
       assert.doesNotMatch(control, /pywinauto|comtypes/i);
       assert.doesNotMatch(control, /clipboard/i);
+      const startScript = fs.readFileSync(path.join(root, "start.ps1"), "utf8");
+      assert.match(startScript, /import sounddevice, vosk, win32gui/);
+      assert.match(startScript, /Run install\.ps1 again/);
     },
   },
 ];

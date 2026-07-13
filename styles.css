@@ -3950,6 +3950,8 @@ body.has-floating-task-form::before {
   justify-content: space-between;
   gap: 14px;
   padding: 14px;
+  content-visibility: auto;
+  contain-intrinsic-size: 76px;
 }
 
 .archive-toolbar {
@@ -4890,6 +4892,32 @@ body.has-floating-task-form::before {
   .timeline-resize-handle::before {
     width: min(96px, 42%);
     height: 3px;
+  }
+
+  .timeline-task.is-tiny-block .timeline-resize-handle {
+    top: -6px;
+    bottom: -6px;
+    width: 50%;
+    height: auto;
+  }
+
+  .timeline-task.is-tiny-block .timeline-resize-handle.is-start {
+    right: auto;
+    left: 0;
+  }
+
+  .timeline-task.is-tiny-block .timeline-resize-handle.is-end {
+    right: 0;
+    left: auto;
+  }
+
+  .timeline-task.is-tiny-block .timeline-resize-handle.is-start::before {
+    top: 5px;
+  }
+
+  .timeline-task.is-tiny-block .timeline-resize-handle.is-end::before {
+    top: auto;
+    bottom: 5px;
   }
 }
 .archive-bulk-bar {
