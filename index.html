@@ -203,6 +203,15 @@
                   <option value="all">Все категории</option>
                 </select>
               </label>
+              <label class="sort-control">
+                <span>Период</span>
+                <select id="archivePeriodFilter" aria-label="Период архива">
+                  <option value="all">За всё время</option>
+                  <option value="week">7 дней</option>
+                  <option value="month">30 дней</option>
+                  <option value="quarter">3 месяца</option>
+                </select>
+              </label>
               <label class="search-control">
                 <span>Поиск</span>
                 <span class="search-box">
@@ -479,7 +488,14 @@
               <h2 id="timelineHeading">Расписание по времени</h2>
               <p class="muted">Задачи с временем разложены по часам выбранного дня.</p>
             </div>
-            <span class="task-counter" id="timelineSummary" aria-live="polite" aria-atomic="true">0 по времени · 0 без времени</span>
+            <div class="timeline-toolbar-actions">
+              <div class="segmented-control timeline-scale-control" aria-label="Масштаб времени">
+                <button type="button" data-timeline-scale="compact" title="Компактный масштаб">−</button>
+                <button class="is-active" type="button" data-timeline-scale="comfortable" title="Обычный масштаб">1:1</button>
+                <button type="button" data-timeline-scale="large" title="Увеличенный масштаб">+</button>
+              </div>
+              <span class="task-counter" id="timelineSummary" aria-live="polite" aria-atomic="true">0 по времени · 0 без времени</span>
+            </div>
           </div>
 
           <section class="panel timeline-unscheduled-panel">
@@ -917,7 +933,7 @@
               </summary>
               <ol class="sync-wizard-steps" aria-label="Шаги подключения">
                 <li><span>1</span><strong>Проект</strong><small>Вставь адрес и публичный ключ Supabase.</small></li>
-                <li><span>2</span><strong>Личный ключ</strong><small>Создай приватный идентификатор этого хранилища.</small></li>
+                <li><span>2</span><strong>Аккаунт</strong><small>Войди или зарегистрируйся по email.</small></li>
                 <li><span>3</span><strong>Проверка</strong><small>Проверь связь и включи синхронизацию.</small></li>
               </ol>
               <label class="settings-row">
@@ -947,17 +963,34 @@
                   <input id="remoteSyncAnonKey" type="password" autocomplete="off" placeholder="eyJ...">
                 </label>
               </details>
-              <label class="settings-row">
-                <span>
-                  <strong>Приватный ключ</strong>
-                  <small>Не используй email или имя. Сгенерируй длинный секрет и храни его как пароль.</small>
-                </span>
-                <input id="remoteSyncUserKey" type="password" maxlength="120" autocomplete="new-password" placeholder="rhythm_...">
-              </label>
-              <div class="settings-actions">
-                <button class="ghost-button compact-button" id="remoteSyncGenerateKeyButton" type="button">Создать приватный ключ</button>
+              <div class="sync-account" aria-labelledby="remoteAuthHeading">
+                <div>
+                  <strong id="remoteAuthHeading">Аккаунт синхронизации</strong>
+                  <small>Пароль и сессия не попадают в экспорт приложения или удаленные настройки.</small>
+                </div>
+                <div class="sync-account-fields">
+                  <input id="remoteAuthEmail" type="email" autocomplete="email" placeholder="name@example.com" aria-label="Email аккаунта синхронизации">
+                  <input id="remoteAuthPassword" type="password" minlength="6" autocomplete="current-password" placeholder="Пароль" aria-label="Пароль аккаунта синхронизации">
+                </div>
+                <div class="settings-actions">
+                  <button class="primary-button compact-button" id="remoteAuthSignInButton" type="button">Войти</button>
+                  <button class="ghost-button compact-button" id="remoteAuthSignUpButton" type="button">Регистрация</button>
+                  <button class="ghost-button compact-button" id="remoteAuthSignOutButton" type="button" hidden>Выйти</button>
+                </div>
+                <p class="settings-status" id="remoteAuthStatus" aria-live="polite">Вход не выполнен</p>
               </div>
+              <details class="sync-technical">
+                <summary>Legacy-доступ по приватному ключу</summary>
+                <label class="settings-row">
+                  <span><strong>Приватный ключ</strong><small>Оставлен для совместимости со старыми хранилищами.</small></span>
+                  <input id="remoteSyncUserKey" type="password" maxlength="120" autocomplete="new-password" placeholder="rhythm_...">
+                </label>
+                <div class="settings-actions">
+                  <button class="ghost-button compact-button" id="remoteSyncGenerateKeyButton" type="button">Создать legacy-ключ</button>
+                </div>
+              </details>
               <p class="settings-status" id="remoteSyncStatus" aria-live="polite" aria-atomic="true">Удаленная БД не настроена</p>
+              <div class="sync-history" id="remoteSyncHistory" aria-label="Последние события синхронизации"></div>
               <div class="settings-actions">
                 <button class="ghost-button compact-button" id="remoteSyncPushButton" type="button">Сохранить в БД</button>
                 <button class="ghost-button compact-button" id="remoteSyncPullButton" type="button">Загрузить из БД</button>
@@ -1070,14 +1103,19 @@
       </article>
     </template>
 
+    <script src="app-utils.js?v=1" defer></script>
     <script src="quick-input.js?v=2" defer></script>
     <script src="recurrence.js?v=2" defer></script>
-    <script src="remote-sync.js?v=1" defer></script>
+    <script src="remote-auth.js?v=1" defer></script>
+    <script src="remote-auth-controller.js?v=1" defer></script>
+    <script src="remote-sync.js?v=2" defer></script>
     <script src="remote-sync-controller.js?v=3" defer></script>
+    <script src="sync-history.js?v=1" defer></script>
     <script src="settings-state.js?v=1" defer></script>
     <script src="state-normalizer.js?v=7" defer></script>
     <script src="state-merge.js?v=3" defer></script>
     <script src="date-rollover.js?v=1" defer></script>
+    <script src="planning-history.js?v=1" defer></script>
     <script src="storage.js?v=1" defer></script>
     <script src="archive-view.js?v=2" defer></script>
     <script src="app-events.js?v=3" defer></script>

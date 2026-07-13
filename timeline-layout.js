@@ -83,12 +83,12 @@
     return Math.round(value / TIMELINE_SLOT_MINUTES) * TIMELINE_SLOT_MINUTES;
   }
 
-  function minutesToPx(minutes) {
-    return (minutes / 60) * TIMELINE_HOUR_HEIGHT;
+  function minutesToPx(minutes, hourHeight = TIMELINE_HOUR_HEIGHT) {
+    return (minutes / 60) * hourHeight;
   }
 
-  function minuteOffsetToPx(minutes) {
-    return minutesToPx(minutes % 60);
+  function minuteOffsetToPx(minutes, hourHeight = TIMELINE_HOUR_HEIGHT) {
+    return minutesToPx(minutes % 60, hourHeight);
   }
 
   function parseTimeToMinutes(value) {

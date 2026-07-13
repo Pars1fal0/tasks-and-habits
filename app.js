@@ -4,6 +4,35 @@ const VALID_HABIT_REPEATS = ["daily", "every2days", "every3days", "weekdays", "w
 const VALID_REMINDER_OFFSETS = ["none", "0", "5", "15", "30", "60", "1440"];
 const VALID_BACKUP_SCHEDULES = ["0", "5", "15", "30", "60"];
 
+const appUtils = window.RhythmAppUtils.createAppUtils({
+  getFirstDayOfWeek: () => firstDayOfWeek,
+  getTimeFormat: () => timeFormat,
+});
+const {
+  addDays,
+  cleanText,
+  cleanTimeValue,
+  createId,
+  escapeHtml,
+  firstDayIndex,
+  formatLongDate,
+  formatMonthLabel,
+  formatShortDate,
+  formatTime,
+  formatWeekday,
+  getMonthCalendarDates,
+  getWeekDates,
+  heatAlpha,
+  minutesToTime,
+  normalizeDateKey,
+  parseDate,
+  randomCategoryColor,
+  sanitizeColor,
+  timeToMinutes,
+  toDateKey,
+  toTimeValue,
+} = appUtils;
+
 const storage = window.RhythmStorage.createLocalStorageAdapter({
   appName: "Ритм дня",
   schemaVersion: SCHEMA_VERSION,
@@ -81,6 +110,7 @@ const els = {
   archiveBulkRestore: document.querySelector("#archiveBulkRestore"),
   archiveEmpty: document.querySelector("#archiveEmpty"),
   archiveList: document.querySelector("#archiveList"),
+  archivePeriodFilter: document.querySelector("#archivePeriodFilter"),
   archiveSearch: document.querySelector("#archiveSearch"),
   archiveSelectAll: document.querySelector("#archiveSelectAll"),
   backupStatus: document.querySelector("#backupStatus"),
@@ -187,9 +217,16 @@ const els = {
   quickInputHints: document.querySelector("#quickInputHints"),
   quickTaskPreview: document.querySelector("#quickTaskPreview"),
   remoteSyncAnonKey: document.querySelector("#remoteSyncAnonKey"),
+  remoteAuthEmail: document.querySelector("#remoteAuthEmail"),
+  remoteAuthPassword: document.querySelector("#remoteAuthPassword"),
+  remoteAuthSignInButton: document.querySelector("#remoteAuthSignInButton"),
+  remoteAuthSignOutButton: document.querySelector("#remoteAuthSignOutButton"),
+  remoteAuthSignUpButton: document.querySelector("#remoteAuthSignUpButton"),
+  remoteAuthStatus: document.querySelector("#remoteAuthStatus"),
   remoteSyncCheckButton: document.querySelector("#remoteSyncCheckButton"),
   remoteSyncEnabled: document.querySelector("#remoteSyncEnabled"),
   remoteSyncGenerateKeyButton: document.querySelector("#remoteSyncGenerateKeyButton"),
+  remoteSyncHistory: document.querySelector("#remoteSyncHistory"),
   remoteSyncPullButton: document.querySelector("#remoteSyncPullButton"),
   remoteSyncPushButton: document.querySelector("#remoteSyncPushButton"),
   remoteSyncStatus: document.querySelector("#remoteSyncStatus"),
@@ -248,6 +285,7 @@ const els = {
   timelineEmpty: document.querySelector("#timelineEmpty"),
   timelineGrid: document.querySelector("#timelineGrid"),
   timelineSummary: document.querySelector("#timelineSummary"),
+  timelineScaleButtons: [...document.querySelectorAll("[data-timeline-scale]")],
   timelineUnscheduledList: document.querySelector("#timelineUnscheduledList"),
   todayButton: document.querySelector("#todayButton"),
   todayDoneMetric: document.querySelector("#todayDoneMetric"),
@@ -280,6 +318,10 @@ const toastController = window.RhythmToast.createToastController({
 const confirmDialog = window.RhythmConfirmDialog.createConfirmDialog({ els });
 const remoteSync = window.RhythmRemoteSync.createRemoteSync();
 const remoteSyncController = window.RhythmRemoteSyncController.createRemoteSyncController();
+const remoteAuth = window.RhythmRemoteAuth.createRemoteAuth({
+  getConfig: () => ({ anonKey: remoteSyncAnonKey, supabaseUrl: remoteSyncUrl }),
+});
+const syncHistory = window.RhythmSyncHistory.createSyncHistory();
 const taskScheduleController = window.RhythmTaskSchedule.createTaskSchedule({
   cleanTimeValue,
   els,
@@ -337,6 +379,7 @@ const tasksView = window.RhythmTasksView.createTasksView({
   getTaskFilter: () => taskFilter,
   getTaskSearchQuery: () => taskSearchQuery,
   isTaskDone,
+  isTaskExcluded,
   matchesCategoryFilter,
   openDate: (dateKey) => {
     activeDate = dateKey;
@@ -365,6 +408,7 @@ const tasksView = window.RhythmTasksView.createTasksView({
   taskDetails,
   taskMatchesSearch,
   taskMetaItems,
+  taskOccursOn,
   toDateKey,
 });
 
@@ -509,6 +553,7 @@ const timelineView = window.RhythmTimelineView.createTimelineView({
 });
 
 const archiveView = window.RhythmArchiveView.createArchiveView({
+  addDays,
   els,
   archiveEntries,
   archiveEntryMatchesSearch,
@@ -669,9 +714,11 @@ const remoteSyncWorkflow = window.RhythmRemoteSyncController.createRemoteSyncWor
   getLocalUpdatedAt: () => localStateUpdatedAt,
   getRemoteUiSettings,
   getSettings: () => ({
+    accessToken: remoteAuth.getSession()?.access_token || "",
     anonKey: remoteSyncAnonKey,
     enabled: remoteSyncEnabled === "on",
     supabaseUrl: remoteSyncUrl,
+    userId: remoteAuth.getSession()?.user?.id || "",
     userKey: remoteSyncUserKey,
   }),
   getState: () => state,
@@ -681,6 +728,10 @@ const remoteSyncWorkflow = window.RhythmRemoteSyncController.createRemoteSyncWor
   latestIsoDate,
   mergeStates: window.RhythmStateMerge.mergeStates,
   remoteSync,
+  recordSyncEvent: (type, detail) => {
+    syncHistory.record(type, detail);
+    syncHistory.render(els.remoteSyncHistory, formatBackupDate);
+  },
   render,
   renderSaveStatus,
   replaceState,
@@ -695,6 +746,15 @@ const remoteSyncWorkflow = window.RhythmRemoteSyncController.createRemoteSyncWor
   statusElement: els.remoteSyncStatus,
   syncControls: () => settingsController.syncControls(),
 });
+
+const remoteAuthController = window.RhythmRemoteAuthController.createRemoteAuthController({
+  auth: remoteAuth,
+  els,
+  renderSyncStatus: () => remoteSyncWorkflow.renderStatus(),
+  showToast,
+  syncLatest: (options) => remoteSyncWorkflow.syncLatest(options),
+});
+syncHistory.render(els.remoteSyncHistory, formatBackupDate);
 
 const notificationsController = window.RhythmNotifications.createNotifications({
   els,
@@ -769,6 +829,7 @@ const appEvents = window.RhythmAppEvents.createAppEvents({
     archiveCategoryFilter = "all";
     els.archiveSearch.value = "";
     els.archiveCategoryFilter.value = "all";
+    archiveView.setPeriod("all");
     saveUiState();
     renderArchive();
   },
@@ -800,6 +861,7 @@ const appEvents = window.RhythmAppEvents.createAppEvents({
   goToday,
   handleOnline: async () => {
     renderSaveStatus();
+    await remoteAuth.ensureFreshSession().catch(() => null);
     await remoteSyncWorkflow.syncLatest({ silent: true });
     scheduleRemotePush();
   },
@@ -870,7 +932,7 @@ function init() {
   renderRemoteSyncStatus();
   updateFileBackupStatus();
   render();
-  remoteSyncWorkflow.syncLatest({ silent: true });
+  remoteAuth.ensureFreshSession().catch(() => null).finally(() => remoteSyncWorkflow.syncLatest({ silent: true }));
   syncDesktopReminders();
   syncDesktopBackup();
   setInterval(checkDueNotifications, 30000);
@@ -1869,12 +1931,6 @@ function shiftMonth(months) {
   render();
 }
 
-function addDays(dateKey, days) {
-  const date = parseDate(dateKey);
-  date.setDate(date.getDate() + days);
-  return toDateKey(date);
-}
-
 function saveUiState() {
   storage.saveUiState({
     archiveCategoryFilter,
@@ -2247,44 +2303,6 @@ function cleanSearchQuery(value) {
   return cleanText(value).toLowerCase();
 }
 
-function cleanTimeValue(value) {
-  const time = String(value || "").trim();
-  const match = /^(\d{1,2}):(\d{2})$/.exec(time);
-  if (!match) return "";
-  const hours = Number(match[1]);
-  const minutes = Number(match[2]);
-  if (!Number.isInteger(hours) || !Number.isInteger(minutes)) return "";
-  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return "";
-  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
-}
-
-function timeToMinutes(value) {
-  const time = cleanTimeValue(value);
-  if (!time) return NaN;
-  const [hours, minutes] = time.split(":").map(Number);
-  return hours * 60 + minutes;
-}
-
-function minutesToTime(value) {
-  const minutes = Math.max(0, Math.min(23 * 60 + 59, Number(value) || 0));
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  return `${String(hours).padStart(2, "0")}:${String(rest).padStart(2, "0")}`;
-}
-
-function formatTime(value) {
-  const time = cleanTimeValue(value);
-  if (!time) return "";
-  if (timeFormat === "24") return time;
-  const [hours, minutes] = time.split(":").map(Number);
-  const date = new Date(2000, 0, 1, hours, minutes);
-  return new Intl.DateTimeFormat("ru-RU", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  }).format(date);
-}
-
 function formatTaskTime(value) {
   const formatted = formatTime(value);
   return formatted ? `до ${formatted}` : "";
@@ -2441,35 +2459,6 @@ function registerServiceWorker() {
     .catch(() => {});
 }
 
-function getWeekDates(dateKey) {
-  const date = parseDate(dateKey);
-  const offset = (date.getDay() - firstDayIndex() + 7) % 7;
-  date.setDate(date.getDate() - offset);
-
-  return Array.from({ length: 7 }, (_, index) => {
-    const item = new Date(date);
-    item.setDate(date.getDate() + index);
-    return toDateKey(item);
-  });
-}
-
-function getMonthCalendarDates(dateKey) {
-  const date = parseDate(dateKey);
-  const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
-  const offset = (firstDay.getDay() - firstDayIndex() + 7) % 7;
-  firstDay.setDate(firstDay.getDate() - offset);
-
-  return Array.from({ length: 42 }, (_, index) => {
-    const item = new Date(firstDay);
-    item.setDate(firstDay.getDate() + index);
-    return toDateKey(item);
-  });
-}
-
-function firstDayIndex() {
-  return firstDayOfWeek === "sunday" ? 0 : 1;
-}
-
 function renderWeekdayLabels() {
   if (!els.monthWeekdays) return;
   const mondayFirst = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
@@ -2481,28 +2470,6 @@ function renderWeekdayLabels() {
       return node;
     }),
   );
-}
-
-function parseDate(dateKey) {
-  const [year, month, day] = normalizeDateKey(dateKey).split("-").map(Number);
-  return new Date(year, month - 1, day);
-}
-
-function normalizeDateKey(value, fallback = toDateKey(new Date())) {
-  const dateKey = String(value || "").trim();
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey);
-  if (!match) return fallback;
-
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const date = new Date(year, month - 1, day);
-  const isValid =
-    date.getFullYear() === year &&
-    date.getMonth() === month - 1 &&
-    date.getDate() === day;
-
-  return isValid ? dateKey : fallback;
 }
 
 function normalizeTaskFlags(value) {
@@ -2548,85 +2515,8 @@ function normalizeTaskOrder(value) {
   return taskOrder;
 }
 
-function toDateKey(date) {
-  const safeDate = date instanceof Date && Number.isFinite(date.getTime()) ? date : new Date();
-  const year = safeDate.getFullYear();
-  const month = String(safeDate.getMonth() + 1).padStart(2, "0");
-  const day = String(safeDate.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function toTimeValue(date) {
-  const safeDate = date instanceof Date && Number.isFinite(date.getTime()) ? date : new Date();
-  return `${String(safeDate.getHours()).padStart(2, "0")}:${String(safeDate.getMinutes()).padStart(2, "0")}`;
-}
-
-function formatLongDate(dateKey) {
-  return new Intl.DateTimeFormat("ru-RU", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  }).format(parseDate(dateKey));
-}
-
-function formatWeekday(dateKey) {
-  return new Intl.DateTimeFormat("ru-RU", {
-    weekday: "short",
-    day: "numeric",
-  }).format(parseDate(dateKey));
-}
-
-function formatShortDate(dateKey) {
-  return new Intl.DateTimeFormat("ru-RU", {
-    day: "numeric",
-    month: "short",
-  }).format(parseDate(dateKey));
-}
-
-function formatMonthLabel(dateKey) {
-  return new Intl.DateTimeFormat("ru-RU", {
-    month: "long",
-    year: "numeric",
-  }).format(parseDate(dateKey));
-}
-
-function heatAlpha(percent) {
-  if (percent <= 0) return "0.08";
-  if (percent < 35) return "0.24";
-  if (percent < 70) return "0.48";
-  if (percent < 100) return "0.72";
-  return "1";
-}
-
-function randomCategoryColor() {
-  const colors = ["#00a78e", "#5967d8", "#ef6a4b", "#e7b84a", "#8b5cf6", "#0ea5e9"];
-  return colors[Math.floor(Math.random() * colors.length)];
-}
-
-function sanitizeColor(value) {
-  const color = String(value || "").trim();
-  return /^#[0-9a-f]{6}$/i.test(color) ? color : "";
-}
-
-function cleanText(value) {
-  return String(value || "").trim().replace(/\s+/g, " ");
-}
-
-function createId() {
-  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-}
-
 function icon(name) {
   return `<svg class="ui-icon"><use href="#icon-${name}"></use></svg>`;
-}
-
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
 }
 
 function createUndoSnapshot() {

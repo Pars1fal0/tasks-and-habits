@@ -8,13 +8,16 @@
         enabled: config.enabled === true,
         supabaseUrl: stripTrailingSlash(String(config.supabaseUrl || "").trim()),
         anonKey: String(config.anonKey || "").trim(),
+        accessToken: String(config.accessToken || "").trim(),
+        userId: String(config.userId || "").trim(),
         userKey: normalizeUserKey(config.userKey),
       };
     }
 
     function isConfigured(config = {}) {
       const normalized = normalizeConfig(config);
-      return Boolean(normalized.enabled && normalized.supabaseUrl && normalized.anonKey && normalized.userKey);
+      const hasIdentity = Boolean((normalized.accessToken && normalized.userId) || normalized.userKey);
+      return Boolean(normalized.enabled && normalized.supabaseUrl && normalized.anonKey && hasIdentity);
     }
 
     async function pushState(config, payload = {}) {
@@ -23,13 +26,15 @@
       ensureConfigured(normalized);
       const clientUpdatedAt = payload.clientUpdatedAt || new Date().toISOString();
       const body = {
-        user_key: normalized.userKey,
+        user_key: normalized.userId ? `auth:${normalized.userId}` : normalized.userKey,
+        ...(normalized.userId ? { user_id: normalized.userId } : {}),
         state: payload.state || {},
         ui_state: payload.uiState || {},
         schema_version: payload.schemaVersion || payload.state?.schemaVersion || 1,
         client_updated_at: clientUpdatedAt,
       };
-      const response = await fetchFn(`${normalized.supabaseUrl}/rest/v1/${tableName}?on_conflict=user_key`, {
+      const conflictColumn = normalized.userId ? "user_id" : "user_key";
+      const response = await fetchFn(`${normalized.supabaseUrl}/rest/v1/${tableName}?on_conflict=${conflictColumn}`, {
         method: "POST",
         headers: supabaseHeaders(normalized, {
           Prefer: "resolution=merge-duplicates,return=representation",
@@ -46,7 +51,7 @@
       ensureFetch();
       const normalized = normalizeConfig(config);
       ensureConfigured(normalized);
-      const filter = `user_key=eq.${encodeURIComponent(normalized.userKey)}`;
+      const filter = identityFilter(normalized);
       const select = "select=state,ui_state,schema_version,client_updated_at,updated_at";
       const response = await fetchFn(`${normalized.supabaseUrl}/rest/v1/${tableName}?${select}&${filter}&limit=1`, {
         method: "GET",
@@ -72,8 +77,8 @@
       ensureFetch();
       const normalized = normalizeConfig(config);
       ensureConfigured(normalized);
-      const filter = `user_key=eq.${encodeURIComponent(normalized.userKey)}`;
-      const response = await fetchFn(`${normalized.supabaseUrl}/rest/v1/${tableName}?select=user_key,client_updated_at&${filter}&limit=1`, {
+      const filter = identityFilter(normalized);
+      const response = await fetchFn(`${normalized.supabaseUrl}/rest/v1/${tableName}?select=user_key,user_id,client_updated_at&${filter}&limit=1`, {
         method: "GET",
         headers: supabaseHeaders(normalized),
       });
@@ -97,9 +102,9 @@
     function supabaseHeaders(config, extra = {}) {
       return {
         apikey: config.anonKey,
-        Authorization: `Bearer ${config.anonKey}`,
+        Authorization: `Bearer ${config.accessToken || config.anonKey}`,
         "Content-Type": "application/json",
-        "x-rhythm-user-key": config.userKey,
+        ...(config.userKey && !config.userId ? { "x-rhythm-user-key": config.userKey } : {}),
         ...extra,
       };
     }
@@ -121,6 +126,12 @@
       pullState,
       pushState,
     };
+  }
+
+  function identityFilter(config) {
+    return config.userId
+      ? `user_id=eq.${encodeURIComponent(config.userId)}`
+      : `user_key=eq.${encodeURIComponent(config.userKey)}`;
   }
 
   function createRemoteError(code, response, data) {

@@ -1,12 +1,13 @@
 {
   "name": "rhythm-day",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "private": true,
   "description": "Локальный десктопный трекер задач и привычек",
   "main": "desktop/main.cjs",
   "scripts": {
     "desktop": "electron .",
     "desktop:smoke": "electron . --smoke-test",
+    "test:e2e": "node tests/electron-e2e.cjs",
     "lint": "node tests/lint.cjs",
     "test": "node tests/run-tests.cjs",
     "build:win": "electron-builder --win portable nsis",
@@ -20,6 +21,7 @@
     },
     "files": [
       "app.js",
+      "app-utils.js",
       "archive-view.js",
       "app-events.js",
       "calendar-view.js",
@@ -39,12 +41,16 @@
       "manifest.webmanifest",
       "habits-view.js",
       "notifications.js",
+      "planning-history.js",
       "overdue-controller.js",
       "quick-input.js",
       "recurrence.js",
+      "remote-auth.js",
+      "remote-auth-controller.js",
       "README.md",
       "remote-sync.js",
       "remote-sync-controller.js",
+      "sync-history.js",
       "settings-state.js",
       "settings-sync.js",
       "settings-controller.js",
@@ -91,6 +97,7 @@
   },
   "devDependencies": {
     "electron": "^42.5.0",
-    "electron-builder": "^26.0.12"
+    "electron-builder": "^26.0.12",
+    "playwright-core": "^1.61.1"
   }
 }

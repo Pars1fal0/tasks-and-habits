@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Added Supabase email/password authentication with local-only session storage and authenticated RLS policies.
+- Added a compact local sync history for push, pull, merge, and error events.
+- Added archive period filters and a backlog of older unfinished one-off and recurring occurrences.
+- Added compact, regular, and touch-friendly timeline scales with persisted preference.
+- Extracted shared application utilities and planning-history logic from `app.js`.
+- Added a real Electron browser test for the mobile habit form and timeline scale controls.
+
 ## 0.9.0 - 2026-07-13
 
 - Fixed time-block reminders so offsets are calculated from the block start, while overdue state still uses its end.

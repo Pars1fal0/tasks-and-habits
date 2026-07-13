@@ -23,6 +23,8 @@
     (typeof require !== "undefined" ? require("./timeline-drag.js") : null);
 
   function createTimelineView(ctx) {
+    const scaleHeights = { compact: 72, comfortable: 96, large: 144 };
+    let timelineScale = loadTimelineScale();
     const taskMenu = menuApi.createTimelineMenu(ctx);
     const timelineDrag = dragApi.createTimelineDrag({
       ctx,
@@ -30,9 +32,11 @@
       minuteFromPointer,
       taskDragMime: TASK_DRAG_MIME,
     });
+    bindScaleControls();
 
     function renderTimeline() {
       taskMenu.closeTaskMenu();
+      const hourHeight = scaleHeights[timelineScale];
       const activeDate = ctx.getActiveDate();
       const now = ctx.getNow?.() || new Date();
       const model = buildTimelineModel({
@@ -60,6 +64,7 @@
         label.className = "timeline-hour-label";
         label.textContent = row.label;
         slot.className = "timeline-hour-slot";
+        slot.style.minHeight = `${hourHeight}px`;
         slot.dataset.hour = String(row.hour);
         slot.setAttribute("role", "list");
         slot.setAttribute("aria-label", `Задачи на ${row.label}`);
@@ -114,7 +119,7 @@
         ctx.fillTaskForm(entry.task);
       });
       if (Number.isFinite(entry.minutes)) {
-        card.style.setProperty("--timeline-task-top", `${minuteOffsetToPx(entry.minutes)}px`);
+        card.style.setProperty("--timeline-task-top", `${minuteOffsetToPx(entry.minutes, scaleHeights[timelineScale])}px`);
         card.style.setProperty("--timeline-column-left", `${((entry.columnIndex || 0) / (entry.columnCount || 1)) * 100}%`);
         card.style.setProperty("--timeline-column-width", `${(1 / (entry.columnCount || 1)) * 100}%`);
         card.style.setProperty("--timeline-column-gap", entry.columnCount > 1 ? "6px" : "0px");
@@ -267,7 +272,7 @@
         const label = duration
           ? formatBlockLabel(nextStart, nextStart + duration)
           : formatHourMinute(Math.floor(nextStart / 60), nextStart % 60);
-        card.style.setProperty("--timeline-drag-y", `${minutesToPx(nextStart - originalStart)}px`);
+        card.style.setProperty("--timeline-drag-y", `${minutesToPx(nextStart - originalStart, scaleHeights[timelineScale])}px`);
         card.setAttribute("data-drag-label", label);
         timelineDrag.showPointerHint(label, moveEvent);
       };
@@ -311,12 +316,12 @@
 
     function previewBlockResize(card, originalStart, nextStart, nextEnd) {
       setBlockHeight(card, nextEnd - nextStart);
-      card.style.setProperty("--timeline-drag-y", `${minutesToPx(nextStart - originalStart)}px`);
+      card.style.setProperty("--timeline-drag-y", `${minutesToPx(nextStart - originalStart, scaleHeights[timelineScale])}px`);
       card.setAttribute("data-resize-label", formatBlockLabel(nextStart, nextEnd));
     }
 
     function setBlockHeight(card, duration) {
-      card.style.setProperty("--block-min-height", `${Math.max(20, Math.round(minutesToPx(Math.max(TIMELINE_SLOT_MINUTES, duration)) - 4))}px`);
+      card.style.setProperty("--block-min-height", `${Math.max(20, Math.round(minutesToPx(Math.max(TIMELINE_SLOT_MINUTES, duration), scaleHeights[timelineScale]) - 4))}px`);
     }
 
     function handleTaskKeydown(event, entry) {
@@ -420,7 +425,7 @@
 
     function updateCreatePreview(preview, startMinutes, endMinutes) {
       const top = `${((startMinutes % 60) / 60) * 100}%`;
-      const height = `${Math.max(20, minutesToPx(endMinutes - startMinutes) - 4)}px`;
+      const height = `${Math.max(20, minutesToPx(endMinutes - startMinutes, scaleHeights[timelineScale]) - 4)}px`;
       preview.style.setProperty("--create-preview-top", top);
       preview.style.setProperty("--create-preview-height", height);
       preview.textContent = formatBlockLabel(startMinutes, endMinutes);
@@ -428,6 +433,38 @@
 
     function formatMinutes(minutes) {
       return formatHourMinute(Math.floor(minutes / 60), minutes % 60);
+    }
+
+    function bindScaleControls() {
+      (ctx.els.timelineScaleButtons || []).forEach((button) => {
+        button.addEventListener("click", () => {
+          const nextScale = button.dataset.timelineScale;
+          if (!scaleHeights[nextScale] || nextScale === timelineScale) return;
+          timelineScale = nextScale;
+          try {
+            global.localStorage?.setItem("rhythm-timeline-scale", timelineScale);
+          } catch {}
+          updateScaleControls();
+          renderTimeline();
+        });
+      });
+      updateScaleControls();
+    }
+
+    function updateScaleControls() {
+      (ctx.els.timelineScaleButtons || []).forEach((button) => {
+        const active = button.dataset.timelineScale === timelineScale;
+        button.classList.toggle("is-active", active);
+        button.setAttribute("aria-pressed", String(active));
+      });
+    }
+
+    function loadTimelineScale() {
+      try {
+        const saved = global.localStorage?.getItem("rhythm-timeline-scale");
+        if (scaleHeights[saved]) return saved;
+      } catch {}
+      return global.matchMedia?.("(max-width: 720px)")?.matches ? "large" : "comfortable";
     }
 
     return { renderTimeline };

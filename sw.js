@@ -1,17 +1,22 @@
 const CACHE_PREFIX = "rhythm-day-";
-const CACHE_NAME = `${CACHE_PREFIX}app-v39`;
+const CACHE_NAME = `${CACHE_PREFIX}app-v40`;
 const APP_SHELL = [
   "./",
   "index.html",
   "styles.css",
+  "app-utils.js",
   "quick-input.js",
   "recurrence.js",
+  "remote-auth.js",
+  "remote-auth-controller.js",
   "remote-sync.js",
   "remote-sync-controller.js",
+  "sync-history.js",
   "settings-state.js",
   "state-normalizer.js",
   "state-merge.js",
   "date-rollover.js",
+  "planning-history.js",
   "storage.js",
   "archive-view.js",
   "app-events.js",

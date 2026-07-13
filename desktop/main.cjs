@@ -5,6 +5,8 @@ const path = require("node:path");
 
 const appRoot = path.join(__dirname, "..");
 const isSmokeTest = process.argv.includes("--smoke-test");
+const isE2eTest = process.argv.includes("--e2e-test");
+const isAutomationTest = isSmokeTest || isE2eTest;
 
 let mainWindow = null;
 let tray = null;
@@ -16,7 +18,7 @@ const sentReminders = new Set();
 const FILE_BACKUP_INTERVAL_MS = 10 * 60 * 1000;
 const MAX_FILE_BACKUPS = 20;
 
-if (isSmokeTest) {
+if (isAutomationTest) {
   app.disableHardwareAcceleration();
   app.commandLine.appendSwitch("disable-gpu");
   app.commandLine.appendSwitch("disable-gpu-compositing");
@@ -34,8 +36,8 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1240,
     height: 840,
-    minWidth: isSmokeTest ? 320 : 900,
-    minHeight: isSmokeTest ? 600 : 640,
+    minWidth: isAutomationTest ? 320 : 900,
+    minHeight: isAutomationTest ? 600 : 640,
     show: !isSmokeTest,
     title: "Ритм дня",
     backgroundColor: "#090d10",
@@ -54,7 +56,7 @@ function createWindow() {
     }
   });
 
-  if (!isSmokeTest) {
+  if (!isAutomationTest) {
     mainWindow.on("close", (event) => {
       if (isQuitting) return;
       event.preventDefault();
@@ -895,7 +897,7 @@ function createWindow() {
 }
 
 function createTray() {
-  if (isSmokeTest || tray) return;
+  if (isAutomationTest || tray) return;
 
   const image = nativeImage.createFromPath(path.join(appRoot, "icon.svg"));
   tray = new Tray(image.resize({ width: 16, height: 16 }));
@@ -1163,7 +1165,7 @@ app.on("before-quit", () => {
 
 app.on("window-all-closed", () => {
   if (process.platform === "darwin") return;
-  if (isQuitting || isSmokeTest) {
+  if (isQuitting || isAutomationTest) {
     app.quit();
   }
 });

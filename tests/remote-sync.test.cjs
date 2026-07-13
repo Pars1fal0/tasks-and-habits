@@ -98,8 +98,36 @@ module.exports = [
 
       assert.equal(result.ok, true);
       assert.equal(result.found, true);
-      assert.match(calls[0].url, /select=user_key,client_updated_at/);
+      assert.match(calls[0].url, /select=user_key,user_id,client_updated_at/);
       assert.equal(calls[0].options.method, "GET");
+    },
+  },
+  {
+    name: "uses authenticated identity without exposing the legacy key header",
+    async fn() {
+      const calls = [];
+      const sync = createRemoteSync({
+        fetch: async (url, options) => {
+          calls.push({ url, options });
+          return { ok: true, status: 200, text: async () => "[]" };
+        },
+      });
+
+      await sync.pushState(
+        {
+          accessToken: "user-jwt",
+          anonKey: "anon",
+          enabled: true,
+          supabaseUrl: "https://demo.supabase.co",
+          userId: "user-123",
+        },
+        { state: { tasks: [] } },
+      );
+
+      assert.match(calls[0].url, /on_conflict=user_id/);
+      assert.equal(calls[0].options.headers.Authorization, "Bearer user-jwt");
+      assert.equal(calls[0].options.headers["x-rhythm-user-key"], undefined);
+      assert.equal(JSON.parse(calls[0].options.body).user_id, "user-123");
     },
   },
 ];

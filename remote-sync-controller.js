@@ -26,8 +26,10 @@
       const settings = ctx.getSettings();
       return ctx.remoteSync.normalizeConfig({
         anonKey: settings.anonKey,
+        accessToken: settings.accessToken,
         enabled: settings.enabled,
         supabaseUrl: settings.supabaseUrl,
+        userId: settings.userId,
         userKey: settings.userKey,
       });
     }
@@ -44,10 +46,10 @@
       if (!ctx.statusElement) return;
       const settings = ctx.getSettings();
       if (!settings.enabled) return setStatus("БД: не настроено · синхронизация выключена");
-      if (!isReady()) return setStatus("БД: не настроено · заполни Supabase URL, anon key и приватный ключ");
+      if (!isReady()) return setStatus("БД: не настроено · войди в аккаунт или подключи legacy-ключ");
       if (lastError) return setStatus(`БД: ошибка · ${lastError}`);
       if (inFlight) return setStatus("БД: синхронизация...");
-      if (!ctx.isSecurePrivateKey(settings.userKey)) {
+      if (!settings.userId && !ctx.isSecurePrivateKey(settings.userKey)) {
         return setStatus("БД: подключена старым коротким ключом · создай приватный ключ перед хранением важных данных");
       }
       if (pending) return setStatus("БД: ожидает синхронизации локальных изменений");
@@ -92,9 +94,11 @@
         ctx.setSyncMeta({ lastPushedAt: pushedAt });
         pending = false;
         ctx.saveUiState();
+        ctx.recordSyncEvent?.("push");
         if (manual) ctx.showToast("Данные сохранены в БД");
       } catch (error) {
         lastError = ctx.describeError(error);
+        ctx.recordSyncEvent?.("error", lastError);
         if (manual) ctx.showToast("Не удалось сохранить данные в БД");
       } finally {
         finish();
@@ -188,9 +192,11 @@
         ctx.saveState({ localUpdatedAt: pulled.clientUpdatedAt || pulledAt, skipBackup: true, skipRemote: true });
         ctx.saveUiState();
         ctx.render();
+        ctx.recordSyncEvent?.(confirmed === "secondary" ? "merge" : "pull", `версия от ${remoteDate}`);
         ctx.showToast(confirmed === "secondary" ? "Локальные и удаленные данные объединены" : "Данные загружены из БД", { undo });
       } catch (error) {
         lastError = ctx.describeError(error);
+        ctx.recordSyncEvent?.("error", lastError);
         ctx.showToast("Не удалось загрузить данные из БД");
       } finally {
         finish();
@@ -215,11 +221,13 @@
         ctx.saveState({ localUpdatedAt: pulled.clientUpdatedAt || pulledAt, skipBackup: true, skipRemote: true });
         ctx.saveUiState();
         ctx.render();
+        ctx.recordSyncEvent?.("merge", "автоматическая синхронизация");
         if (!options.silent) ctx.showToast("Данные с другого устройства объединены", { undo });
         global.setTimeout(() => schedulePush(), 0);
         return { changed: true };
       } catch (error) {
         lastError = ctx.describeError(error);
+        ctx.recordSyncEvent?.("error", lastError);
         if (!options.silent) ctx.showToast("Не удалось синхронизировать данные");
         return { changed: false, error };
       } finally {

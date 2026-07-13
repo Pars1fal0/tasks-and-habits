@@ -2,6 +2,7 @@
   function createArchiveView(ctx) {
     const selectedKeys = new Set();
     let visibleEntries = [];
+    let period = "all";
 
     ctx.els?.archiveSelectAll?.addEventListener("change", () => {
       selectedKeys.clear();
@@ -10,11 +11,19 @@
     });
     ctx.els?.archiveBulkRestore?.addEventListener("click", restoreSelected);
     ctx.els?.archiveBulkDelete?.addEventListener("click", deleteSelected);
+    ctx.els?.archivePeriodFilter?.addEventListener("change", () => {
+      period = ctx.els.archivePeriodFilter.value || "all";
+      renderArchive();
+    });
 
     function renderArchive() {
       const allEntries = ctx.archiveEntries();
       const entries = allEntries.filter((entry) => {
-        return ctx.matchesCategoryFilter(entry.task, ctx.getArchiveCategoryFilter()) && ctx.archiveEntryMatchesSearch(entry, ctx.getArchiveSearchQuery());
+        return (
+          ctx.matchesCategoryFilter(entry.task, ctx.getArchiveCategoryFilter()) &&
+          ctx.archiveEntryMatchesSearch(entry, ctx.getArchiveSearchQuery()) &&
+          global.RhythmPlanningHistory.archiveEntryInPeriod(entry.dateKey, period, ctx.toDateKey(new Date()), ctx.addDays)
+        );
       });
       visibleEntries = entries;
       const validKeys = new Set(allEntries.map(entryKey));
@@ -167,7 +176,12 @@
         meta.append(document.createTextNode(value));
       }
     }
-    return { createArchiveNode, renderArchive };
+    function setPeriod(value) {
+      period = ["all", "week", "month", "quarter"].includes(value) ? value : "all";
+      if (ctx.els.archivePeriodFilter) ctx.els.archivePeriodFilter.value = period;
+      renderArchive();
+    }
+    return { createArchiveNode, renderArchive, setPeriod };
   }
 
   const api = { createArchiveView };

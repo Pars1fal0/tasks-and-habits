@@ -48,29 +48,36 @@
 
     function renderHistoricalTasks() {
       if (!ctx.els.historicalTaskPanel) return;
-      const yesterdayKey = ctx.addDays(ctx.toDateKey(new Date()), -1);
-      const entries = ctx.getState().tasks
-        .filter((task) => task.repeat === "none" && task.date < yesterdayKey && !ctx.isTaskDone(task, task.date))
-        .sort((a, b) => b.date.localeCompare(a.date) || a.title.localeCompare(b.title, "ru"));
+      const entries = global.RhythmPlanningHistory.buildBacklogEntries({
+        addDays: ctx.addDays,
+        isTaskDone: ctx.isTaskDone,
+        isTaskExcluded: ctx.isTaskExcluded,
+        taskOccursOn: ctx.taskOccursOn,
+        tasks: ctx.getState().tasks,
+        todayKey: ctx.toDateKey(new Date()),
+      });
       ctx.els.historicalTaskPanel.hidden = entries.length === 0;
       ctx.els.historicalTaskCount.textContent = String(entries.length);
       ctx.els.historicalTaskList.replaceChildren();
-      entries.forEach((task) => {
+      entries.forEach((entry) => {
+        const { task, dateKey } = entry;
         const row = document.createElement("article");
         const content = document.createElement("div");
         const title = document.createElement("strong");
         const date = document.createElement("span");
         const actions = document.createElement("div");
         const open = createButton("ghost-button compact-button", "Открыть день");
+        const acknowledge = createButton("ghost-button compact-button", "Не показывать");
         const today = createButton("primary-button compact-button", "На сегодня");
         row.className = "historical-task-item";
         title.textContent = task.title;
-        date.textContent = ctx.formatLongDate(task.date);
+        date.textContent = `${ctx.formatLongDate(dateKey)}${entry.recurring ? " · повтор" : ""}`;
         content.append(title, date);
-        actions.append(open, today);
+        actions.append(open, acknowledge, today);
         row.append(content, actions);
-        open.addEventListener("click", () => ctx.openDate(task.date));
-        today.addEventListener("click", () => ctx.postponeTask(task, task.date, ctx.toDateKey(new Date()), { clearPastTimeToday: true }));
+        open.addEventListener("click", () => ctx.openDate(dateKey));
+        acknowledge.addEventListener("click", () => ctx.acknowledgeOverdueTask(task, dateKey));
+        today.addEventListener("click", () => ctx.postponeTask(task, dateKey, ctx.toDateKey(new Date()), { clearPastTimeToday: true }));
         ctx.els.historicalTaskList.appendChild(row);
       });
     }
