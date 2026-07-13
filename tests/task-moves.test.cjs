@@ -240,4 +240,153 @@ module.exports = [
       assert.deepEqual(state.taskOrder["2026-07-13"], ["daily-next"]);
     },
   },
+  {
+    name: "edits only one recurring occurrence without changing the series",
+    fn() {
+      const state = {
+        tasks: [{
+          id: "daily",
+          title: "Старая формулировка",
+          date: "2026-07-01",
+          time: "09:00",
+          scheduleMode: "deadline",
+          categoryId: "study",
+          priority: "medium",
+          repeat: "daily",
+          repeatUntil: "",
+          customRepeat: {},
+          completed: { "2026-07-13": true },
+          acknowledgedOverdue: {},
+          excludedDates: {},
+          notified: {},
+        }],
+        taskOrder: { "2026-07-13": ["daily"] },
+      };
+
+      const occurrence = taskMoves.updateRecurringTaskDetails({
+        state,
+        task: state.tasks[0],
+        dateKey: "2026-07-13",
+        scope: "occurrence",
+        editedTask: {
+          title: "Новая формулировка",
+          time: "11:00",
+          scheduleMode: "deadline",
+          categoryId: "work",
+          priority: "high",
+          repeat: "daily",
+          reminderOffset: "30",
+        },
+        helpers: { createId: () => "daily-edited" },
+      });
+
+      assert.equal(state.tasks[0].title, "Старая формулировка");
+      assert.equal(state.tasks[0].excludedDates["2026-07-13"], true);
+      assert.equal(state.tasks[0].completed["2026-07-13"], undefined);
+      assert.equal(occurrence.title, "Новая формулировка");
+      assert.equal(occurrence.repeat, "none");
+      assert.equal(occurrence.priority, "high");
+      assert.equal(occurrence.completed["2026-07-13"], true);
+      assert.deepEqual(state.taskOrder["2026-07-13"], ["daily-edited"]);
+    },
+  },
+  {
+    name: "edits this and following recurring occurrences as a new series",
+    fn() {
+      const state = {
+        tasks: [{
+          id: "daily",
+          title: "Учиться",
+          date: "2026-07-01",
+          time: "09:00",
+          scheduleMode: "deadline",
+          categoryId: "study",
+          priority: "medium",
+          repeat: "daily",
+          repeatUntil: "2026-08-01",
+          customRepeat: {},
+          completed: { "2026-07-12": true, "2026-07-14": true },
+          acknowledgedOverdue: {},
+          excludedDates: {},
+          notified: { "2026-07-14": true },
+        }],
+        taskOrder: { "2026-07-12": ["daily"], "2026-07-14": ["daily"] },
+      };
+
+      const nextSeries = taskMoves.updateRecurringTaskDetails({
+        state,
+        task: state.tasks[0],
+        dateKey: "2026-07-13",
+        scope: "following",
+        editedTask: {
+          title: "Учиться по-новому",
+          time: "18:00",
+          scheduleMode: "deadline",
+          categoryId: "growth",
+          priority: "high",
+          repeat: "weekdays",
+          repeatUntil: "2026-09-01",
+          customRepeat: {},
+          reminderOffset: "15",
+        },
+        helpers: { createId: () => "daily-next" },
+      });
+
+      assert.equal(state.tasks[0].repeatUntil, "2026-07-12");
+      assert.equal(state.tasks[0].title, "Учиться");
+      assert.equal(nextSeries.date, "2026-07-13");
+      assert.equal(nextSeries.title, "Учиться по-новому");
+      assert.equal(nextSeries.repeat, "weekdays");
+      assert.equal(nextSeries.repeatUntil, "2026-09-01");
+      assert.equal(nextSeries.completed["2026-07-14"], true);
+      assert.equal(state.tasks[0].completed["2026-07-14"], undefined);
+      assert.deepEqual(state.taskOrder["2026-07-14"], ["daily-next"]);
+    },
+  },
+  {
+    name: "edits the whole recurring series while preserving its start date and history",
+    fn() {
+      const task = {
+        id: "daily",
+        title: "До правки",
+        date: "2026-07-01",
+        time: "09:00",
+        scheduleMode: "deadline",
+        categoryId: "study",
+        priority: "medium",
+        repeat: "daily",
+        customRepeat: {},
+        completed: { "2026-07-10": true },
+        excludedDates: {},
+        notified: {},
+      };
+      const state = { tasks: [task], taskOrder: {} };
+
+      taskMoves.updateRecurringTaskDetails({
+        state,
+        task,
+        dateKey: "2026-07-13",
+        scope: "series",
+        editedTask: {
+          title: "После правки",
+          date: "2026-07-13",
+          time: "",
+          scheduleMode: "deadline",
+          categoryId: "work",
+          priority: "high",
+          repeat: "weekly",
+          repeatUntil: "",
+          customRepeat: {},
+          reminderOffset: "none",
+        },
+      });
+
+      assert.equal(task.date, "2026-07-01");
+      assert.equal(task.title, "После правки");
+      assert.equal(task.repeat, "weekly");
+      assert.equal(task.priority, "high");
+      assert.equal(task.completed["2026-07-10"], true);
+      assert.equal(state.tasks.length, 1);
+    },
+  },
 ];

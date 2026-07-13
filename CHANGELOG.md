@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.8.0 - 2026-07-13
+
+- Added recurring-task edit scopes for one occurrence, this and following occurrences, or the whole series.
+- Preserved historical completion and notification flags when splitting a recurring series from the edited date.
+- Replaced the goal checkpoint textarea with an inline editor for adding, renaming, deleting, and reordering checkpoints.
+- Added keyboard-accessible checkpoint ordering and focused regression coverage for recurring edits.
+
 ## 0.7.0 - 2026-07-12
 
 - Added an explicit no-time mode for task creation and editing.

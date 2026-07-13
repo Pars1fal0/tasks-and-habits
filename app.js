@@ -113,6 +113,10 @@ const els = {
   fileBackupStatus: document.querySelector("#fileBackupStatus"),
   firstDayOfWeek: document.querySelector("#firstDayOfWeek"),
   goalActiveMetric: document.querySelector("#goalActiveMetric"),
+  addGoalCheckpoint: document.querySelector("#addGoalCheckpoint"),
+  goalCheckpointEmpty: document.querySelector("#goalCheckpointEmpty"),
+  goalCheckpointInput: document.querySelector("#goalCheckpointInput"),
+  goalCheckpointList: document.querySelector("#goalCheckpointList"),
   goalDoneMetric: document.querySelector("#goalDoneMetric"),
   goalDueDate: document.querySelector("#goalDueDate"),
   goalEmpty: document.querySelector("#goalEmpty"),
@@ -122,7 +126,6 @@ const els = {
   goalId: document.querySelector("#goalId"),
   goalList: document.querySelector("#goalList"),
   goalOverdueMetric: document.querySelector("#goalOverdueMetric"),
-  goalSteps: document.querySelector("#goalSteps"),
   goalTitle: document.querySelector("#goalTitle"),
   habitDoneMetric: document.querySelector("#habitDoneMetric"),
   habitEmpty: document.querySelector("#habitEmpty"),
@@ -223,6 +226,8 @@ const els = {
   taskRepeat: document.querySelector("#taskRepeat"),
   taskRepeatUntil: document.querySelector("#taskRepeatUntil"),
   taskRepeatUntilField: document.querySelector("#taskRepeatUntilField"),
+  taskRepeatEditHint: document.querySelector("#taskRepeatEditHint"),
+  taskRepeatEditScope: document.querySelector("#taskRepeatEditScope"),
   taskSearch: document.querySelector("#taskSearch"),
   taskStartTime: document.querySelector("#taskStartTime"),
   taskTemplate: document.querySelector("#taskTemplate"),
@@ -374,7 +379,13 @@ const habitsView = window.RhythmHabitsView.createHabitsView({
   showToast,
 });
 
+const goalCheckpointEditor = window.RhythmGoalCheckpointEditor.createGoalCheckpointEditor({
+  createId,
+  els,
+});
+
 const goalsView = window.RhythmGoalsView.createGoalsView({
+  checkpointEditor: goalCheckpointEditor,
   els,
   cleanText,
   confirmAction,
@@ -536,6 +547,14 @@ const taskFormController = window.RhythmTaskForm.createTaskForm({
   syncCustomRepeatPanel,
   syncTaskScheduleMode,
   syncTaskTimePresets,
+  updateRecurringTask: (task, editedTask, dateKey, scope) => window.RhythmTaskMoves.updateRecurringTaskDetails({
+    state,
+    task,
+    editedTask,
+    dateKey,
+    scope,
+    helpers: { createId },
+  }),
   upsertTask: (task) => {
     delete state.tombstones?.tasks?.[task.id];
     const existing = state.tasks.find((item) => item.id === task.id);

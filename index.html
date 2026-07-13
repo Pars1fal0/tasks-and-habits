@@ -420,6 +420,24 @@
                       </label>
                     </div>
                   </div>
+                  <fieldset class="repeat-edit-scope" id="taskRepeatEditScope" hidden>
+                    <legend>Область изменений</legend>
+                    <p class="field-hint" id="taskRepeatEditHint"></p>
+                    <div class="repeat-edit-options">
+                      <label>
+                        <input type="radio" name="taskRepeatEditScope" value="occurrence" checked>
+                        <span>Только этот день</span>
+                      </label>
+                      <label>
+                        <input type="radio" name="taskRepeatEditScope" value="following">
+                        <span>Этот и последующие</span>
+                      </label>
+                      <label>
+                        <input type="radio" name="taskRepeatEditScope" value="series">
+                        <span>Вся серия</span>
+                      </label>
+                    </div>
+                  </fieldset>
                   <div class="form-actions">
                     <button class="primary-button" type="submit">Сохранить</button>
                     <button class="ghost-button" id="resetTaskForm" type="button">Очистить</button>
@@ -634,11 +652,20 @@
                     Срок
                     <input id="goalDueDate" type="date" required>
                   </label>
-                  <label>
-                    Чекпоинты
-                    <textarea id="goalSteps" rows="6" required maxlength="1200" placeholder="Собрать материалы&#10;Подготовить первый вариант&#10;Получить обратную связь"></textarea>
-                    <span class="field-hint">Каждый чекпоинт с новой строки. Даты им не нужны.</span>
-                  </label>
+                  <div class="goal-checkpoint-editor">
+                    <div class="goal-checkpoint-heading">
+                      <span>Чекпоинты</span>
+                      <small>Порядок можно менять перетаскиванием</small>
+                    </div>
+                    <div class="goal-checkpoint-list" id="goalCheckpointList"></div>
+                    <p class="goal-checkpoint-empty" id="goalCheckpointEmpty">Пока пусто. Добавь первый шаг к цели.</p>
+                    <div class="goal-checkpoint-add">
+                      <input id="goalCheckpointInput" type="text" maxlength="120" placeholder="Например: собрать материалы">
+                      <button class="icon-button" id="addGoalCheckpoint" type="button" aria-label="Добавить чекпоинт" title="Добавить чекпоинт">
+                        <svg class="ui-icon"><use href="#icon-plus"></use></svg>
+                      </button>
+                    </div>
+                  </div>
                   <div class="form-actions">
                     <button class="primary-button" type="submit">Сохранить</button>
                     <button class="ghost-button" id="resetGoalForm" type="button">Очистить</button>
@@ -1043,16 +1070,17 @@
     <script src="calendar-drag-controller.js?v=1" defer></script>
     <script src="confirm-dialog.js?v=3" defer></script>
     <script src="categories.js?v=3" defer></script>
-    <script src="goals-view.js?v=6" defer></script>
+    <script src="goal-checkpoint-editor.js?v=1" defer></script>
+    <script src="goals-view.js?v=7" defer></script>
     <script src="habit-form.js?v=2" defer></script>
     <script src="habits-view.js?v=2" defer></script>
     <script src="import-export.js?v=3" defer></script>
     <script src="notifications.js?v=1" defer></script>
     <script src="overdue-controller.js?v=4" defer></script>
     <script src="task-schedule.js?v=1" defer></script>
-    <script src="task-form.js?v=6" defer></script>
+    <script src="task-form.js?v=7" defer></script>
     <script src="tasks-view.js?v=10" defer></script>
-    <script src="task-moves.js?v=7" defer></script>
+    <script src="task-moves.js?v=8" defer></script>
     <script src="task-state.js?v=4" defer></script>
     <script src="settings-sync.js?v=1" defer></script>
     <script src="settings-controller.js?v=3" defer></script>
@@ -1063,6 +1091,6 @@
     <script src="timeline-controller.js?v=7" defer></script>
     <script src="view-renderer.js?v=1" defer></script>
     <script src="toast.js?v=1" defer></script>
-    <script src="app.js?v=29" defer></script>
+    <script src="app.js?v=30" defer></script>
   </body>
 </html>

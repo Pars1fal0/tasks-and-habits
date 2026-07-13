@@ -68,7 +68,7 @@
       const dueDate = ctx.normalizeDateKey(ctx.els.goalDueDate.value, "");
       const id = ctx.els.goalId.value || ctx.createId();
       const existing = ctx.getState().goals.find((goal) => goal.id === id);
-      const steps = parseGoalSteps(ctx.els.goalSteps.value, existing?.steps || [], ctx.createId);
+      const steps = ctx.checkpointEditor.getSteps();
 
       if (!title) {
         ctx.showToast("Напиши название цели");
@@ -82,7 +82,7 @@
       }
       if (!steps.length) {
         ctx.showToast("Добавь хотя бы один чекпоинт");
-        ctx.els.goalSteps.focus();
+        ctx.checkpointEditor.focus();
         return;
       }
 
@@ -109,7 +109,7 @@
       ctx.els.goalId.value = goal.id;
       ctx.els.goalTitle.value = goal.title || "";
       ctx.els.goalDueDate.value = goal.dueDate || ctx.getActiveDate();
-      ctx.els.goalSteps.value = (goal.steps || []).map((step) => step.title).join("\n");
+      ctx.checkpointEditor.setSteps(goal.steps || []);
       ctx.els.goalFormHeading.textContent = "Редактировать цель";
       ctx.els.goalFormPanel.classList.remove("is-collapsed");
       ctx.els.goalTitle.focus();
@@ -120,7 +120,7 @@
       ctx.els.goalId.value = "";
       ctx.els.goalTitle.value = "";
       ctx.els.goalDueDate.value = ctx.getActiveDate();
-      ctx.els.goalSteps.value = "";
+      ctx.checkpointEditor.setSteps();
       ctx.els.goalFormHeading.textContent = "Новая цель";
     }
 

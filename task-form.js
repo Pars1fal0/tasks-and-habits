@@ -1,5 +1,7 @@
 (function (global) {
   function createTaskForm(ctx) {
+    let editingOccurrenceDate = "";
+
     function saveTaskFromForm(event) {
       event.preventDefault();
       const undo = ctx.createUndoSnapshot();
@@ -41,13 +43,16 @@
         updatedAt: new Date().toISOString(),
       };
 
-      ctx.upsertTask(task);
-      ctx.setActiveDate(task.date);
+      const isRecurringEdit = Boolean(existing && existing.repeat !== "none" && !existing.sourceTaskId);
+      const savedTask = isRecurringEdit
+        ? ctx.updateRecurringTask(existing, task, editingOccurrenceDate || ctx.getActiveDate(), getRepeatEditScope())
+        : (ctx.upsertTask(task), task);
+      ctx.setActiveDate(isRecurringEdit ? editingOccurrenceDate || ctx.getActiveDate() : savedTask.date);
       resetTaskForm({ open: false });
       ctx.saveState();
       ctx.render();
       ctx.showToast(existing ? "Задача обновлена" : "Задача создана", { undo });
-      ctx.afterSave?.(task, existing);
+      ctx.afterSave?.(savedTask, existing);
     }
 
     function fillTaskForm(task) {
@@ -55,7 +60,10 @@
       if (ctx.els.taskFormHeading) ctx.els.taskFormHeading.textContent = "Редактировать задачу";
       ctx.els.taskId.value = task.id;
       ctx.els.taskTitle.value = task.title;
-      ctx.els.taskDate.value = task.date;
+      const isRecurringSeries = task.repeat !== "none" && !task.sourceTaskId;
+      editingOccurrenceDate = isRecurringSeries ? ctx.getActiveDate() : task.date;
+      ctx.els.taskDate.value = editingOccurrenceDate;
+      ctx.els.taskDate.disabled = isRecurringSeries;
       ctx.els.taskTime.value = ctx.cleanTimeValue(task.time);
       ctx.setTaskScheduleMode(ctx.isTimeBlock(task) ? "block" : ctx.cleanTimeValue(task.time) ? "deadline" : "none");
       ctx.els.taskStartTime.value = ctx.cleanTimeValue(task.startTime);
@@ -69,6 +77,7 @@
       ctx.syncTaskScheduleMode();
       ctx.syncCustomRepeatPanel();
       ctx.syncTaskTimePresets();
+      syncRepeatEditScope(isRecurringSeries, editingOccurrenceDate);
       ctx.els.taskTitle.focus();
     }
 
@@ -77,7 +86,9 @@
       if (ctx.els.taskFormHeading) ctx.els.taskFormHeading.textContent = "Новая задача";
       ctx.els.taskForm.reset();
       ctx.els.taskId.value = "";
+      editingOccurrenceDate = "";
       ctx.els.taskDate.value = ctx.getActiveDate();
+      ctx.els.taskDate.disabled = false;
       ctx.els.taskTime.value = "";
       ctx.setTaskScheduleMode("deadline");
       ctx.els.taskStartTime.value = "";
@@ -91,7 +102,43 @@
       ctx.syncTaskScheduleMode();
       ctx.els.taskReminder.value = "15";
       ctx.syncTaskTimePresets();
+      syncRepeatEditScope(false);
     }
+
+    function getRepeatEditScope() {
+      return ctx.els.taskRepeatEditScope?.querySelector('input[name="taskRepeatEditScope"]:checked')?.value || "occurrence";
+    }
+
+    function syncRepeatEditScope(visible, dateKey = "") {
+      if (!ctx.els.taskRepeatEditScope) return;
+      ctx.els.taskRepeatEditScope.hidden = !visible;
+      if (!visible) return;
+      const occurrenceOption = ctx.els.taskRepeatEditScope.querySelector('input[value="occurrence"]');
+      if (occurrenceOption) occurrenceOption.checked = true;
+      updateRepeatEditHint("occurrence", dateKey);
+    }
+
+    function updateRepeatEditHint(scope = getRepeatEditScope(), dateKey = editingOccurrenceDate) {
+      if (!ctx.els.taskRepeatEditHint) return;
+      const dateLabel = formatDate(dateKey);
+      if (scope === "following") {
+        ctx.els.taskRepeatEditHint.textContent = `Новая версия серии начнется ${dateLabel}. Прошлые дни не изменятся.`;
+      } else if (scope === "series") {
+        ctx.els.taskRepeatEditHint.textContent = "Изменения применятся ко всей серии, включая будущие даты.";
+      } else {
+        ctx.els.taskRepeatEditHint.textContent = `Изменится только ${dateLabel}. Остальная серия останется прежней.`;
+      }
+    }
+
+    function formatDate(dateKey) {
+      const [year, month, day] = String(dateKey).split("-").map(Number);
+      if (!year || !month || !day) return dateKey;
+      return new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long" }).format(new Date(year, month - 1, day));
+    }
+
+    ctx.els.taskRepeatEditScope?.addEventListener("change", (event) => {
+      if (event.target?.name === "taskRepeatEditScope") updateRepeatEditHint(event.target.value);
+    });
 
     return { fillTaskForm, resetTaskForm, saveTaskFromForm };
   }

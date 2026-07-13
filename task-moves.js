@@ -91,6 +91,84 @@
     return null;
   }
 
+  function updateRecurringTaskDetails({ state, task, dateKey, editedTask, scope, helpers = {} }) {
+    if (task.repeat === "none") {
+      applyEditableTaskFields(task, editedTask);
+      task.date = editedTask.date;
+      task.updatedAt = new Date().toISOString();
+      return task;
+    }
+
+    if (scope === "occurrence") return createEditedOccurrence(state, task, dateKey, editedTask, helpers);
+    if (scope === "following") return splitEditedRecurringSeries(state, task, dateKey, editedTask, helpers);
+
+    applyEditableTaskFields(task, editedTask);
+    task.updatedAt = new Date().toISOString();
+    return task;
+  }
+
+  function createEditedOccurrence(state, task, dateKey, editedTask, helpers = {}) {
+    const now = new Date().toISOString();
+    const completed = task.completed?.[dateKey] === true ? { [dateKey]: true } : {};
+    task.excludedDates ||= {};
+    task.excludedDates[dateKey] = true;
+    delete task.completed?.[dateKey];
+    delete task.acknowledgedOverdue?.[dateKey];
+    delete task.notified?.[dateKey];
+    task.updatedAt = now;
+
+    const occurrence = {
+      ...copyEditableTaskFields(editedTask),
+      id: helpers.createId?.() || createFallbackId(),
+      date: dateKey,
+      repeat: "none",
+      repeatUntil: "",
+      customRepeat: {},
+      sourceTaskId: task.id,
+      movedFromDate: dateKey,
+      completed,
+      acknowledgedOverdue: {},
+      excludedDates: {},
+      notified: {},
+      createdAt: now,
+      updatedAt: now,
+    };
+    state.tasks.push(occurrence);
+    replaceTaskInOrder(state, dateKey, task.id, occurrence.id);
+    return occurrence;
+  }
+
+  function splitEditedRecurringSeries(state, task, dateKey, editedTask, helpers = {}) {
+    if (dateKey <= task.date) {
+      applyEditableTaskFields(task, editedTask);
+      task.updatedAt = new Date().toISOString();
+      return task;
+    }
+
+    const now = new Date().toISOString();
+    const nextSeries = {
+      ...copyEditableTaskFields(editedTask),
+      id: helpers.createId?.() || createFallbackId(),
+      date: dateKey,
+      sourceTaskId: "",
+      movedFromDate: "",
+      completed: takeFlagsFrom(task, "completed", dateKey),
+      acknowledgedOverdue: takeFlagsFrom(task, "acknowledgedOverdue", dateKey),
+      excludedDates: takeFlagsFrom(task, "excludedDates", dateKey),
+      notified: takeFlagsFrom(task, "notified", dateKey),
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    task.repeatUntil = previousDateKey(dateKey);
+    task.updatedAt = now;
+    state.tasks.push(nextSeries);
+    Object.keys(state.taskOrder || {}).forEach((orderDate) => {
+      if (orderDate >= dateKey) replaceTaskInOrder(state, orderDate, task.id, nextSeries.id);
+    });
+    return nextSeries;
+  }
+
   function createScheduledOccurrence(state, task, dateKey, schedule, helpers = {}) {
     const now = new Date().toISOString();
     const completed = task.completed?.[dateKey] === true ? { [dateKey]: true } : {};
@@ -172,6 +250,19 @@
     };
   }
 
+  function copyEditableTaskFields(task) {
+    return {
+      ...copyTaskIdentity(task),
+      repeat: task.repeat || "none",
+      repeatUntil: task.repeat === "none" ? "" : task.repeatUntil || "",
+      customRepeat: task.repeat === "custom" ? clone(task.customRepeat || {}) : {},
+    };
+  }
+
+  function applyEditableTaskFields(task, editedTask) {
+    Object.assign(task, copyEditableTaskFields(editedTask));
+  }
+
   function applyTaskSchedule(task, schedule = {}) {
     task.scheduleMode = schedule.scheduleMode === "block" ? "block" : "deadline";
     task.startTime = task.scheduleMode === "block" ? schedule.startTime || "" : "";
@@ -215,6 +306,7 @@
     postponeTask,
     removeTaskFromOrder,
     shouldClearTimeForToday,
+    updateRecurringTaskDetails,
     updateRecurringTaskSchedule,
   };
 

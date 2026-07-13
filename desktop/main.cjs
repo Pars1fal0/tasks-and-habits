@@ -224,6 +224,34 @@ function createWindow() {
             task.endTime === "" &&
             task.reminderOffset === "none",
         );
+        const repeatEditDate = document.querySelector("#activeDate").value;
+        state.tasks.push({
+          id: "smoke-repeat-form-edit",
+          title: "Smoke recurring before edit",
+          date: repeatEditDate,
+          time: "09:00",
+          scheduleMode: "deadline",
+          categoryId: categoryOption?.value || "",
+          priority: "medium",
+          repeat: "daily",
+          repeatUntil: "",
+          customRepeat: {},
+          reminderOffset: "15",
+          completed: {}, acknowledgedOverdue: {}, excludedDates: {}, notified: {},
+        });
+        render();
+        fillTaskForm(state.tasks.find((task) => task.id === "smoke-repeat-form-edit"));
+        const repeatEditScopeVisible =
+          document.querySelector("#taskRepeatEditScope")?.hidden === false &&
+          document.querySelector("#taskDate")?.disabled === true;
+        document.querySelector("#taskTitle").value = "Smoke recurring one day";
+        document.querySelector('#taskRepeatEditScope input[value="occurrence"]').checked = true;
+        submit(document.querySelector("#taskForm"));
+        const recurringFormScopeWorks =
+          repeatEditScopeVisible &&
+          state.tasks.find((task) => task.id === "smoke-repeat-form-edit")?.title === "Smoke recurring before edit" &&
+          state.tasks.find((task) => task.id === "smoke-repeat-form-edit")?.excludedDates?.[repeatEditDate] === true &&
+          state.tasks.some((task) => task.sourceTaskId === "smoke-repeat-form-edit" && task.title === "Smoke recurring one day" && task.repeat === "none");
 
         const beforeOrder = [...document.querySelectorAll(".task-item")].map((item) => ({
           id: item.dataset.taskId,
@@ -315,7 +343,16 @@ function createWindow() {
         click('[data-view="goals"]');
         document.querySelector("#goalTitle").value = "Smoke Goal";
         document.querySelector("#goalDueDate").value = "2026-07-20";
-        document.querySelector("#goalSteps").value = "Smoke checkpoint one\\nSmoke checkpoint two";
+        document.querySelector("#goalCheckpointInput").value = "Smoke checkpoint one";
+        document.querySelector("#addGoalCheckpoint").click();
+        document.querySelector("#goalCheckpointInput").value = "Smoke checkpoint two";
+        document.querySelector("#addGoalCheckpoint").click();
+        document.querySelector(".goal-checkpoint-grip")?.dispatchEvent(
+          new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "ArrowDown" }),
+        );
+        const goalCheckpointEditorWorks =
+          [...document.querySelectorAll(".goal-checkpoint-row input")].map((input) => input.value).join("|") ===
+          "Smoke checkpoint two|Smoke checkpoint one";
         submit(document.querySelector("#goalForm"));
         const goalCreated =
           document.body.dataset.view === "goals" &&
@@ -709,6 +746,7 @@ function createWindow() {
               window.RhythmCalendarView &&
               window.RhythmCategories &&
               window.RhythmConfirmDialog &&
+              window.RhythmGoalCheckpointEditor &&
               window.RhythmGoalsView &&
               window.RhythmHabitForm &&
               window.RhythmHabitsView &&
@@ -758,6 +796,7 @@ function createWindow() {
           customRepeatWorks,
           customHabitRepeatWorks,
           goalCreated,
+          goalCheckpointEditorWorks,
           goalStepProgressWorks,
           goalCompleteWorks,
           goalCompletionAnimationWorks,
@@ -798,6 +837,7 @@ function createWindow() {
           timelineKeyboardMoveWorks,
           recurringTimelineOneOccurrenceWorks,
           recurringTimelineFollowingWorks,
+          recurringFormScopeWorks,
           timelineQuickActionsRemoved,
           timelineMenuButtonVisible,
           timelineMenuUnscheduleVisible,
