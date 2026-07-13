@@ -3,12 +3,14 @@
     function normalizeState(raw) {
       const normalized = {
         schemaVersion: config.schemaVersion,
+        defaultsSeeded: raw?.defaultsSeeded === true,
         tasks: [],
         habits: [],
         goals: [],
         categories: [],
         taskOrder: {},
         tombstones: normalizeTombstones(raw?.tombstones),
+        syncMeta: config.normalizeSyncMeta?.(raw?.syncMeta) || {},
       };
 
       if (!raw || typeof raw !== "object") return normalized;
@@ -16,6 +18,7 @@
       const categoryAliases = new Map();
       const categoryGroups = new Map();
       const rawCategories = Array.isArray(raw.categories) ? raw.categories : [];
+      normalized.defaultsSeeded ||= rawCategories.length > 0 || Object.keys(normalized.tombstones.categories).length > 0;
       rawCategories.forEach((category) => {
         const normalizedCategory = {
           id: category.id || config.createId(),

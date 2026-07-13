@@ -1,4 +1,5 @@
 const fs = require("node:fs");
+const crypto = require("node:crypto");
 const path = require("node:path");
 const vm = require("node:vm");
 
@@ -16,13 +17,22 @@ const files = [...vm.runInNewContext(`[${shellSource}]`), "sw.js"]
 fs.rmSync(output, { force: true, recursive: true });
 fs.mkdirSync(output, { recursive: true });
 
-for (const file of new Set(files)) {
+const uniqueFiles = new Set(files);
+const buildHasher = crypto.createHash("sha256");
+[...uniqueFiles].filter((file) => file !== "sw.js").forEach((file) => buildHasher.update(fs.readFileSync(path.join(root, file))));
+const buildHash = buildHasher.digest("hex").slice(0, 12);
+
+for (const file of uniqueFiles) {
   const source = path.join(root, file);
   const destination = path.join(output, file);
   if (!fs.existsSync(source) || !fs.statSync(source).isFile()) throw new Error(`Missing web asset: ${file}`);
   fs.mkdirSync(path.dirname(destination), { recursive: true });
-  fs.copyFileSync(source, destination);
+  if (file === "sw.js") {
+    fs.writeFileSync(destination, fs.readFileSync(source, "utf8").replaceAll("__BUILD_HASH__", buildHash), "utf8");
+  } else {
+    fs.copyFileSync(source, destination);
+  }
 }
 
 fs.writeFileSync(path.join(output, ".nojekyll"), "", "utf8");
-console.log(`web build ok - ${new Set(files).size} files`);
+console.log(`web build ok - ${uniqueFiles.size} files - cache ${buildHash}`);

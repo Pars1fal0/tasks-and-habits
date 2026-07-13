@@ -34,16 +34,29 @@
         client_updated_at: clientUpdatedAt,
       };
       const conflictColumn = normalized.userId ? "user_id" : "user_key";
-      const response = await fetchFn(`${normalized.supabaseUrl}/rest/v1/${tableName}?on_conflict=${conflictColumn}`, {
-        method: "POST",
+      const expectedUpdatedAt = String(payload.expectedUpdatedAt || "").trim();
+      const expectMissing = payload.expectMissing === true;
+      const updateFilter = expectedUpdatedAt
+        ? `${identityFilter(normalized)}&updated_at=eq.${encodeURIComponent(expectedUpdatedAt)}&select=updated_at,client_updated_at,state,ui_state,schema_version`
+        : `on_conflict=${conflictColumn}`;
+      const response = await fetchFn(`${normalized.supabaseUrl}/rest/v1/${tableName}?${updateFilter}`, {
+        method: expectedUpdatedAt ? "PATCH" : "POST",
         headers: supabaseHeaders(normalized, {
-          Prefer: "resolution=merge-duplicates,return=representation",
+          Prefer: expectedUpdatedAt
+            ? "return=representation"
+            : `${expectMissing ? "resolution=ignore-duplicates" : "resolution=merge-duplicates"},return=representation`,
         }),
         body: JSON.stringify(body),
       });
 
       const data = await readResponse(response);
       if (!response.ok) throw createRemoteError("push-failed", response, data);
+      if ((expectedUpdatedAt || expectMissing) && (!Array.isArray(data) || data.length === 0)) {
+        const error = new Error("Remote state changed while saving");
+        error.code = "sync-conflict";
+        error.status = 409;
+        throw error;
+      }
       return { ok: true, clientUpdatedAt, row: Array.isArray(data) ? data[0] : data };
     }
 

@@ -92,14 +92,27 @@
       if (inFlight) return;
       begin();
       try {
-        const mergedRemote = await mergeRemoteBeforePush();
-        const pushedAt = new Date().toISOString();
-        const pushed = await ctx.remoteSync.pushState(getOperationConfig(), {
-          clientUpdatedAt: pushedAt,
-          schemaVersion: ctx.schemaVersion,
-          state: ctx.getState(),
-          uiState: ctx.getRemoteUiSettings({ remoteSyncLastPushedAt: pushedAt }),
-        });
+        let mergedRemote = false;
+        let pushed;
+        let pushedAt;
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+          const preparation = await prepareRemotePush();
+          mergedRemote ||= preparation.merged;
+          pushedAt = new Date().toISOString();
+          try {
+            pushed = await ctx.remoteSync.pushState(getOperationConfig(), {
+              clientUpdatedAt: pushedAt,
+              expectMissing: preparation.expectMissing,
+              expectedUpdatedAt: preparation.expectedUpdatedAt,
+              schemaVersion: ctx.schemaVersion,
+              state: ctx.getState(),
+              uiState: ctx.getRemoteUiSettings({ remoteSyncLastPushedAt: pushedAt }),
+            });
+            break;
+          } catch (error) {
+            if (error?.code !== "sync-conflict" || attempt > 0) throw error;
+          }
+        }
         ctx.setSyncMeta({ lastPushedAt: snapshotVersion(pushed) || pushedAt });
         pending = false;
         ctx.saveUiState();
@@ -114,14 +127,18 @@
       }
     }
 
-    async function mergeRemoteBeforePush() {
+    async function prepareRemotePush() {
       const remoteSnapshot = await ctx.remoteSync.pullState(getOperationConfig());
       const meta = ctx.getSyncMeta();
       const remoteVersion = snapshotVersion(remoteSnapshot);
-      if (!remoteSnapshot.found || !remoteSnapshot.state || !remoteVersion) return false;
-      if (!ctx.isRemoteVersionNewer(remoteVersion, meta.lastPulledAt, meta.lastPushedAt)) return false;
-      applyMergedSnapshot(remoteSnapshot, "перед отправкой локальных изменений");
-      return true;
+      if (!remoteSnapshot.found || !remoteSnapshot.state) return { expectMissing: true, expectedUpdatedAt: "", merged: false };
+      const shouldMerge = remoteVersion && ctx.isRemoteVersionNewer(remoteVersion, meta.lastPulledAt, meta.lastPushedAt);
+      if (shouldMerge) applyMergedSnapshot(remoteSnapshot, "перед отправкой локальных изменений");
+      return {
+        expectMissing: false,
+        expectedUpdatedAt: remoteSnapshot.updatedAt || remoteSnapshot.row?.updated_at || "",
+        merged: Boolean(shouldMerge),
+      };
     }
 
     async function check(options = {}) {
@@ -194,6 +211,7 @@
         ctx.saveState({
           localUpdatedAt: ctx.latestIsoDate(localUpdatedAt, pulled.clientUpdatedAt, pulledAt),
           skipBackup: true,
+          skipChangeTracking: true,
           skipRemote: true,
         });
         ctx.saveUiState();
@@ -241,6 +259,7 @@
       ctx.saveState({
         localUpdatedAt: ctx.latestIsoDate(ctx.getLocalUpdatedAt(), pulled.clientUpdatedAt, pulledAt),
         skipBackup: true,
+        skipChangeTracking: true,
         skipRemote: true,
       });
       ctx.saveUiState();

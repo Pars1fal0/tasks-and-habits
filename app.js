@@ -1,4 +1,4 @@
-﻿const SCHEMA_VERSION = 9;
+﻿const SCHEMA_VERSION = 10;
 const VALID_PRIORITIES = ["high", "medium", "low"];
 const VALID_HABIT_REPEATS = ["daily", "every2days", "every3days", "weekdays", "weekends", "weekly", "custom"];
 const VALID_REMINDER_OFFSETS = ["none", "0", "5", "15", "30", "60", "1440"];
@@ -33,6 +33,11 @@ const {
   toTimeValue,
 } = appUtils;
 
+const dataNormalizers = window.RhythmDataNormalizers.createDataNormalizers({ normalizeDateKey });
+const { normalizeHabitLogs, normalizeTaskFlags, normalizeTaskOrder } = dataNormalizers;
+const syncMetadataTracker = window.RhythmSyncMetadata.createSyncMetadataTracker();
+const pwaController = window.RhythmPwaController.createPwaController();
+
 const storage = window.RhythmStorage.createLocalStorageAdapter({
   appName: "Ритм дня",
   schemaVersion: SCHEMA_VERSION,
@@ -52,6 +57,7 @@ const stateNormalizer = window.RhythmStateNormalizer.createStateNormalizer({
   normalizeHabitLogs,
   normalizeHabitRepeat,
   normalizeReminderOffset,
+  normalizeSyncMeta: window.RhythmSyncMetadata.normalizeSyncMeta,
   normalizeTaskFlags,
   normalizeTaskOrder,
   randomCategoryColor,
@@ -61,6 +67,7 @@ const stateNormalizer = window.RhythmStateNormalizer.createStateNormalizer({
 });
 
 let state = normalizeState(storage.loadState());
+let persistedStateSnapshot = window.RhythmSyncMetadata.clone(state);
 let activeDate = toDateKey(new Date());
 let currentToday = activeDate;
 let activeView = "tasks";
@@ -936,7 +943,7 @@ function init() {
   resetTaskForm({ open: false });
   resetHabitForm({ open: false });
   resetGoalForm({ open: false });
-  registerServiceWorker();
+  pwaController.register();
   updateNotificationButton();
   updateBackupStatus();
   renderSettingsBackupStatus();
@@ -2364,10 +2371,12 @@ function replaceState(nextState) {
 }
 
 function saveState(options = {}) {
+  if (!options.skipChangeTracking) syncMetadataTracker.trackChanges(persistedStateSnapshot, state);
   state = storage.saveState(state, {
     schemaVersion: SCHEMA_VERSION,
     skipBackup: options.skipBackup,
   });
+  persistedStateSnapshot = window.RhythmSyncMetadata.clone(state);
   localStateUpdatedAt = options.localUpdatedAt || new Date().toISOString();
   saveUiState();
   renderSaveStatus();
@@ -2402,7 +2411,12 @@ function formatBackupDate(value) {
 }
 
 function seedIfEmpty() {
-  if (state.categories.length) return;
+  if (state.defaultsSeeded) return;
+  state.defaultsSeeded = true;
+  if (state.categories.length) {
+    saveState();
+    return;
+  }
   state.categories.push(
     { id: createId(), name: "Работа", color: "#5967d8", createdAt: new Date().toISOString() },
     { id: createId(), name: "Фокус", color: "#00a78e", createdAt: new Date().toISOString() },
@@ -2410,33 +2424,6 @@ function seedIfEmpty() {
     { id: createId(), name: "Дом", color: "#e7b84a", createdAt: new Date().toISOString() },
   );
   saveState();
-}
-
-function registerServiceWorker() {
-  if (!("serviceWorker" in navigator) || window.rhythmDesktop) return;
-
-  const isLocalHost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
-
-  if (isLocalHost) {
-    navigator.serviceWorker
-      .getRegistrations()
-      .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
-      .catch(() => {});
-
-    if ("caches" in window) {
-      caches
-        .keys()
-        .then((keys) => Promise.all(keys.filter((key) => key.startsWith("rhythm-day-")).map((key) => caches.delete(key))))
-        .catch(() => {});
-    }
-
-    return;
-  }
-
-  navigator.serviceWorker
-    .register("sw.js", { updateViaCache: "none" })
-    .then((registration) => registration.update())
-    .catch(() => {});
 }
 
 function renderWeekdayLabels() {
@@ -2450,49 +2437,6 @@ function renderWeekdayLabels() {
       return node;
     }),
   );
-}
-
-function normalizeTaskFlags(value) {
-  const flags = {};
-  if (!value || typeof value !== "object" || Array.isArray(value)) return flags;
-
-  Object.entries(value).forEach(([dateKey, done]) => {
-    const normalizedDate = normalizeDateKey(dateKey, "");
-    if (normalizedDate && done === true) flags[normalizedDate] = true;
-  });
-
-  return flags;
-}
-
-function normalizeHabitLogs(value, type) {
-  const logs = {};
-  if (!value || typeof value !== "object" || Array.isArray(value)) return logs;
-
-  Object.entries(value).forEach(([dateKey, entry]) => {
-    const normalizedDate = normalizeDateKey(dateKey, "");
-    if (!normalizedDate) return;
-    if (type === "number") {
-      const amount = Number(entry);
-      if (Number.isFinite(amount) && amount > 0) logs[normalizedDate] = amount;
-      return;
-    }
-    if (entry === true) logs[normalizedDate] = true;
-  });
-
-  return logs;
-}
-
-function normalizeTaskOrder(value) {
-  const taskOrder = {};
-  if (!value || typeof value !== "object" || Array.isArray(value)) return taskOrder;
-
-  Object.entries(value).forEach(([dateKey, ids]) => {
-    const normalizedDate = normalizeDateKey(dateKey, "");
-    if (!normalizedDate || !Array.isArray(ids)) return;
-    taskOrder[normalizedDate] = [...new Set(ids.map((id) => String(id || "")).filter(Boolean))];
-  });
-
-  return taskOrder;
 }
 
 function icon(name) {

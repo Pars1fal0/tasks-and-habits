@@ -1,16 +1,36 @@
 (function (global) {
+  const syncMetadata = global.RhythmSyncMetadata || require("./sync-metadata.js");
+  const TASK_DATE_FIELDS = syncMetadata.TASK_DATE_FIELDS;
+
   function mergeStates(localState = {}, remoteState = {}) {
+    const localMeta = syncMetadata.normalizeSyncMeta(localState.syncMeta);
+    const remoteMeta = syncMetadata.normalizeSyncMeta(remoteState.syncMeta);
+    const syncMeta = mergeSyncMeta(localMeta, remoteMeta);
     const tombstones = mergeTombstones(localState.tombstones, remoteState.tombstones);
-    const tasks = withoutDeleted(mergeEntities(localState.tasks, remoteState.tasks, mergeTask), tombstones.tasks);
+    const tasks = withoutDeleted(
+      mergeEntities(localState.tasks, remoteState.tasks, (local, remote) => mergeTask(local, remote, localMeta, remoteMeta)),
+      tombstones.tasks,
+    );
+    const habits = withoutDeleted(
+      mergeEntities(localState.habits, remoteState.habits, (local, remote) => mergeHabit(local, remote, localMeta, remoteMeta)),
+      tombstones.habits,
+    );
+    const goals = withoutDeleted(
+      mergeEntities(localState.goals, remoteState.goals, (local, remote) => mergeGoal(local, remote, localMeta, remoteMeta)),
+      tombstones.goals,
+    );
+    const categories = withoutDeleted(mergeEntities(localState.categories, remoteState.categories), tombstones.categories);
     return {
       ...localState,
       ...remoteState,
-      categories: withoutDeleted(mergeEntities(localState.categories, remoteState.categories), tombstones.categories),
+      defaultsSeeded: localState.defaultsSeeded === true || remoteState.defaultsSeeded === true || categories.length > 0,
+      categories,
       tasks,
-      habits: withoutDeleted(mergeEntities(localState.habits, remoteState.habits, mergeHabit), tombstones.habits),
-      goals: withoutDeleted(mergeEntities(localState.goals, remoteState.goals, mergeGoal), tombstones.goals),
-      taskOrder: mergeTaskOrder(localState.taskOrder, remoteState.taskOrder, new Set(tasks.map((task) => task.id))),
+      habits: applyEntityOrder(habits, localState.habits, remoteState.habits, localMeta.habitOrderUpdatedAt, remoteMeta.habitOrderUpdatedAt),
+      goals,
+      taskOrder: mergeTaskOrder(localState.taskOrder, remoteState.taskOrder, localMeta, remoteMeta, new Set(tasks.map((task) => task.id))),
       tombstones,
+      syncMeta,
     };
   }
 
@@ -24,23 +44,91 @@
     return [...byId.values()];
   }
 
-  function mergeTask(local, remote) {
+  function mergeTask(local, remote, localMeta, remoteMeta) {
     const newest = chooseNewest(local, remote);
+    const result = { ...newest };
+    TASK_DATE_FIELDS.forEach((field) => {
+      result[field] = mergeDatedValues(
+        local[field],
+        remote[field],
+        localMeta.taskFields?.[local.id]?.[field],
+        remoteMeta.taskFields?.[remote.id]?.[field],
+        timestampOf(local),
+        timestampOf(remote),
+      );
+    });
+    return result;
+  }
+
+  function mergeHabit(local, remote, localMeta, remoteMeta) {
     return {
-      ...newest,
-      completed: { ...(local.completed || {}), ...(remote.completed || {}) },
-      acknowledgedOverdue: { ...(local.acknowledgedOverdue || {}), ...(remote.acknowledgedOverdue || {}) },
-      excludedDates: { ...(local.excludedDates || {}), ...(remote.excludedDates || {}) },
-      notified: { ...(local.notified || {}), ...(remote.notified || {}) },
+      ...chooseNewest(local, remote),
+      logs: mergeDatedValues(
+        local.logs,
+        remote.logs,
+        localMeta.habitLogs?.[local.id],
+        remoteMeta.habitLogs?.[remote.id],
+        timestampOf(local),
+        timestampOf(remote),
+      ),
     };
   }
 
-  function mergeHabit(local, remote) {
-    return { ...chooseNewest(local, remote), logs: { ...(local.logs || {}), ...(remote.logs || {}) } };
+  function mergeGoal(local, remote, localMeta, remoteMeta) {
+    const newest = chooseNewest(local, remote);
+    const localVersions = localMeta.goalSteps?.[local.id] || {};
+    const remoteVersions = remoteMeta.goalSteps?.[remote.id] || {};
+    const localSteps = mapById(local.steps);
+    const remoteSteps = mapById(remote.steps);
+    const mergedById = new Map();
+    const stepIds = new Set([...localSteps.keys(), ...remoteSteps.keys(), ...Object.keys(localVersions), ...Object.keys(remoteVersions)]);
+    stepIds.forEach((stepId) => {
+      const source = chooseVersionedSource(
+        localSteps.has(stepId), remoteSteps.has(stepId), localVersions[stepId], remoteVersions[stepId], timestampOf(local), timestampOf(remote),
+      );
+      const step = source === "local" ? localSteps.get(stepId) : remoteSteps.get(stepId);
+      if (step) mergedById.set(stepId, clone(step));
+    });
+
+    const preferredOrder = chooseOrder(
+      idsOf(local.steps), idsOf(remote.steps), localMeta.goalStepOrder?.[local.id], remoteMeta.goalStepOrder?.[remote.id], timestampOf(local), timestampOf(remote),
+    );
+    const steps = orderFromIds(mergedById, preferredOrder);
+    const achieved = steps.length > 0 && steps.every((step) => step.done === true);
+    return {
+      ...newest,
+      steps,
+      status: achieved ? "done" : "active",
+      completedAt: achieved ? newest.completedAt || latestTimestamp(local.completedAt, remote.completedAt) : "",
+    };
   }
 
-  function mergeGoal(local, remote) {
-    return chooseNewest(local, remote);
+  function mergeDatedValues(local = {}, remote = {}, localVersions = {}, remoteVersions = {}, localParent = 0, remoteParent = 0) {
+    const result = {};
+    const keys = new Set([
+      ...Object.keys(local || {}), ...Object.keys(remote || {}), ...Object.keys(localVersions || {}), ...Object.keys(remoteVersions || {}),
+    ]);
+    keys.forEach((key) => {
+      const source = chooseVersionedSource(
+        Object.hasOwn(local || {}, key), Object.hasOwn(remote || {}, key), localVersions?.[key], remoteVersions?.[key], localParent, remoteParent,
+      );
+      const values = source === "local" ? local : remote;
+      if (Object.hasOwn(values || {}, key)) result[key] = clone(values[key]);
+    });
+    return result;
+  }
+
+  function chooseVersionedSource(hasLocal, hasRemote, localVersion, remoteVersion, localParent = 0, remoteParent = 0) {
+    const localTime = timestampValue(localVersion);
+    const remoteTime = timestampValue(remoteVersion);
+    if (localTime || remoteTime) {
+      const effectiveLocal = localTime || (hasLocal ? localParent : 0);
+      const effectiveRemote = remoteTime || (hasRemote ? remoteParent : 0);
+      return remoteTime && effectiveRemote >= effectiveLocal ? "remote" : "local";
+    }
+    if (hasLocal && !hasRemote) return "local";
+    if (hasRemote && !hasLocal) return "remote";
+    return remoteParent >= localParent ? "remote" : "local";
   }
 
   function chooseNewest(local, remote) {
@@ -48,8 +136,12 @@
   }
 
   function timestampOf(entity) {
-    const value = Date.parse(entity?.updatedAt || entity?.createdAt || "");
-    return Number.isFinite(value) ? value : 0;
+    return timestampValue(entity?.updatedAt || entity?.createdAt);
+  }
+
+  function timestampValue(value) {
+    const timestamp = typeof value === "number" ? value : Date.parse(value || "");
+    return Number.isFinite(timestamp) ? timestamp : 0;
   }
 
   function mergeTombstones(local = {}, remote = {}) {
@@ -57,37 +149,91 @@
     Object.keys(result).forEach((type) => {
       const ids = new Set([...Object.keys(local?.[type] || {}), ...Object.keys(remote?.[type] || {})]);
       ids.forEach((id) => {
-        const localValue = local?.[type]?.[id] || "";
-        const remoteValue = remote?.[type]?.[id] || "";
-        result[type][id] = newestTimestamp(localValue, remoteValue);
+        result[type][id] = latestTimestamp(local?.[type]?.[id], remote?.[type]?.[id]);
       });
     });
     return result;
+  }
+
+  function mergeSyncMeta(local, remote) {
+    return {
+      taskFields: mergeTimestampTree(local.taskFields, remote.taskFields),
+      habitLogs: mergeTimestampTree(local.habitLogs, remote.habitLogs),
+      taskOrder: mergeTimestampTree(local.taskOrder, remote.taskOrder),
+      habitOrderUpdatedAt: latestTimestamp(local.habitOrderUpdatedAt, remote.habitOrderUpdatedAt),
+      goalSteps: mergeTimestampTree(local.goalSteps, remote.goalSteps),
+      goalStepOrder: mergeTimestampTree(local.goalStepOrder, remote.goalStepOrder),
+    };
+  }
+
+  function mergeTimestampTree(local = {}, remote = {}) {
+    const result = {};
+    new Set([...Object.keys(local || {}), ...Object.keys(remote || {})]).forEach((key) => {
+      const localValue = local?.[key];
+      const remoteValue = remote?.[key];
+      if (isPlainObject(localValue) || isPlainObject(remoteValue)) {
+        result[key] = mergeTimestampTree(isPlainObject(localValue) ? localValue : {}, isPlainObject(remoteValue) ? remoteValue : {});
+      } else {
+        result[key] = latestTimestamp(localValue, remoteValue);
+      }
+    });
+    return result;
+  }
+
+  function mergeTaskOrder(local = {}, remote = {}, localMeta, remoteMeta, taskIds = null) {
+    const result = {};
+    new Set([...Object.keys(local || {}), ...Object.keys(remote || {})]).forEach((dateKey) => {
+      const preferred = chooseOrder(
+        local?.[dateKey] || [], remote?.[dateKey] || [], localMeta.taskOrder?.[dateKey], remoteMeta.taskOrder?.[dateKey], 0, 0,
+      );
+      const allIds = [...new Set([...preferred, ...(local?.[dateKey] || []), ...(remote?.[dateKey] || [])])];
+      result[dateKey] = allIds.filter((id) => !taskIds || taskIds.has(id));
+    });
+    return result;
+  }
+
+  function applyEntityOrder(entities, local, remote, localVersion, remoteVersion) {
+    const byId = new Map(entities.map((entity) => [entity.id, entity]));
+    return orderFromIds(byId, chooseOrder(idsOf(local), idsOf(remote), localVersion, remoteVersion));
+  }
+
+  function chooseOrder(local, remote, localVersion, remoteVersion, localParent = 0, remoteParent = 0) {
+    const source = chooseVersionedSource(true, true, localVersion, remoteVersion, localParent, remoteParent);
+    return source === "remote" ? remote : local;
+  }
+
+  function orderFromIds(byId, preferredIds) {
+    const ordered = [];
+    [...preferredIds, ...byId.keys()].forEach((id) => {
+      if (byId.has(id) && !ordered.some((item) => item.id === id)) ordered.push(byId.get(id));
+    });
+    return ordered;
   }
 
   function withoutDeleted(entities, tombstones = {}) {
     return entities.filter((entity) => !tombstones[entity.id]);
   }
 
-  function newestTimestamp(localValue, remoteValue) {
-    const localTime = Date.parse(localValue || "");
-    const remoteTime = Date.parse(remoteValue || "");
-    if (!Number.isFinite(localTime)) return remoteValue;
-    if (!Number.isFinite(remoteTime)) return localValue;
-    return remoteTime >= localTime ? remoteValue : localValue;
+  function latestTimestamp(localValue, remoteValue) {
+    if (!timestampValue(localValue)) return remoteValue || "";
+    if (!timestampValue(remoteValue)) return localValue || "";
+    return timestampValue(remoteValue) >= timestampValue(localValue) ? remoteValue : localValue;
   }
 
-  function mergeTaskOrder(local = {}, remote = {}, taskIds = null) {
-    const result = {};
-    new Set([...Object.keys(local || {}), ...Object.keys(remote || {})]).forEach((dateKey) => {
-      result[dateKey] = [...new Set([...(local?.[dateKey] || []), ...(remote?.[dateKey] || [])])]
-        .filter((id) => !taskIds || taskIds.has(id));
-    });
-    return result;
+  function mapById(items = []) {
+    return new Map((Array.isArray(items) ? items : []).filter((item) => item?.id).map((item) => [item.id, item]));
+  }
+
+  function idsOf(items = []) {
+    return (Array.isArray(items) ? items : []).map((item) => item?.id).filter(Boolean);
+  }
+
+  function isPlainObject(value) {
+    return Boolean(value && typeof value === "object" && !Array.isArray(value));
   }
 
   function clone(value) {
-    return JSON.parse(JSON.stringify(value));
+    return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
   }
 
   global.RhythmStateMerge = { mergeStates };

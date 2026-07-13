@@ -3,6 +3,63 @@ const { createRemoteSyncController, createRemoteSyncWorkflow } = require("../rem
 
 module.exports = [
   {
+    name: "reloads and merges once when a remote write revision conflicts",
+    async fn() {
+      let pulls = 0;
+      let pushes = 0;
+      let state = { tasks: [{ id: "local" }] };
+      const workflow = createRemoteSyncWorkflow({
+        createImportSafetyBackup() {},
+        createUndoSnapshot: () => ({ state: "local" }),
+        describeError: (error) => error.message,
+        formatDate: (value) => value,
+        getLocalUpdatedAt: () => "2026-07-13T09:00:00.000Z",
+        getRemoteUiSettings: () => ({}),
+        getSettings: () => ({ enabled: true, anonKey: "anon", supabaseUrl: "url", userKey: "key" }),
+        getState: () => state,
+        getSyncMeta: () => ({ lastPulledAt: "", lastPushedAt: "" }),
+        isRemoteVersionNewer: () => true,
+        isSecurePrivateKey: () => true,
+        latestIsoDate: (...values) => values.filter(Boolean).sort().at(-1) || "",
+        mergeStates: (local, remote) => ({ tasks: [...local.tasks.filter((task) => task.id === "local"), ...remote.tasks] }),
+        remoteSync: {
+          normalizeConfig: (config) => config,
+          isConfigured: (config) => config.enabled,
+          pullState: async () => {
+            pulls += 1;
+            return {
+              found: true,
+              state: { tasks: [{ id: `remote-${pulls}` }] },
+              updatedAt: `2026-07-13T10:00:0${pulls}.000Z`,
+            };
+          },
+          pushState: async () => {
+            pushes += 1;
+            if (pushes === 1) throw Object.assign(new Error("conflict"), { code: "sync-conflict" });
+            return { row: { updated_at: "2026-07-13T10:00:03.000Z" } };
+          },
+        },
+        render() {},
+        renderSaveStatus() {},
+        replaceState: (nextState) => { state = nextState; },
+        saveState() {},
+        saveUiState() {},
+        schemaVersion: 10,
+        setSyncMeta() {},
+        showToast() {},
+        statusElement: { textContent: "" },
+        syncControls() {},
+      });
+
+      await workflow.push({ silent: true });
+
+      assert.equal(pulls, 2);
+      assert.equal(pushes, 2);
+      assert.deepEqual(state.tasks.map((task) => task.id), ["local", "remote-2"]);
+      assert.equal(workflow.getStatus().lastError, "");
+    },
+  },
+  {
     name: "generates a strong private sync key",
     fn() {
       const controller = createRemoteSyncController({

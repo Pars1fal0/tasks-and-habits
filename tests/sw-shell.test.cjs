@@ -13,4 +13,13 @@ module.exports = [
       scripts.forEach((script) => assert.match(serviceWorker, new RegExp(`"${script.replace(".", "\\.")}"`), `${script} is missing from APP_SHELL`));
     },
   },
+  {
+    name: "web build replaces the service worker cache placeholder",
+    fn() {
+      const root = path.resolve(__dirname, "..");
+      const buildScript = fs.readFileSync(path.join(root, "scripts", "build-web.cjs"), "utf8");
+      assert.match(buildScript, /replaceAll\("__BUILD_HASH__", buildHash\)/);
+      assert.match(buildScript, /createHash\("sha256"\)/);
+    },
+  },
 ];

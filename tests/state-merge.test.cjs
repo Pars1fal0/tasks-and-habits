@@ -3,6 +3,72 @@ const { mergeStates } = require("../state-merge.js");
 
 module.exports = [
   {
+    name: "keeps an explicit task completion and habit value reset from being resurrected",
+    fn() {
+      const resetAt = "2026-07-13T12:00:00.000Z";
+      const staleAt = "2026-07-12T12:00:00.000Z";
+      const merged = mergeStates(
+        {
+          tasks: [{ id: "task", completed: {}, updatedAt: resetAt }],
+          habits: [{ id: "habit", logs: {}, updatedAt: resetAt }],
+          goals: [], categories: [], taskOrder: {},
+          syncMeta: {
+            taskFields: { task: { completed: { "2026-07-12": resetAt } } },
+            habitLogs: { habit: { "2026-07-12": resetAt } },
+          },
+        },
+        {
+          tasks: [{ id: "task", completed: { "2026-07-12": true }, updatedAt: staleAt }],
+          habits: [{ id: "habit", logs: { "2026-07-12": 5 }, updatedAt: staleAt }],
+          goals: [], categories: [], taskOrder: {},
+        },
+      );
+
+      assert.deepEqual(merged.tasks[0].completed, {});
+      assert.deepEqual(merged.habits[0].logs, {});
+    },
+  },
+  {
+    name: "uses the newest explicit task and habit order",
+    fn() {
+      const merged = mergeStates(
+        {
+          tasks: [{ id: "a" }, { id: "b" }], habits: [{ id: "h1" }, { id: "h2" }], goals: [], categories: [],
+          taskOrder: { "2026-07-13": ["a", "b"] },
+          syncMeta: { taskOrder: { "2026-07-13": "2026-07-13T10:00:00.000Z" }, habitOrderUpdatedAt: "2026-07-13T10:00:00.000Z" },
+        },
+        {
+          tasks: [{ id: "a" }, { id: "b" }], habits: [{ id: "h2" }, { id: "h1" }], goals: [], categories: [],
+          taskOrder: { "2026-07-13": ["b", "a"] },
+          syncMeta: { taskOrder: { "2026-07-13": "2026-07-13T11:00:00.000Z" }, habitOrderUpdatedAt: "2026-07-13T11:00:00.000Z" },
+        },
+      );
+
+      assert.deepEqual(merged.taskOrder["2026-07-13"], ["b", "a"]);
+      assert.deepEqual(merged.habits.map((habit) => habit.id), ["h2", "h1"]);
+    },
+  },
+  {
+    name: "merges independently edited goal checkpoints",
+    fn() {
+      const merged = mergeStates(
+        {
+          tasks: [], habits: [], categories: [], taskOrder: {},
+          goals: [{ id: "goal", updatedAt: "2026-07-13T10:00:00.000Z", steps: [{ id: "a", title: "A", done: true }, { id: "b", title: "B", done: false }] }],
+          syncMeta: { goalSteps: { goal: { a: "2026-07-13T10:00:00.000Z" } } },
+        },
+        {
+          tasks: [], habits: [], categories: [], taskOrder: {},
+          goals: [{ id: "goal", updatedAt: "2026-07-13T11:00:00.000Z", steps: [{ id: "a", title: "A", done: false }, { id: "b", title: "B renamed", done: false }] }],
+          syncMeta: { goalSteps: { goal: { b: "2026-07-13T11:00:00.000Z" } } },
+        },
+      );
+
+      assert.equal(merged.goals[0].steps.find((step) => step.id === "a").done, true);
+      assert.equal(merged.goals[0].steps.find((step) => step.id === "b").title, "B renamed");
+    },
+  },
+  {
     name: "merges records and dated logs from two devices",
     fn() {
       const merged = mergeStates(

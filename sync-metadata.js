@@ -1,0 +1,136 @@
+(function (global) {
+  const TASK_DATE_FIELDS = ["completed", "acknowledgedOverdue", "excludedDates", "notified"];
+
+  function createSyncMetadataTracker(options = {}) {
+    const now = options.now || (() => new Date().toISOString());
+
+    function trackChanges(previousState = {}, nextState = {}) {
+      const meta = normalizeSyncMeta(nextState.syncMeta);
+      const changedAt = now();
+      trackTaskFields(previousState.tasks, nextState.tasks, meta, changedAt);
+      trackHabitLogs(previousState.habits, nextState.habits, meta, changedAt);
+      trackTaskOrder(previousState.taskOrder, nextState.taskOrder, meta, changedAt);
+      trackHabitOrder(previousState.habits, nextState.habits, meta, changedAt);
+      trackGoalSteps(previousState.goals, nextState.goals, meta, changedAt);
+      nextState.syncMeta = meta;
+      return nextState;
+    }
+
+    return { trackChanges };
+  }
+
+  function trackTaskFields(previousTasks = [], nextTasks = [], meta, changedAt) {
+    const previousById = mapById(previousTasks);
+    (Array.isArray(nextTasks) ? nextTasks : []).forEach((task) => {
+      const previous = previousById.get(task.id);
+      if (!previous) return;
+      TASK_DATE_FIELDS.forEach((field) => {
+        changedKeys(previous[field], task[field]).forEach((dateKey) => {
+          (((meta.taskFields[task.id] ||= {})[field] ||= {}))[dateKey] = changedAt;
+        });
+      });
+    });
+  }
+
+  function trackHabitLogs(previousHabits = [], nextHabits = [], meta, changedAt) {
+    const previousById = mapById(previousHabits);
+    (Array.isArray(nextHabits) ? nextHabits : []).forEach((habit) => {
+      const previous = previousById.get(habit.id);
+      if (!previous) return;
+      changedKeys(previous.logs, habit.logs).forEach((dateKey) => {
+        (meta.habitLogs[habit.id] ||= {})[dateKey] = changedAt;
+      });
+    });
+  }
+
+  function trackTaskOrder(previous = {}, next = {}, meta, changedAt) {
+    const dateKeys = new Set([...Object.keys(previous || {}), ...Object.keys(next || {})]);
+    dateKeys.forEach((dateKey) => {
+      if (!sameValue(previous?.[dateKey] || [], next?.[dateKey] || [])) meta.taskOrder[dateKey] = changedAt;
+    });
+  }
+
+  function trackHabitOrder(previous = [], next = [], meta, changedAt) {
+    const previousOrder = idsOf(previous);
+    const nextOrder = idsOf(next);
+    if (!sameValue(previousOrder, nextOrder)) meta.habitOrderUpdatedAt = changedAt;
+  }
+
+  function trackGoalSteps(previousGoals = [], nextGoals = [], meta, changedAt) {
+    const previousById = mapById(previousGoals);
+    (Array.isArray(nextGoals) ? nextGoals : []).forEach((goal) => {
+      const previous = previousById.get(goal.id);
+      if (!previous) return;
+      const previousSteps = mapById(previous.steps);
+      const nextSteps = mapById(goal.steps);
+      const stepIds = new Set([...previousSteps.keys(), ...nextSteps.keys()]);
+      stepIds.forEach((stepId) => {
+        if (!sameValue(previousSteps.get(stepId), nextSteps.get(stepId))) {
+          ((meta.goalSteps[goal.id] ||= {})[stepId]) = changedAt;
+        }
+      });
+      if (!sameValue(idsOf(previous.steps), idsOf(goal.steps))) meta.goalStepOrder[goal.id] = changedAt;
+    });
+  }
+
+  function normalizeSyncMeta(value = {}) {
+    return {
+      taskFields: normalizeNestedTimestampMap(value.taskFields, 3),
+      habitLogs: normalizeNestedTimestampMap(value.habitLogs, 2),
+      taskOrder: normalizeTimestampMap(value.taskOrder),
+      habitOrderUpdatedAt: validTimestamp(value.habitOrderUpdatedAt),
+      goalSteps: normalizeNestedTimestampMap(value.goalSteps, 2),
+      goalStepOrder: normalizeTimestampMap(value.goalStepOrder),
+    };
+  }
+
+  function normalizeNestedTimestampMap(value, depth) {
+    if (depth <= 1) return normalizeTimestampMap(value);
+    const result = {};
+    if (!value || typeof value !== "object" || Array.isArray(value)) return result;
+    Object.entries(value).forEach(([key, child]) => {
+      const normalized = normalizeNestedTimestampMap(child, depth - 1);
+      if (Object.keys(normalized).length) result[key] = normalized;
+    });
+    return result;
+  }
+
+  function normalizeTimestampMap(value) {
+    const result = {};
+    if (!value || typeof value !== "object" || Array.isArray(value)) return result;
+    Object.entries(value).forEach(([key, timestamp]) => {
+      const normalized = validTimestamp(timestamp);
+      if (key && normalized) result[key] = normalized;
+    });
+    return result;
+  }
+
+  function changedKeys(previous = {}, next = {}) {
+    return [...new Set([...Object.keys(previous || {}), ...Object.keys(next || {})])]
+      .filter((key) => !sameValue(previous?.[key], next?.[key]));
+  }
+
+  function mapById(items = []) {
+    return new Map((Array.isArray(items) ? items : []).filter((item) => item?.id).map((item) => [item.id, item]));
+  }
+
+  function idsOf(items = []) {
+    return (Array.isArray(items) ? items : []).map((item) => item?.id).filter(Boolean);
+  }
+
+  function sameValue(left, right) {
+    return JSON.stringify(left) === JSON.stringify(right);
+  }
+
+  function validTimestamp(value) {
+    return typeof value === "string" && Number.isFinite(Date.parse(value)) ? value : "";
+  }
+
+  function clone(value) {
+    return JSON.parse(JSON.stringify(value));
+  }
+
+  const api = { TASK_DATE_FIELDS, clone, createSyncMetadataTracker, normalizeSyncMeta };
+  global.RhythmSyncMetadata = api;
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
+})(typeof window !== "undefined" ? window : globalThis);

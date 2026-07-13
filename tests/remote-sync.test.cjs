@@ -3,6 +3,48 @@ const { createRemoteSync, normalizeUserKey, stripTrailingSlash } = require("../r
 
 module.exports = [
   {
+    name: "updates only the remote revision that was previously read",
+    async fn() {
+      const calls = [];
+      const sync = createRemoteSync({
+        fetch: async (url, options) => {
+          calls.push({ url, options });
+          return {
+            ok: true,
+            status: 200,
+            text: async () => JSON.stringify([{ updated_at: "2026-07-13T10:00:01.000Z" }]),
+          };
+        },
+      });
+
+      await sync.pushState(
+        { enabled: true, supabaseUrl: "https://demo.supabase.co", anonKey: "anon", userKey: "me" },
+        { expectedUpdatedAt: "2026-07-13T10:00:00.000Z", state: { tasks: [] } },
+      );
+
+      assert.equal(calls[0].options.method, "PATCH");
+      assert.match(calls[0].url, /user_key=eq\.me/);
+      assert.match(calls[0].url, /updated_at=eq\.2026-07-13T10%3A00%3A00\.000Z/);
+      assert.equal(calls[0].options.headers.Prefer, "return=representation");
+    },
+  },
+  {
+    name: "reports a conflict when the expected remote revision no longer exists",
+    async fn() {
+      const sync = createRemoteSync({
+        fetch: async () => ({ ok: true, status: 200, text: async () => "[]" }),
+      });
+
+      await assert.rejects(
+        sync.pushState(
+          { enabled: true, supabaseUrl: "https://demo.supabase.co", anonKey: "anon", userKey: "me" },
+          { expectedUpdatedAt: "2026-07-13T10:00:00.000Z", state: { tasks: [] } },
+        ),
+        (error) => error.code === "sync-conflict" && error.status === 409,
+      );
+    },
+  },
+  {
     name: "normalizes remote sync configuration",
     fn() {
       assert.equal(stripTrailingSlash("https://demo.supabase.co///"), "https://demo.supabase.co");

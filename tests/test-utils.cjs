@@ -3,6 +3,7 @@ const recurrence = require("../recurrence.js");
 const storageApi = require("../storage.js");
 const taskMoves = require("../task-moves.js");
 const stateNormalizerApi = require("../state-normalizer.js");
+const syncMetadata = require("../sync-metadata.js");
 
 function normalizeDateKey(value, fallback = "") {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ""));
@@ -41,7 +42,7 @@ function createMemoryStorage() {
 
 function createStateNormalizer() {
   return stateNormalizerApi.createStateNormalizer({
-    schemaVersion: 9,
+    schemaVersion: 10,
     validPriorities: ["high", "medium", "low"],
     cleanText,
     cleanTimeValue: (value) => {
@@ -74,6 +75,7 @@ function createStateNormalizer() {
       const offset = String(value ?? (hasTime ? "15" : "none"));
       return ["none", "0", "5", "15", "30", "60", "1440"].includes(offset) ? offset : hasTime ? "15" : "none";
     },
+    normalizeSyncMeta: syncMetadata.normalizeSyncMeta,
     normalizeTaskFlags: (value) => {
       const flags = {};
       Object.entries(value || {}).forEach(([dateKey, entry]) => {

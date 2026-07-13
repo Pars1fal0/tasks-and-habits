@@ -58,7 +58,7 @@ module.exports = [
         },
       });
 
-      assert.equal(normalized.schemaVersion, 9);
+      assert.equal(normalized.schemaVersion, 10);
       assert.equal(normalized.categories[0].color, "#00a78e");
       assert.equal(normalized.categories[1].name, "Работа");
       assert.equal(normalized.tasks[0].title, "Задача");
@@ -91,6 +91,18 @@ module.exports = [
       assert.deepEqual(normalized.taskOrder, { "2026-06-26": ["123"] });
       assert.deepEqual(normalized.tombstones.tasks, { "task-deleted": "2026-06-27T10:00:00.000Z" });
       assert.ok(normalized.tasks[0].updatedAt);
+    },
+  },
+  {
+    name: "remembers that default categories were already seeded after all categories are deleted",
+    fn() {
+      const normalizer = createStateNormalizer();
+      const normalized = normalizer.normalizeState({
+        categories: [],
+        tombstones: { categories: { removed: "2026-07-13T08:00:00.000Z" } },
+      });
+
+      assert.equal(normalized.defaultsSeeded, true);
     },
   },
   {

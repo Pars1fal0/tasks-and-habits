@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "rhythm-day-";
-const CACHE_NAME = `${CACHE_PREFIX}app-v44`;
+const CACHE_NAME = `${CACHE_PREFIX}app-v45-__BUILD_HASH__`;
 const APP_SHELL = [
   "./",
   "index.html",
@@ -13,6 +13,9 @@ const APP_SHELL = [
   "remote-sync-controller.js",
   "sync-history.js",
   "settings-state.js",
+  "data-normalizers.js",
+  "sync-metadata.js",
+  "pwa-controller.js",
   "state-normalizer.js",
   "state-merge.js",
   "date-rollover.js",
@@ -50,6 +53,8 @@ const APP_SHELL = [
   "toast.js",
   "app.js",
   "manifest.webmanifest",
+  "icon-192.png",
+  "icon-512.png",
   "icon.svg",
 ];
 

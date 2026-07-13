@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.12.5
+
+- Dated task flags and habit logs now keep per-date revision metadata, including explicit resets.
+- Task, habit, and goal checkpoint ordering now converges between devices.
+- Goal checkpoints merge independently instead of replacing the whole goal checklist.
+- Supabase writes use optimistic concurrency and retry after merging a conflicting revision.
+- Deleting every category no longer restores the default categories on reload.
+- Cloudflare builds generate a content-based service worker cache version.
+- Added PNG PWA icons for Windows and Android installation.
+- Extracted shared data normalizers, synchronization metadata, and PWA registration from `app.js`.
+
 ## Unreleased
 
 - Added an isolated low-load Windows voice assistant with offline Russian wake-word recognition and Win32-based Codex prompt submission.
