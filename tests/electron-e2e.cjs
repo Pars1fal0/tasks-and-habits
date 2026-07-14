@@ -40,6 +40,7 @@ const { _electron: electron } = require("playwright-core");
 
     await page.locator('.nav-tab[data-view="settings"]:visible').click();
     assert.equal(await page.evaluate(() => window.location.hash), "#settings");
+    assert.equal(await page.locator(".settings-accordion").first().getAttribute("open"), null);
     assert.equal(await page.locator("#remoteSyncPushButton").isDisabled(), true);
     assert.equal(await page.locator("#remoteSyncPullButton").isDisabled(), true);
 
@@ -55,6 +56,10 @@ const { _electron: electron } = require("playwright-core");
 
     await page.locator('.nav-tab[data-view="overview"]:visible').click();
     await page.locator('[data-overview-mode="week"]').click();
+    assert.equal(await page.locator(".focus-board").evaluate((node) => getComputedStyle(node).display), "none");
+    const weekPanelTop = await page.locator('[data-overview-panel="week"]').evaluate((node) => node.getBoundingClientRect().top);
+    const overviewMetricTop = await page.locator("#overviewView .metric-panel").first().evaluate((node) => node.getBoundingClientRect().top);
+    assert.ok(weekPanelTop < overviewMetricTop, "the selected calendar period must appear before summary metrics on mobile");
     await page.locator("#updateBanner").evaluate((node) => { node.hidden = false; });
     const updateBox = await page.locator("#updateBanner").boundingBox();
     assert.ok(updateBox && updateBox.x >= 0 && updateBox.x + updateBox.width <= 390.5, "update banner must fit mobile");

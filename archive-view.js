@@ -69,6 +69,7 @@
       const category = ctx.getCategory(entry.task.categoryId);
 
       node.className = "archive-item";
+      content.className = "archive-item-content";
       select.type = "checkbox";
       select.className = "archive-item-select";
       select.checked = selectedKeys.has(entryKey(entry));

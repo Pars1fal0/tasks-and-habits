@@ -3524,6 +3524,14 @@ body.has-floating-task-form::before {
   gap: 10px;
 }
 
+.timeline-task.is-unscheduled .timeline-task-top span {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+}
+
 .week-board-panel,
 .month-panel,
 .week-panel,
@@ -4388,6 +4396,18 @@ body.has-floating-task-form::before {
     grid-template-columns: 1fr;
   }
 
+  body[data-view="overview"] .focus-board {
+    display: none;
+  }
+
+  #overviewView .overview-grid > [data-overview-panel] {
+    order: -1;
+  }
+
+  #timelineView > .toolbar .muted {
+    display: none;
+  }
+
   .topbar {
     gap: 14px;
     margin-bottom: 18px;
@@ -4609,7 +4629,6 @@ body.has-floating-task-form::before {
   .task-toolbar-meta,
   .archive-toolbar,
   .form-actions,
-  .habit-number-row,
   .time-presets {
     overflow-x: auto;
     flex-wrap: nowrap;
@@ -4617,6 +4636,21 @@ body.has-floating-task-form::before {
     padding: 2px 4px 7px;
     scroll-snap-type: x proximity;
     scrollbar-width: thin;
+  }
+
+  .habit-number-row {
+    display: grid;
+    grid-template-columns: 44px minmax(64px, 1fr) 44px;
+    width: 100%;
+  }
+
+  .habit-number-row input {
+    width: 100%;
+  }
+
+  .habit-number-row span {
+    grid-column: 1 / -1;
+    overflow-wrap: anywhere;
   }
 
   .time-preset {
@@ -4939,10 +4973,23 @@ body.has-floating-task-form::before {
 .archive-item { grid-template-columns: auto minmax(0, 1fr) auto; }
 .archive-item-select { align-self: center; }
 
+.archive-bulk-bar:not(.has-selection) .archive-bulk-count,
+.archive-bulk-bar:not(.has-selection) .archive-bulk-actions {
+  display: none;
+}
+
 @media (max-width: 640px) {
   .archive-bulk-bar { flex-wrap: wrap; }
   .archive-bulk-actions { width: 100%; margin-left: 0; }
   .archive-bulk-actions button { flex: 1; }
+  .archive-item {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr);
+    align-items: start;
+  }
+  .archive-item-select { grid-column: 1; margin-top: 3px; }
+  .archive-item-content { grid-column: 2; min-width: 0; }
+  .archive-item-actions { grid-column: 2; justify-content: flex-start; }
 }
 .sync-wizard-steps {
   display: grid;

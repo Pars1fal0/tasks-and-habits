@@ -1,6 +1,7 @@
 (function (global) {
   function createGoalsView(ctx) {
     let celebratingGoalId = "";
+    const expandedGoalIds = new Set();
 
     function renderGoals() {
       const goals = [...(ctx.getState().goals || [])];
@@ -243,7 +244,11 @@
       const steps = goal.steps || [];
       const doneCount = steps.filter((step) => step.done).length;
       details.className = "goal-details";
-      details.open = goal.status !== "done";
+      details.open = expandedGoalIds.has(goal.id);
+      details.addEventListener("toggle", () => {
+        if (details.open) expandedGoalIds.add(goal.id);
+        else expandedGoalIds.delete(goal.id);
+      });
       summary.textContent = `Чекпоинты · ${doneCount}/${steps.length}`;
       list.className = "goal-steps";
       list.setAttribute("aria-label", `Чекпоинты цели ${goal.title}`);

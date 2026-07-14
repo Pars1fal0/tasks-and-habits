@@ -139,6 +139,7 @@
       top.className = "timeline-task-top";
       time.textContent = entry.timeLabel || "Без времени";
       title.textContent = entry.title;
+      title.title = entry.title;
       meta.textContent = entry.isOverdue ? `${entry.metaLabel} · просрочено` : entry.metaLabel;
       top.append(time, title);
       main.append(top, meta);
