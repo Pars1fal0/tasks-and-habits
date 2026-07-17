@@ -1,5 +1,7 @@
 (function (global) {
   function createStateNormalizer(config) {
+    const pruneTombstones = config.pruneTombstones || ((value) => value);
+
     function normalizeState(raw) {
       const normalized = {
         schemaVersion: config.schemaVersion,
@@ -9,7 +11,7 @@
         goals: [],
         categories: [],
         taskOrder: {},
-        tombstones: normalizeTombstones(raw?.tombstones),
+        tombstones: pruneTombstones(normalizeTombstones(raw?.tombstones)),
         syncMeta: config.normalizeSyncMeta?.(raw?.syncMeta) || {},
       };
 

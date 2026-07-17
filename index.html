@@ -9,7 +9,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <script>
       (() => {
-        const shellVersion = "0.13.3";
+        const shellVersion = "0.13.4";
         const versionKey = "rhythm-shell-version";
         const retryKey = "rhythm-shell-refresh";
         let storedVersion = "";
@@ -1022,16 +1022,6 @@
                 </div>
                 <p class="settings-status" id="remoteAuthStatus" aria-live="polite">Вход не выполнен</p>
               </div>
-              <details class="sync-technical">
-                <summary>Legacy-доступ по приватному ключу</summary>
-                <label class="settings-row">
-                  <span><strong>Приватный ключ</strong><small>Оставлен для совместимости со старыми хранилищами.</small></span>
-                  <input id="remoteSyncUserKey" type="password" maxlength="120" autocomplete="new-password" placeholder="rhythm_...">
-                </label>
-                <div class="settings-actions">
-                  <button class="ghost-button compact-button" id="remoteSyncGenerateKeyButton" type="button">Создать legacy-ключ</button>
-                </div>
-              </details>
               <p class="settings-status" id="remoteSyncStatus" aria-live="polite" aria-atomic="true">Облачная синхронизация не настроена</p>
               <div class="sync-history" id="remoteSyncHistory" aria-label="Последние события синхронизации"></div>
               <div class="settings-actions">
@@ -1157,6 +1147,7 @@
     <script src="settings-state.js?v=2" defer></script>
     <script src="data-normalizers.js?v=1" defer></script>
     <script src="sync-metadata.js?v=1" defer></script>
+    <script src="tombstone-retention.js?v=1" defer></script>
     <script src="habit-title-history.js?v=1" defer></script>
     <script src="habit-config-history.js?v=1" defer></script>
     <script src="pwa-controller.js?v=1" defer></script>
@@ -1190,6 +1181,7 @@
     <script src="task-state.js?v=4" defer></script>
     <script src="settings-sync.js?v=1" defer></script>
     <script src="settings-transfer.js?v=1" defer></script>
+    <script src="save-status.js?v=1" defer></script>
     <script src="settings-controller.js?v=5" defer></script>
     <script src="timeline-layout.js?v=1" defer></script>
     <script src="timeline-menu.js?v=2" defer></script>

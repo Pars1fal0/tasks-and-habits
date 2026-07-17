@@ -429,12 +429,14 @@ function createWindow() {
           button: 0,
           clientX: draggableBlockRect?.left + 20,
           clientY: draggableBlockRect?.top + 20,
+          pointerType: "touch",
           pointerId: 41,
         }));
         window.dispatchEvent(new PointerEvent("pointermove", {
           bubbles: true,
           clientX: draggableBlockRect?.left + 28,
           clientY: draggableBlockRect?.top + 28,
+          pointerType: "touch",
           pointerId: 41,
         }));
         const unscheduleTargetRect = document.querySelector(".timeline-unschedule-target")?.getBoundingClientRect();
@@ -442,12 +444,14 @@ function createWindow() {
           bubbles: true,
           clientX: unscheduleTargetRect?.left + unscheduleTargetRect?.width / 2,
           clientY: unscheduleTargetRect?.top + unscheduleTargetRect?.height / 2,
+          pointerType: "touch",
           pointerId: 41,
         }));
         window.dispatchEvent(new PointerEvent("pointerup", {
           bubbles: true,
           clientX: unscheduleTargetRect?.left + unscheduleTargetRect?.width / 2,
           clientY: unscheduleTargetRect?.top + unscheduleTargetRect?.height / 2,
+          pointerType: "touch",
           pointerId: 41,
         }));
         const timelineDragToUnscheduledWorks =

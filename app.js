@@ -42,9 +42,9 @@ const storage = window.RhythmStorage.createLocalStorageAdapter({
   appName: "Ритм дня",
   schemaVersion: SCHEMA_VERSION,
 });
+const initialStateLoad = storage.loadStateWithRecovery();
 const settingsState = window.RhythmSettingsState.createSettingsState({
   cleanText,
-  normalizeRemoteUserKey: window.RhythmRemoteSync.normalizeUserKey,
   validBackupSchedules: VALID_BACKUP_SCHEDULES,
 });
 const stateNormalizer = window.RhythmStateNormalizer.createStateNormalizer({
@@ -59,6 +59,7 @@ const stateNormalizer = window.RhythmStateNormalizer.createStateNormalizer({
   normalizeHabitConfigHistory: window.RhythmHabitConfigHistory.normalizeHabitConfigHistory,
   normalizeHabitTitleHistory: window.RhythmHabitTitleHistory.normalizeHabitTitleHistory,
   normalizeReminderOffset,
+  pruneTombstones: window.RhythmTombstoneRetention.pruneTombstones,
   normalizeSyncMeta: window.RhythmSyncMetadata.normalizeSyncMeta,
   normalizeTaskFlags,
   normalizeTaskOrder,
@@ -72,7 +73,7 @@ const initialUiState = storage.loadUiState();
 const initialRoute = window.RhythmNavigationState.parseHash(window.location.hash);
 const stateController = window.RhythmStateController.createStateController({
   clone: window.RhythmSyncMetadata.clone,
-  initialState: storage.loadState(),
+  initialState: initialStateLoad.state,
   normalizeState,
   schemaVersion: SCHEMA_VERSION,
   storage,
@@ -110,13 +111,18 @@ let timeFormat = normalizeTimeFormat(initialUiState.timeFormat);
 let remoteSyncEnabled = normalizeRemoteSyncEnabled(initialUiState.remoteSyncEnabled);
 let remoteSyncUrl = cleanText(initialUiState.remoteSyncUrl || "");
 let remoteSyncAnonKey = cleanText(initialUiState.remoteSyncAnonKey || "");
-let remoteSyncUserKey = normalizeRemoteUserKey(initialUiState.remoteSyncUserKey || "");
 let remoteSyncLastPushedAt = initialUiState.remoteSyncLastPushedAt || "";
 let remoteSyncLastPulledAt = initialUiState.remoteSyncLastPulledAt || "";
+let remoteSyncPending = initialUiState.remoteSyncPending === true;
 let localStateUpdatedAt = initialUiState.localStateUpdatedAt || "";
 let autoBackupTimerId = null;
 let lastAutoBackupAt = "";
 let nextAutoBackupAt = "";
+let localStorageError = initialStateLoad.status === "corrupt"
+  ? "Локальные данные повреждены · восстанови backup или облако"
+  : initialStateLoad.status === "recovered-memory"
+    ? "Backup открыт, но локальное сохранение недоступно"
+    : "";
 
 const overdueController = window.RhythmOverdueController.createOverdueController({
   getCacheKey: () => localStateUpdatedAt,
@@ -253,13 +259,11 @@ const els = {
   remoteAuthStatus: document.querySelector("#remoteAuthStatus"),
   remoteSyncCheckButton: document.querySelector("#remoteSyncCheckButton"),
   remoteSyncEnabled: document.querySelector("#remoteSyncEnabled"),
-  remoteSyncGenerateKeyButton: document.querySelector("#remoteSyncGenerateKeyButton"),
   remoteSyncHistory: document.querySelector("#remoteSyncHistory"),
   remoteSyncPullButton: document.querySelector("#remoteSyncPullButton"),
   remoteSyncPushButton: document.querySelector("#remoteSyncPushButton"),
   remoteSyncStatus: document.querySelector("#remoteSyncStatus"),
   remoteSyncUrl: document.querySelector("#remoteSyncUrl"),
-  remoteSyncUserKey: document.querySelector("#remoteSyncUserKey"),
   resetHabitForm: document.querySelector("#resetHabitForm"),
   resetGoalForm: document.querySelector("#resetGoalForm"),
   resetTaskForm: document.querySelector("#resetTaskForm"),
@@ -358,6 +362,11 @@ const toastController = window.RhythmToast.createToastController({
   element: els.toast,
   restoreUndoSnapshot,
 });
+const saveStatusView = window.RhythmSaveStatus.createSaveStatus({
+  element: els.saveStatus,
+  formatTime,
+  toTimeValue,
+});
 
 const confirmDialog = window.RhythmConfirmDialog.createConfirmDialog({ els });
 window.RhythmFormDialog.createFormDialogManager({
@@ -365,7 +374,6 @@ window.RhythmFormDialog.createFormDialogManager({
   panels: [els.taskFormPanel, els.habitFormPanel, els.goalFormPanel],
 });
 const remoteSync = window.RhythmRemoteSync.createRemoteSync();
-const remoteSyncController = window.RhythmRemoteSyncController.createRemoteSyncController();
 const remoteAuth = window.RhythmRemoteAuth.createRemoteAuth({
   getConfig: () => ({ anonKey: remoteSyncAnonKey, supabaseUrl: remoteSyncUrl }),
 });
@@ -769,7 +777,6 @@ const settingsController = window.RhythmSettingsController.createSettingsControl
   checkRemoteConnection,
   pullRemoteState,
   pushRemoteState,
-  generateRemoteSyncKey,
   renderBackupStatus: renderSettingsBackupStatus,
   renderRemoteSyncStatus,
   requestNotifications,
@@ -793,12 +800,14 @@ const remoteSyncWorkflow = window.RhythmRemoteSyncController.createRemoteSyncWor
     enabled: remoteSyncEnabled === "on",
     supabaseUrl: remoteSyncUrl,
     userId: remoteAuth.getSession()?.user?.id || "",
-    userKey: remoteSyncUserKey,
   }),
   getState: () => state,
-  getSyncMeta: () => ({ lastPulledAt: remoteSyncLastPulledAt, lastPushedAt: remoteSyncLastPushedAt }),
+  getSyncMeta: () => ({
+    lastPulledAt: remoteSyncLastPulledAt,
+    lastPushedAt: remoteSyncLastPushedAt,
+    pending: remoteSyncPending,
+  }),
   isRemoteVersionNewer: settingsState.isRemoteVersionNewer,
-  isSecurePrivateKey: remoteSyncController.isSecurePrivateKey,
   latestIsoDate,
   mergeStates: window.RhythmStateMerge.mergeStates,
   remoteSync,
@@ -812,9 +821,10 @@ const remoteSyncWorkflow = window.RhythmRemoteSyncController.createRemoteSyncWor
   saveState,
   saveUiState,
   schemaVersion: SCHEMA_VERSION,
-  setSyncMeta: ({ lastPulledAt, lastPushedAt }) => {
+  setSyncMeta: ({ lastPulledAt, lastPushedAt, pending }) => {
     if (lastPulledAt) remoteSyncLastPulledAt = lastPulledAt;
     if (lastPushedAt) remoteSyncLastPushedAt = lastPushedAt;
+    if (typeof pending === "boolean") remoteSyncPending = pending;
   },
   showToast,
   statusElement: els.remoteSyncStatus,
@@ -827,7 +837,11 @@ const remoteAuthController = window.RhythmRemoteAuthController.createRemoteAuthC
   isProjectConfigured: () => Boolean(remoteSyncUrl && remoteSyncAnonKey),
   renderSyncStatus: () => remoteSyncWorkflow.renderStatus(),
   showToast,
-  syncLatest: (options) => remoteSyncWorkflow.syncLatest(options),
+  syncLatest: async (options) => {
+    const result = await remoteSyncWorkflow.syncLatest(options);
+    await remoteSyncWorkflow.resumePending();
+    return result;
+  },
 });
 const deviceSyncController = window.RhythmDeviceSyncController.createDeviceSyncController({
   ensureFreshSession: () => remoteAuth.ensureFreshSession().catch(() => null),
@@ -1048,7 +1062,10 @@ function init() {
   renderRemoteSyncStatus();
   updateFileBackupStatus();
   render();
-  deviceSyncController.start();
+  if (initialStateLoad.status === "recovered") showToast("Поврежденные локальные данные восстановлены из backup");
+  if (initialStateLoad.status === "recovered-memory") showToast("Backup восстановлен только в памяти. Экспортируй данные");
+  if (initialStateLoad.status === "corrupt") showToast("Локальные данные повреждены. Загрузи backup или данные из облака");
+  deviceSyncController.start().then(() => remoteSyncWorkflow.resumePending());
   syncDesktopReminders();
   syncDesktopBackup();
   setInterval(checkDueNotifications, 30000);
@@ -1088,34 +1105,13 @@ function handleNavigationChange() {
 }
 
 function renderSaveStatus() {
-  if (!els.saveStatus) return;
-  const syncStatus = remoteSyncWorkflow.getStatus();
-  if (remoteSyncEnabled === "on" && syncStatus.lastError) {
-    els.saveStatus.textContent = "Ошибка синхронизации";
-    return;
-  }
-  if (remoteSyncEnabled === "on" && syncStatus.inFlight) {
-    els.saveStatus.textContent = "Синхронизация...";
-    return;
-  }
-  if (navigator.onLine === false) {
-    els.saveStatus.textContent = "Офлайн · сохранено локально";
-    return;
-  }
-  if (remoteSyncEnabled === "on" && syncStatus.pending) {
-    els.saveStatus.textContent = "Ожидает синхронизации";
-    return;
-  }
-  if (!localStateUpdatedAt) {
-    els.saveStatus.textContent = "Сохранено локально";
-    return;
-  }
-  const savedAt = new Date(localStateUpdatedAt);
-  if (Number.isNaN(savedAt.getTime())) {
-    els.saveStatus.textContent = "Сохранено локально";
-    return;
-  }
-  els.saveStatus.textContent = `Сохранено ${formatTime(toTimeValue(savedAt))}`;
+  saveStatusView.render({
+    localStorageError,
+    localUpdatedAt: localStateUpdatedAt,
+    online: navigator.onLine,
+    remoteEnabled: remoteSyncEnabled === "on",
+    syncStatus: remoteSyncWorkflow.getStatus(),
+  });
 }
 
 function renderTaskSurfaces() {
@@ -2022,32 +2018,40 @@ function shiftMonth(months) {
 }
 
 function saveUiState() {
-  storage.saveUiState({
-    activeDate,
-    activeView,
-    archiveCategoryFilter,
-    archivePeriod,
-    archiveSearchQuery,
-    backupSchedule,
-    currentToday,
-    densityPreference,
-    firstDayOfWeek,
-    localStateUpdatedAt,
-    notificationSetting,
-    overviewMode,
-    overdueHidden,
-    remoteSyncAnonKey,
-    remoteSyncEnabled,
-    remoteSyncLastPulledAt,
-    remoteSyncLastPushedAt,
-    remoteSyncUrl,
-    remoteSyncUserKey,
-    taskCategoryFilter,
-    taskFilter,
-    taskSearchQuery,
-    themePreference,
-    timeFormat,
-  });
+  try {
+    storage.saveUiState({
+      activeDate,
+      activeView,
+      archiveCategoryFilter,
+      archivePeriod,
+      archiveSearchQuery,
+      backupSchedule,
+      currentToday,
+      densityPreference,
+      firstDayOfWeek,
+      localStateUpdatedAt,
+      notificationSetting,
+      overviewMode,
+      overdueHidden,
+      remoteSyncAnonKey,
+      remoteSyncEnabled,
+      remoteSyncLastPulledAt,
+      remoteSyncLastPushedAt,
+      remoteSyncPending,
+      remoteSyncUrl,
+      taskCategoryFilter,
+      taskFilter,
+      taskSearchQuery,
+      themePreference,
+      timeFormat,
+    });
+    if (localStorageError === "Не удалось сохранить настройки локально") localStorageError = "";
+    return true;
+  } catch {
+    localStorageError = "Не удалось сохранить настройки локально";
+    renderSaveStatus();
+    return false;
+  }
 }
 
 function normalizeThemePreference(value) {
@@ -2078,10 +2082,6 @@ function normalizeRemoteSyncEnabled(value) {
   return settingsState.normalizeRemoteSyncEnabled(value);
 }
 
-function normalizeRemoteUserKey(value) {
-  return window.RhythmRemoteSync.normalizeUserKey(value);
-}
-
 function applyThemePreference() {
   const prefersLight = window.matchMedia?.("(prefers-color-scheme: light)")?.matches;
   const resolvedTheme = themePreference === "system" ? (prefersLight ? "light" : "dark") : themePreference;
@@ -2100,7 +2100,6 @@ function applySettingsPreferences() {
   if (els.remoteSyncEnabled) els.remoteSyncEnabled.value = remoteSyncEnabled;
   if (els.remoteSyncUrl) els.remoteSyncUrl.value = remoteSyncUrl;
   if (els.remoteSyncAnonKey) els.remoteSyncAnonKey.value = remoteSyncAnonKey;
-  if (els.remoteSyncUserKey) els.remoteSyncUserKey.value = remoteSyncUserKey;
   syncCustomRepeatPanel();
   syncHabitCustomRepeatPanel();
 }
@@ -2116,8 +2115,8 @@ function getUiSettings() {
     remoteSyncEnabled,
     remoteSyncLastPulledAt,
     remoteSyncLastPushedAt,
+    remoteSyncPending,
     remoteSyncUrl,
-    remoteSyncUserKey,
     themePreference,
     timeFormat,
   };
@@ -2203,14 +2202,6 @@ function updateSetting(name, value) {
       renderRemoteSyncStatus();
       remoteAuthController.render();
       break;
-    case "remoteSyncUserKey":
-      remoteSyncUserKey = normalizeRemoteUserKey(value);
-      remoteSyncWorkflow.clearError();
-      applySettingsPreferences();
-      saveUiState();
-      settingsController.syncControls();
-      renderRemoteSyncStatus();
-      break;
   }
 }
 
@@ -2238,9 +2229,9 @@ function applyImportedSettings(settings = {}) {
   remoteSyncEnabled = normalized.remoteSyncEnabled;
   remoteSyncUrl = normalized.remoteSyncUrl;
   remoteSyncAnonKey = normalized.remoteSyncAnonKey;
-  remoteSyncUserKey = normalized.remoteSyncUserKey;
   remoteSyncLastPulledAt = normalized.remoteSyncLastPulledAt;
   remoteSyncLastPushedAt = normalized.remoteSyncLastPushedAt;
+  remoteSyncPending = normalized.remoteSyncPending;
   localStateUpdatedAt = normalized.localStateUpdatedAt || localStateUpdatedAt;
   remoteSyncWorkflow.clearError();
   applyThemePreference();
@@ -2261,15 +2252,6 @@ function renderSettingsBackupStatus() {
   const last = lastAutoBackupAt ? formatBackupDate(lastAutoBackupAt) : "еще не запускался";
   const next = nextAutoBackupAt ? formatBackupDate(nextAutoBackupAt) : "ожидает расписание";
   els.settingsBackupStatus.textContent = `Последний авто-бэкап: ${last} · следующий: ${next}`;
-}
-
-function generateRemoteSyncKey() {
-  remoteSyncUserKey = remoteSyncController.generatePrivateKey();
-  remoteSyncWorkflow.clearError();
-  saveUiState();
-  settingsController.syncControls();
-  els.remoteSyncUserKey?.focus();
-  showToast("Приватный ключ создан. Сохрани его для подключения других устройств");
 }
 
 function isRemoteSyncReady() {
@@ -2301,11 +2283,7 @@ function latestIsoDate(...values) {
 }
 
 function describeRemoteSyncError(error) {
-  if (error?.status === 401 || error?.status === 403) return "неверный anon key или доступ запрещен";
-  if (error?.status === 404) return "таблица rhythm_states не создана";
-  const message = String(error?.message || "").trim();
-  if (/failed to fetch|network|load failed/i.test(message)) return "нет сети или Supabase URL недоступен";
-  return message || "неизвестная ошибка";
+  return saveStatusView.describeRemoteError(error);
 }
 
 function scheduleAutoBackup() {
@@ -2419,7 +2397,15 @@ function replaceState(nextState) {
 }
 
 function saveState(options = {}) {
-  state = stateController.saveState(state, options);
+  try {
+    state = stateController.saveState(state, options);
+    localStorageError = "";
+  } catch {
+    localStorageError = "Локальное хранилище заполнено · экспортируй данные";
+    renderSaveStatus();
+    showToast("Не удалось сохранить данные. Экспортируй JSON, чтобы не потерять изменения");
+    return false;
+  }
   localStateUpdatedAt = options.localUpdatedAt || new Date().toISOString();
   saveUiState();
   renderSaveStatus();
@@ -2427,6 +2413,7 @@ function saveState(options = {}) {
   syncDesktopReminders();
   if (!options.skipBackup) syncDesktopBackup();
   if (!options.skipBackup && !options.skipRemote) scheduleRemotePush();
+  return true;
 }
 
 function createBackup(options = {}) {
@@ -2454,6 +2441,7 @@ function formatBackupDate(value) {
 }
 
 function seedIfEmpty() {
+  if (initialStateLoad.status === "corrupt") return;
   if (state.defaultsSeeded) return;
   state.defaultsSeeded = true;
   if (state.categories.length) {

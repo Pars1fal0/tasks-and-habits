@@ -37,24 +37,7 @@ on public.rhythm_states (user_id);
 alter table public.rhythm_states enable row level security;
 
 drop policy if exists "rhythm_states_select_own_key" on public.rhythm_states;
-create policy "rhythm_states_select_own_key"
-on public.rhythm_states
-for select
-to anon
-using (
-  user_id is null and
-  user_key = (current_setting('request.headers', true)::json ->> 'x-rhythm-user-key')
-);
-
 drop policy if exists "rhythm_states_insert_own_key" on public.rhythm_states;
-create policy "rhythm_states_insert_own_key"
-on public.rhythm_states
-for insert
-to anon
-with check (
-  user_id is null and
-  user_key = (current_setting('request.headers', true)::json ->> 'x-rhythm-user-key')
-);
 
 drop policy if exists "rhythm_states_select_authenticated" on public.rhythm_states;
 create policy "rhythm_states_select_authenticated"
@@ -79,15 +62,3 @@ using ((select auth.uid()) = user_id)
 with check ((select auth.uid()) = user_id);
 
 drop policy if exists "rhythm_states_update_own_key" on public.rhythm_states;
-create policy "rhythm_states_update_own_key"
-on public.rhythm_states
-for update
-to anon
-using (
-  user_id is null and
-  user_key = (current_setting('request.headers', true)::json ->> 'x-rhythm-user-key')
-)
-with check (
-  user_id is null and
-  user_key = (current_setting('request.headers', true)::json ->> 'x-rhythm-user-key')
-);

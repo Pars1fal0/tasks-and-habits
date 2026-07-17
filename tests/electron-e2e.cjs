@@ -75,6 +75,18 @@ const { _electron: electron } = require("playwright-core");
     await page.keyboard.press("Escape");
     assert.equal(await page.locator("#habitFormPanel").getAttribute("role"), null);
 
+    for (const width of [320, 360]) {
+      await page.setViewportSize({ height: 720, width });
+      const bodyFits = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
+      assert.equal(bodyFits, true, `page must not overflow at ${width}px`);
+      const navigationBox = await page.locator(".nav-tabs").boundingBox();
+      assert.ok(
+        navigationBox && navigationBox.x >= 0 && navigationBox.x + navigationBox.width <= width + 0.5,
+        `navigation must fit ${width}px`,
+      );
+    }
+
+    await page.setViewportSize({ height: 780, width: 390 });
     await page.locator('.nav-tab[data-view="timeline"]:visible').click();
     await page.locator('[data-timeline-scale="compact"]').click();
     const compactHeight = await page.locator(".timeline-hour-slot").first().evaluate((node) => node.getBoundingClientRect().height);

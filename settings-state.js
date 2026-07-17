@@ -1,10 +1,9 @@
 (function (global) {
-  const SECRET_REMOTE_KEYS = new Set(["remoteSyncAnonKey", "remoteSyncUrl", "remoteSyncUserKey"]);
+  const SECRET_REMOTE_KEYS = new Set(["remoteSyncAnonKey", "remoteSyncPending", "remoteSyncUrl"]);
 
   function createSettingsState(options = {}) {
     const validBackupSchedules = options.validBackupSchedules || ["0", "5", "15", "30", "60"];
     const cleanText = options.cleanText || ((value) => String(value || "").trim());
-    const normalizeRemoteUserKey = options.normalizeRemoteUserKey || ((value) => String(value || "").trim().toLowerCase());
 
     function normalizeThemePreference(value) {
       return ["dark", "light", "system"].includes(value) ? value : "dark";
@@ -46,8 +45,8 @@
         remoteSyncEnabled: normalizeRemoteSyncEnabled(settings.remoteSyncEnabled),
         remoteSyncLastPulledAt: settings.remoteSyncLastPulledAt || "",
         remoteSyncLastPushedAt: settings.remoteSyncLastPushedAt || "",
+        remoteSyncPending: false,
         remoteSyncUrl: cleanText(settings.remoteSyncUrl || ""),
-        remoteSyncUserKey: normalizeRemoteUserKey(settings.remoteSyncUserKey || ""),
         themePreference: normalizeThemePreference(settings.themePreference),
         timeFormat: normalizeTimeFormat(settings.timeFormat),
       };

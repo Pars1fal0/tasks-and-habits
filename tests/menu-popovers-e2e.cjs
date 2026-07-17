@@ -34,7 +34,7 @@ const { _electron: electron } = require("playwright-core");
     await page.waitForSelector("#pageTitle");
     await page.locator("#activeDate").fill(activeDate);
     await page.locator("#activeDate").dispatchEvent("change");
-    await page.setViewportSize({ width: 390, height: 800 });
+    await page.setViewportSize({ width: 320, height: 720 });
 
     await page.locator('.nav-tab[data-view="tasks"]:visible').click();
     const taskCard = page.locator(".task-item").first();
@@ -89,6 +89,9 @@ async function menuBounds(locator) {
 function assertMenuFits(bounds, label) {
   assert.ok(bounds.top >= 0, `${label} must stay below the viewport top`);
   assert.ok(bounds.bottom <= bounds.viewportHeight, `${label} must stay above the viewport bottom`);
-  assert.ok(bounds.left >= 0 && bounds.right <= bounds.viewportWidth, `${label} must fit horizontally`);
+  assert.ok(
+    bounds.left >= 0 && bounds.right <= bounds.viewportWidth,
+    `${label} must fit horizontally: ${JSON.stringify(bounds)}`,
+  );
   assert.equal(bounds.hitInside, true, `${label} must render above surrounding cards`);
 }

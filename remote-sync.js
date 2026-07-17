@@ -2,6 +2,8 @@
   function createRemoteSync(options = {}) {
     const fetchFn = options.fetch || global.fetch?.bind(global);
     const tableName = options.tableName || "rhythm_states";
+    const now = options.now || (() => Date.now());
+    const maxClockSkewMs = Math.max(60_000, Number(options.maxClockSkewMs) || 10 * 60_000);
 
     function normalizeConfig(config = {}) {
       return {
@@ -10,14 +12,18 @@
         anonKey: String(config.anonKey || "").trim(),
         accessToken: String(config.accessToken || "").trim(),
         userId: String(config.userId || "").trim(),
-        userKey: normalizeUserKey(config.userKey),
       };
     }
 
     function isConfigured(config = {}) {
       const normalized = normalizeConfig(config);
-      const hasIdentity = Boolean((normalized.accessToken && normalized.userId) || normalized.userKey);
-      return Boolean(normalized.enabled && normalized.supabaseUrl && normalized.anonKey && hasIdentity);
+      return Boolean(
+        normalized.enabled &&
+        normalized.supabaseUrl &&
+        normalized.anonKey &&
+        normalized.accessToken &&
+        normalized.userId,
+      );
     }
 
     async function pushState(config, payload = {}) {
@@ -26,14 +32,14 @@
       ensureConfigured(normalized);
       const clientUpdatedAt = payload.clientUpdatedAt || new Date().toISOString();
       const body = {
-        user_key: normalized.userId ? `auth:${normalized.userId}` : normalized.userKey,
-        ...(normalized.userId ? { user_id: normalized.userId } : {}),
+        user_key: `auth:${normalized.userId}`,
+        user_id: normalized.userId,
         state: payload.state || {},
         ui_state: payload.uiState || {},
         schema_version: payload.schemaVersion || payload.state?.schemaVersion || 1,
         client_updated_at: clientUpdatedAt,
       };
-      const conflictColumn = normalized.userId ? "user_id" : "user_key";
+      const conflictColumn = "user_id";
       const expectedUpdatedAt = String(payload.expectedUpdatedAt || "").trim();
       const expectMissing = payload.expectMissing === true;
       const updateFilter = expectedUpdatedAt
@@ -49,6 +55,7 @@
         body: JSON.stringify(body),
       });
 
+      ensureClockSafe(response);
       const data = await readResponse(response);
       if (!response.ok) throw createRemoteError("push-failed", response, data);
       if ((expectedUpdatedAt || expectMissing) && (!Array.isArray(data) || data.length === 0)) {
@@ -71,6 +78,7 @@
         headers: supabaseHeaders(normalized),
       });
 
+      ensureClockSafe(response);
       const data = await readResponse(response);
       if (!response.ok) throw createRemoteError("pull-failed", response, data);
       const row = Array.isArray(data) ? data[0] : null;
@@ -96,6 +104,7 @@
         headers: supabaseHeaders(normalized),
       });
 
+      ensureClockSafe(response);
       const data = await readResponse(response);
       if (!response.ok) throw createRemoteError("check-failed", response, data);
       const row = Array.isArray(data) ? data[0] : null;
@@ -112,12 +121,21 @@
       }
     }
 
+    function ensureClockSafe(response) {
+      const serverDate = response?.headers?.get?.("date");
+      if (!serverDate) return;
+      const serverTime = Date.parse(serverDate);
+      if (!Number.isFinite(serverTime) || Math.abs(now() - serverTime) <= maxClockSkewMs) return;
+      const error = new Error("Device clock differs from the database server");
+      error.code = "clock-skew";
+      throw error;
+    }
+
     function supabaseHeaders(config, extra = {}) {
       return {
         apikey: config.anonKey,
-        Authorization: `Bearer ${config.accessToken || config.anonKey}`,
+        Authorization: `Bearer ${config.accessToken}`,
         "Content-Type": "application/json",
-        ...(config.userKey && !config.userId ? { "x-rhythm-user-key": config.userKey } : {}),
         ...extra,
       };
     }
@@ -142,9 +160,7 @@
   }
 
   function identityFilter(config) {
-    return config.userId
-      ? `user_id=eq.${encodeURIComponent(config.userId)}`
-      : `user_key=eq.${encodeURIComponent(config.userKey)}`;
+    return `user_id=eq.${encodeURIComponent(config.userId)}`;
   }
 
   function createRemoteError(code, response, data) {
@@ -156,18 +172,11 @@
     return error;
   }
 
-  function normalizeUserKey(value) {
-    return String(value || "")
-      .trim()
-      .replace(/\s+/g, "-")
-      .toLowerCase();
-  }
-
   function stripTrailingSlash(value) {
     return value.replace(/\/+$/, "");
   }
 
-  const api = { createRemoteSync, normalizeUserKey, stripTrailingSlash };
+  const api = { createRemoteSync, stripTrailingSlash };
   global.RhythmRemoteSync = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

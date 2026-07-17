@@ -54,6 +54,24 @@ module.exports = [
     },
   },
   {
+    name: "still signs out locally after project settings are removed",
+    async fn() {
+      const storage = createStorage();
+      storage.setItem(SESSION_KEY, JSON.stringify({ access_token: "jwt", user: { id: "u1" } }));
+      const auth = createRemoteAuth({
+        fetch: async () => {
+          throw new Error("must not request a missing project");
+        },
+        getConfig: () => ({}),
+        storage,
+      });
+
+      await auth.signOut();
+
+      assert.equal(storage.getItem(SESSION_KEY), null);
+    },
+  },
+  {
     name: "requests a password recovery email without storing credentials",
     async fn() {
       const calls = [];

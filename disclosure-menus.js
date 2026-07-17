@@ -10,13 +10,22 @@
     return roomAbove > roomBelow ? "up" : "down";
   }
 
-  function positionDisclosure(details, viewportHeight = global.innerHeight) {
+  function calculateMenuShift(menuRect, viewportWidth, gap = 8) {
+    if (menuRect.left < gap) return gap - menuRect.left;
+    if (menuRect.right > viewportWidth - gap) return viewportWidth - gap - menuRect.right;
+    return 0;
+  }
+
+  function positionDisclosure(details, viewportHeight = global.innerHeight, viewportWidth = global.innerWidth) {
     const trigger = details.querySelector(":scope > summary");
     const menu = details.querySelector(MENU_SELECTOR);
     if (!trigger || !menu || !details.open) return;
     details.classList.remove("menu-opens-up", "menu-opens-down");
+    menu.style.removeProperty("--menu-shift-x");
     const direction = chooseMenuDirection(trigger.getBoundingClientRect(), menu.getBoundingClientRect().height, viewportHeight);
     details.classList.add(direction === "up" ? "menu-opens-up" : "menu-opens-down");
+    const shift = calculateMenuShift(menu.getBoundingClientRect(), viewportWidth);
+    if (shift) menu.style.setProperty("--menu-shift-x", `${shift}px`);
   }
 
   function bindDisclosureMenus(root = document) {
@@ -31,6 +40,7 @@
         if (details === except) return;
         details.removeAttribute("open");
         details.classList.remove("menu-opens-up", "menu-opens-down");
+        details.querySelector(MENU_SELECTOR)?.style.removeProperty("--menu-shift-x");
         if (restoreFocus) details.querySelector(":scope > summary")?.focus();
       });
     }
@@ -71,7 +81,7 @@
     return { closeMenus, positionDisclosure };
   }
 
-  const api = { bindDisclosureMenus, chooseMenuDirection, positionDisclosure };
+  const api = { bindDisclosureMenus, calculateMenuShift, chooseMenuDirection, positionDisclosure };
   global.RhythmDisclosureMenus = api;
   if (typeof document !== "undefined") bindDisclosureMenus(document);
   if (typeof module !== "undefined" && module.exports) module.exports = api;

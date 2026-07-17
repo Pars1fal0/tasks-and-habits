@@ -1,5 +1,5 @@
 const assert = require("node:assert/strict");
-const { createRemoteSyncController, createRemoteSyncWorkflow } = require("../remote-sync-controller.js");
+const { createRemoteSyncWorkflow } = require("../remote-sync-controller.js");
 
 module.exports = [
   {
@@ -15,11 +15,10 @@ module.exports = [
         formatDate: (value) => value,
         getLocalUpdatedAt: () => "2026-07-13T09:00:00.000Z",
         getRemoteUiSettings: () => ({}),
-        getSettings: () => ({ enabled: true, anonKey: "anon", supabaseUrl: "url", userKey: "key" }),
+        getSettings: () => ({ accessToken: "jwt", enabled: true, anonKey: "anon", supabaseUrl: "url", userId: "user" }),
         getState: () => state,
         getSyncMeta: () => ({ lastPulledAt: "", lastPushedAt: "" }),
         isRemoteVersionNewer: () => true,
-        isSecurePrivateKey: () => true,
         latestIsoDate: (...values) => values.filter(Boolean).sort().at(-1) || "",
         mergeStates: (local, remote) => ({ tasks: [...local.tasks.filter((task) => task.id === "local"), ...remote.tasks] }),
         remoteSync: {
@@ -60,17 +59,6 @@ module.exports = [
     },
   },
   {
-    name: "generates a strong private sync key",
-    fn() {
-      const controller = createRemoteSyncController({
-        crypto: { getRandomValues: (bytes) => bytes.fill(10) },
-      });
-      const key = controller.generatePrivateKey();
-      assert.equal(controller.isSecurePrivateKey(key), true);
-      assert.equal(controller.isSecurePrivateKey("me@example.com"), false);
-    },
-  },
-  {
     name: "merges a newer remote snapshot during automatic sync",
     async fn() {
       let enabled = true;
@@ -83,11 +71,10 @@ module.exports = [
         formatDate: (value) => value,
         getLocalUpdatedAt: () => "2026-07-12T00:00:00.000Z",
         getRemoteUiSettings: () => ({}),
-        getSettings: () => ({ enabled, anonKey: "anon", supabaseUrl: "url", userKey: "key" }),
+        getSettings: () => ({ accessToken: "jwt", enabled, anonKey: "anon", supabaseUrl: "url", userId: "user" }),
         getState: () => ({ tasks: [{ id: "local" }] }),
         getSyncMeta: () => ({ lastPulledAt: "", lastPushedAt: "" }),
         isRemoteVersionNewer: () => true,
-        isSecurePrivateKey: () => true,
         latestIsoDate: () => "",
         mergeStates: () => ({ tasks: [{ id: "merged" }] }),
         remoteSync: {
@@ -129,11 +116,10 @@ module.exports = [
         formatDate: (value) => value,
         getLocalUpdatedAt: () => "2026-07-13T09:00:00.000Z",
         getRemoteUiSettings: () => ({}),
-        getSettings: () => ({ enabled: true, anonKey: "anon", supabaseUrl: "url", userKey: "key" }),
+        getSettings: () => ({ accessToken: "jwt", enabled: true, anonKey: "anon", supabaseUrl: "url", userId: "user" }),
         getState: () => state,
         getSyncMeta: () => ({ lastPulledAt: "", lastPushedAt: "" }),
         isRemoteVersionNewer: () => true,
-        isSecurePrivateKey: () => true,
         latestIsoDate: (...values) => values.filter(Boolean).sort().at(-1) || "",
         mergeStates: () => ({ tasks: [{ id: "local" }, { id: "remote" }] }),
         remoteSync: {
@@ -166,6 +152,79 @@ module.exports = [
       assert.deepEqual(pushedState, { tasks: [{ id: "local" }, { id: "remote" }] });
       assert.equal(lastPushedAt, "2026-07-13T10:00:01.000Z");
       assert.equal(workflow.getStatus().lastError, "");
+    },
+  },
+  {
+    name: "resumes a persisted pending upload after restart",
+    async fn() {
+      let pending = true;
+      let pushes = 0;
+      const workflow = createRemoteSyncWorkflow({
+        createImportSafetyBackup() {},
+        createUndoSnapshot: () => ({ state: "{}" }),
+        describeError: (error) => error.message,
+        formatDate: (value) => value,
+        getLocalUpdatedAt: () => "2026-07-17T08:00:00.000Z",
+        getRemoteUiSettings: () => ({}),
+        getSettings: () => ({ accessToken: "jwt", enabled: true, anonKey: "anon", supabaseUrl: "url", userId: "user" }),
+        getState: () => ({ tasks: [{ id: "offline-change" }] }),
+        getSyncMeta: () => ({ lastPulledAt: "", lastPushedAt: "", pending }),
+        isRemoteVersionNewer: () => false,
+        latestIsoDate: (...values) => values.filter(Boolean).sort().at(-1) || "",
+        mergeStates: (local) => local,
+        remoteSync: {
+          normalizeConfig: (config) => config,
+          isConfigured: (config) => config.enabled,
+          pullState: async () => ({ found: false }),
+          pushState: async () => {
+            pushes += 1;
+            return { row: { updated_at: "2026-07-17T08:00:01.000Z" } };
+          },
+        },
+        render() {},
+        renderSaveStatus() {},
+        replaceState() {},
+        saveState() {},
+        saveUiState() {},
+        schemaVersion: 12,
+        setSyncMeta: (meta) => {
+          if (typeof meta.pending === "boolean") pending = meta.pending;
+        },
+        showToast() {},
+        statusElement: { textContent: "" },
+        syncControls() {},
+      });
+
+      await workflow.resumePending();
+
+      assert.equal(pushes, 1);
+      assert.equal(pending, false);
+      assert.equal(workflow.getStatus().pending, false);
+    },
+  },
+  {
+    name: "remembers local changes even before an account is connected",
+    fn() {
+      let pending = false;
+      const workflow = createRemoteSyncWorkflow({
+        getSettings: () => ({ enabled: true, anonKey: "anon", supabaseUrl: "url" }),
+        getSyncMeta: () => ({ pending }),
+        remoteSync: {
+          normalizeConfig: (config) => config,
+          isConfigured: () => false,
+        },
+        saveUiState() {},
+        setSyncMeta: (meta) => {
+          if (typeof meta.pending === "boolean") pending = meta.pending;
+        },
+        statusElement: { textContent: "" },
+        syncControls() {},
+      });
+
+      workflow.schedulePush();
+
+      assert.equal(pending, true);
+      assert.equal(workflow.getStatus().pending, true);
     },
   },
 ];

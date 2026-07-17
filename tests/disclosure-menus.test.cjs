@@ -1,5 +1,5 @@
 const assert = require("node:assert/strict");
-const { chooseMenuDirection } = require("../disclosure-menus.js");
+const { calculateMenuShift, chooseMenuDirection } = require("../disclosure-menus.js");
 
 module.exports = [
   {
@@ -18,6 +18,14 @@ module.exports = [
     name: "uses the side with more room when a menu cannot fully fit",
     fn() {
       assert.equal(chooseMenuDirection({ top: 500, bottom: 540 }, 480, 800), "up");
+    },
+  },
+  {
+    name: "shifts a menu back inside a narrow viewport",
+    fn() {
+      assert.equal(calculateMenuShift({ left: -3, right: 277 }, 320), 11);
+      assert.equal(calculateMenuShift({ left: 50, right: 325 }, 320), -13);
+      assert.equal(calculateMenuShift({ left: 20, right: 300 }, 320), 0);
     },
   },
 ];

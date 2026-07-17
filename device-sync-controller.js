@@ -27,13 +27,13 @@
     }
 
     function start() {
-      if (running) return;
+      if (running) return Promise.resolve({ changed: false, skipped: "running" });
       running = true;
       documentRef?.addEventListener?.("visibilitychange", handleVisibilityChange);
       host.addEventListener?.("focus", handleFocus);
       host.addEventListener?.("online", handleOnline);
       intervalId = host.setInterval?.(() => syncNow(), intervalMs) || null;
-      syncNow({ force: true });
+      return syncNow({ force: true });
     }
 
     function stop() {

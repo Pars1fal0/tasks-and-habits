@@ -1,25 +1,8 @@
 (function (global) {
-  function createRemoteSyncController(options = {}) {
-    const cryptoApi = options.crypto || global.crypto;
-
-    function generatePrivateKey() {
-      if (!cryptoApi?.getRandomValues) throw new Error("Secure random generator is unavailable");
-      const bytes = new Uint8Array(24);
-      cryptoApi.getRandomValues(bytes);
-      return `rhythm_${[...bytes].map((value) => value.toString(16).padStart(2, "0")).join("")}`;
-    }
-
-    function isSecurePrivateKey(value) {
-      return /^rhythm_[a-f0-9]{48,}$/i.test(String(value || "").trim());
-    }
-
-    return { generatePrivateKey, isSecurePrivateKey };
-  }
-
   function createRemoteSyncWorkflow(ctx) {
     let inFlight = false;
     let lastError = "";
-    let pending = false;
+    let pending = ctx.getSyncMeta?.().pending === true;
     let timerId = null;
 
     function getConfig() {
@@ -30,7 +13,6 @@
         enabled: settings.enabled,
         supabaseUrl: settings.supabaseUrl,
         userId: settings.userId,
-        userKey: settings.userKey,
       });
     }
 
@@ -54,13 +36,10 @@
       if (!ctx.statusElement) return;
       const settings = ctx.getSettings();
       syncActionState();
-      if (!hasCredentials()) return setStatus("БД: не настроено · войди в аккаунт или подключи legacy-ключ");
+      if (!hasCredentials()) return setStatus("БД: не настроено · войди в аккаунт");
       if (!settings.enabled) return setStatus("БД: подключение готово · автоматическая синхронизация выключена");
       if (lastError) return setStatus(`БД: ошибка · ${lastError}`);
       if (inFlight) return setStatus("БД: синхронизация...");
-      if (!settings.userId && !ctx.isSecurePrivateKey(settings.userKey)) {
-        return setStatus("БД: подключена старым коротким ключом · создай приватный ключ перед хранением важных данных");
-      }
       if (pending) return setStatus("БД: ожидает синхронизации локальных изменений");
       const meta = ctx.getSyncMeta();
       const pushed = meta.lastPushedAt ? ctx.formatDate(meta.lastPushedAt) : "еще не сохранялось";
@@ -71,8 +50,8 @@
     }
 
     function schedulePush() {
+      setPending(true);
       if (!isReady()) return renderStatus();
-      pending = true;
       renderStatus();
       if (timerId) clearTimeout(timerId);
       timerId = setTimeout(() => {
@@ -114,8 +93,7 @@
           }
         }
         ctx.setSyncMeta({ lastPushedAt: snapshotVersion(pushed) || pushedAt });
-        pending = false;
-        ctx.saveUiState();
+        setPending(false);
         ctx.recordSyncEvent?.("push");
         if (manual) ctx.showToast(mergedRemote ? "Данные устройств объединены и сохранены" : "Данные сохранены в БД");
       } catch (error) {
@@ -207,7 +185,7 @@
         ctx.replaceState(nextState);
         const pulledAt = new Date().toISOString();
         ctx.setSyncMeta({ lastPulledAt: remoteVersion || pulledAt });
-        pending = false;
+        setPending(false);
         ctx.saveState({
           localUpdatedAt: ctx.latestIsoDate(localUpdatedAt, pulled.clientUpdatedAt, pulledAt),
           skipBackup: true,
@@ -255,7 +233,7 @@
       ctx.replaceState(ctx.mergeStates(ctx.getState(), pulled.state));
       const pulledAt = new Date().toISOString();
       ctx.setSyncMeta({ lastPulledAt: snapshotVersion(pulled) || pulledAt });
-      pending = false;
+      setPending(false);
       ctx.saveState({
         localUpdatedAt: ctx.latestIsoDate(ctx.getLocalUpdatedAt(), pulled.clientUpdatedAt, pulledAt),
         skipBackup: true,
@@ -270,6 +248,19 @@
 
     function snapshotVersion(snapshot) {
       return snapshot?.updatedAt || snapshot?.row?.updated_at || snapshot?.clientUpdatedAt || "";
+    }
+
+    async function resumePending() {
+      if (!pending || !isReady() || global.navigator?.onLine === false) return { resumed: false };
+      const syncResult = await syncLatest({ silent: true });
+      if (pending) await push({ silent: true });
+      return { resumed: true, syncResult };
+    }
+
+    function setPending(value) {
+      pending = value === true;
+      ctx.setSyncMeta?.({ pending });
+      ctx.saveUiState?.();
     }
 
     function begin() {
@@ -301,10 +292,10 @@
       return { inFlight, lastError, pending };
     }
 
-    return { check, clearError, getConfig, getStatus, isReady, pull, push, renderStatus, schedulePush, syncLatest };
+    return { check, clearError, getConfig, getStatus, isReady, pull, push, renderStatus, resumePending, schedulePush, syncLatest };
   }
 
-  const api = { createRemoteSyncController, createRemoteSyncWorkflow };
+  const api = { createRemoteSyncWorkflow };
   global.RhythmRemoteSyncController = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

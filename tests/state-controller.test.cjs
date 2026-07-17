@@ -29,4 +29,25 @@ module.exports = [
       assert.equal(saved[0].options.skipBackup, true);
     },
   },
+  {
+    name: "keeps the latest state in memory when browser storage is full",
+    fn() {
+      const controller = createStateController({
+        clone: (value) => structuredClone(value),
+        initialState: { value: 1 },
+        normalizeState: (value) => value,
+        schemaVersion: 12,
+        storage: {
+          saveState() {
+            throw new DOMException("Quota exceeded", "QuotaExceededError");
+          },
+        },
+        trackChanges() {},
+      });
+      const next = { value: 2 };
+
+      assert.throws(() => controller.saveState(next), /Quota exceeded/);
+      assert.deepEqual(controller.getState(), next);
+    },
+  },
 ];

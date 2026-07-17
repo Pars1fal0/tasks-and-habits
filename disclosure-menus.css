@@ -37,6 +37,14 @@
   overscroll-behavior: contain;
 }
 
+.task-more-menu,
+.habit-more-menu,
+.goal-menu-popover,
+.overdue-more-menu,
+.nav-more-menu {
+  translate: var(--menu-shift-x, 0) 0;
+}
+
 .timeline-task-menu-wrap.opens-up .timeline-task-menu {
   top: auto;
   bottom: calc(100% + 6px);

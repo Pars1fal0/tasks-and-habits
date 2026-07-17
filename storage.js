@@ -3,6 +3,7 @@
     state: "rhythm-day-state-v1",
     uiState: "rhythm-day-ui-v1",
     backup: "rhythm-day-backup-v1",
+    corruptState: "rhythm-day-corrupt-state-v1",
     importSafetyBackup: "rhythm-day-import-safety-backup-v1",
   };
 
@@ -15,6 +16,28 @@
 
     function loadState() {
       return readJson(keys.state, null);
+    }
+
+    function loadStateWithRecovery() {
+      let raw = null;
+      try {
+        raw = storage.getItem(keys.state);
+        if (!raw) return { state: null, status: "empty" };
+        return { state: JSON.parse(raw), status: "ok" };
+      } catch (error) {
+        try {
+          if (raw) storage.setItem(keys.corruptState, raw);
+        } catch {}
+        const backup = loadBackup();
+        const recoveredState = backup?.state && typeof backup.state === "object" ? backup.state : null;
+        if (!recoveredState) return { error, state: null, status: "corrupt" };
+        try {
+          writeJson(keys.state, recoveredState);
+        } catch (writeError) {
+          return { error, state: recoveredState, status: "recovered-memory", writeError };
+        }
+        return { error, state: recoveredState, status: "recovered" };
+      }
     }
 
     function saveState(state, saveOptions = {}) {
@@ -110,6 +133,7 @@
       createImportSafetyBackup,
       loadBackup,
       loadState,
+      loadStateWithRecovery,
       loadUiState,
       saveState,
       saveUiState,

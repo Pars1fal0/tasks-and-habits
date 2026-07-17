@@ -69,7 +69,12 @@
       const current = session;
       saveSession(null);
       if (!current?.access_token) return;
-      const config = requireConfig();
+      let config;
+      try {
+        config = requireConfig();
+      } catch {
+        return;
+      }
       await fetchFn(`${config.supabaseUrl}/auth/v1/logout`, {
         method: "POST",
         headers: { ...authHeaders(config), Authorization: `Bearer ${current.access_token}` },

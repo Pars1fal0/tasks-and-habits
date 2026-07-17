@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.13.4
+
+- Persisted pending cloud uploads and resume them after reconnect, sign-in, or application restart.
+- Recover malformed local state from the latest backup while preserving the damaged source for diagnostics.
+- Keep storage quota failures visible and preserve the latest in-memory state for emergency JSON export.
+- Removed legacy key synchronization from the UI, REST client, and Supabase anonymous RLS policies.
+- Block synchronization when the server exposes a dangerous device clock difference.
+- Added a conservative two-year retention policy for local deletion tombstones.
+- Extended the live Supabase check with an optional content-preserving write and conflict test.
+- Added 320px and 360px browser coverage, touch pointer coverage, and horizontal menu clamping.
+- Extracted save and synchronization status formatting from `app.js`.
+
 ## 0.13.3
 
 - Fixed task, habit, goal, overdue, navigation, and timeline menus being clipped by cards or viewport edges.

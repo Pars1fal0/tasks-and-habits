@@ -1,5 +1,13 @@
 const assert = require("node:assert/strict");
-const { createRemoteSync, normalizeUserKey, stripTrailingSlash } = require("../remote-sync.js");
+const { createRemoteSync, stripTrailingSlash } = require("../remote-sync.js");
+
+const authConfig = {
+  accessToken: "user-jwt",
+  anonKey: "anon",
+  enabled: true,
+  supabaseUrl: "https://demo.supabase.co",
+  userId: "user-123",
+};
 
 module.exports = [
   {
@@ -18,12 +26,12 @@ module.exports = [
       });
 
       await sync.pushState(
-        { enabled: true, supabaseUrl: "https://demo.supabase.co", anonKey: "anon", userKey: "me" },
+        authConfig,
         { expectedUpdatedAt: "2026-07-13T10:00:00.000Z", state: { tasks: [] } },
       );
 
       assert.equal(calls[0].options.method, "PATCH");
-      assert.match(calls[0].url, /user_key=eq\.me/);
+      assert.match(calls[0].url, /user_id=eq\.user-123/);
       assert.match(calls[0].url, /updated_at=eq\.2026-07-13T10%3A00%3A00\.000Z/);
       assert.equal(calls[0].options.headers.Prefer, "return=representation");
     },
@@ -37,7 +45,7 @@ module.exports = [
 
       await assert.rejects(
         sync.pushState(
-          { enabled: true, supabaseUrl: "https://demo.supabase.co", anonKey: "anon", userKey: "me" },
+          authConfig,
           { expectedUpdatedAt: "2026-07-13T10:00:00.000Z", state: { tasks: [] } },
         ),
         (error) => error.code === "sync-conflict" && error.status === 409,
@@ -48,11 +56,9 @@ module.exports = [
     name: "normalizes remote sync configuration",
     fn() {
       assert.equal(stripTrailingSlash("https://demo.supabase.co///"), "https://demo.supabase.co");
-      assert.equal(normalizeUserKey(" My Main Device "), "my-main-device");
-
       const sync = createRemoteSync({ fetch: async () => ({ ok: true, text: async () => "[]" }) });
-      assert.equal(sync.isConfigured({ enabled: true, supabaseUrl: "https://demo.supabase.co", anonKey: "key", userKey: "me" }), true);
-      assert.equal(sync.isConfigured({ enabled: true, supabaseUrl: "", anonKey: "key", userKey: "me" }), false);
+      assert.equal(sync.isConfigured(authConfig), true);
+      assert.equal(sync.isConfigured({ ...authConfig, accessToken: "" }), false);
     },
   },
   {
@@ -71,27 +77,28 @@ module.exports = [
       });
 
       const result = await sync.pushState(
-        { enabled: true, supabaseUrl: "https://demo.supabase.co/", anonKey: "anon", userKey: "me" },
+        { ...authConfig, supabaseUrl: "https://demo.supabase.co/" },
         { clientUpdatedAt: "2026-07-01T00:00:00.000Z", schemaVersion: 7, state: { tasks: [] }, uiState: { themePreference: "dark" } },
       );
 
       assert.equal(result.ok, true);
-      assert.equal(calls[0].url, "https://demo.supabase.co/rest/v1/rhythm_states?on_conflict=user_key");
+      assert.equal(calls[0].url, "https://demo.supabase.co/rest/v1/rhythm_states?on_conflict=user_id");
       assert.equal(calls[0].options.method, "POST");
       assert.equal(calls[0].options.headers.apikey, "anon");
-      assert.equal(calls[0].options.headers["x-rhythm-user-key"], "me");
+      assert.equal(calls[0].options.headers.Authorization, "Bearer user-jwt");
       assert.equal(calls[0].options.headers.Prefer, "resolution=merge-duplicates,return=representation");
       assert.deepEqual(JSON.parse(calls[0].options.body), {
         client_updated_at: "2026-07-01T00:00:00.000Z",
         schema_version: 7,
         state: { tasks: [] },
         ui_state: { themePreference: "dark" },
-        user_key: "me",
+        user_id: "user-123",
+        user_key: "auth:user-123",
       });
     },
   },
   {
-    name: "pulls state from Supabase by user key",
+    name: "pulls state from Supabase by authenticated user",
     async fn() {
       const calls = [];
       const sync = createRemoteSync({
@@ -113,11 +120,11 @@ module.exports = [
         },
       });
 
-      const result = await sync.pullState({ enabled: true, supabaseUrl: "https://demo.supabase.co", anonKey: "anon", userKey: "me" });
+      const result = await sync.pullState(authConfig);
 
       assert.equal(result.found, true);
       assert.equal(result.state.tasks[0].id, "task-1");
-      assert.match(calls[0].url, /user_key=eq\.me/);
+      assert.match(calls[0].url, /user_id=eq\.user-123/);
       assert.equal(calls[0].options.method, "GET");
     },
   },
@@ -136,7 +143,7 @@ module.exports = [
         },
       });
 
-      const result = await sync.checkConnection({ enabled: true, supabaseUrl: "https://demo.supabase.co", anonKey: "anon", userKey: "me" });
+      const result = await sync.checkConnection(authConfig);
 
       assert.equal(result.ok, true);
       assert.equal(result.found, true);
@@ -145,7 +152,7 @@ module.exports = [
     },
   },
   {
-    name: "uses authenticated identity without exposing the legacy key header",
+    name: "uses authenticated identity without a custom key header",
     async fn() {
       const calls = [];
       const sync = createRemoteSync({
@@ -170,6 +177,25 @@ module.exports = [
       assert.equal(calls[0].options.headers.Authorization, "Bearer user-jwt");
       assert.equal(calls[0].options.headers["x-rhythm-user-key"], undefined);
       assert.equal(JSON.parse(calls[0].options.body).user_id, "user-123");
+    },
+  },
+  {
+    name: "blocks synchronization when the server exposes a large clock difference",
+    async fn() {
+      const sync = createRemoteSync({
+        fetch: async () => ({
+          headers: { get: (name) => name === "date" ? "Fri, 17 Jul 2026 10:00:00 GMT" : null },
+          ok: true,
+          status: 200,
+          text: async () => "[]",
+        }),
+        now: () => Date.parse("2026-07-17T12:00:00.000Z"),
+      });
+
+      await assert.rejects(
+        sync.pullState(authConfig),
+        (error) => error.code === "clock-skew",
+      );
     },
   },
 ];

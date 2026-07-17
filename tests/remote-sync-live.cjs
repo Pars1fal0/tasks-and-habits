@@ -42,14 +42,41 @@ async function run() {
   assert.ok(session.user?.id, "Supabase Auth did not return a user id");
 
   const sync = createRemoteSync({ fetch });
-  const result = await sync.checkConnection({
+  const syncConfig = {
     ...config,
     accessToken: session.access_token,
     enabled: true,
     userId: session.user.id,
-  });
-  assert.equal(result.ok, true);
-  console.log(`live sync ok - auth, rhythm_states and RLS are available (saved row: ${result.found ? "yes" : "no"})`);
+  };
+  const snapshot = await sync.pullState(syncConfig);
+  assert.equal(snapshot.ok, true);
+
+  if (process.env.RHYTHM_SYNC_LIVE_WRITE === "1") {
+    assert.equal(snapshot.found, true, "Create one cloud save with the test account before the write check");
+    const pushed = await sync.pushState(syncConfig, {
+      clientUpdatedAt: new Date().toISOString(),
+      expectedUpdatedAt: snapshot.updatedAt,
+      schemaVersion: snapshot.row.schema_version,
+      state: snapshot.state,
+      uiState: snapshot.uiState,
+    });
+    assert.equal(pushed.ok, true);
+    await assert.rejects(
+      sync.pushState(syncConfig, {
+        expectedUpdatedAt: snapshot.updatedAt,
+        schemaVersion: snapshot.row.schema_version,
+        state: snapshot.state,
+        uiState: snapshot.uiState,
+      }),
+      (error) => error.code === "sync-conflict",
+    );
+    const verified = await sync.pullState(syncConfig);
+    assert.deepEqual(verified.state, snapshot.state);
+    console.log("live sync ok - auth, read, write, optimistic conflict and RLS");
+    return;
+  }
+
+  console.log(`live sync ok - auth, read and RLS are available (saved row: ${snapshot.found ? "yes" : "no"})`);
 }
 
 run().catch((error) => {
