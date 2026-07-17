@@ -1,6 +1,7 @@
 {
   "wake_phrases": [
     "кодекс работай",
+    "кодекс работать",
     "кодекс слушай"
   ],
   "send_phrase": "отправь",
@@ -8,5 +9,7 @@
   "cancel_phrase": "отмена",
   "microphone": null,
   "composer_bottom_offset": 88,
+  "auto_send_enabled": false,
+  "auto_send_seconds": 2.0,
   "command_timeout_seconds": 90
 }

@@ -4768,14 +4768,6 @@ body.has-floating-task-form::before {
     padding-right: 38px;
   }
 
-  .task-more-menu {
-    position: fixed;
-    right: 14px;
-    bottom: 86px;
-    left: 14px;
-    width: auto;
-  }
-
   .historical-task-item {
     align-items: stretch;
     flex-direction: column;

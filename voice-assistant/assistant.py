@@ -71,6 +71,10 @@ def split_send_phrase(result, send_phrases):
     return result, False
 
 
+def should_auto_send(command_parts, last_activity_at, now, delay_seconds):
+    return bool(command_parts) and last_activity_at > 0 and now - last_activity_at >= delay_seconds
+
+
 def beep(kind):
     sounds = {
         "awake": [(880, 90), (1175, 110)],
@@ -120,6 +124,7 @@ def run():
     audio_queue = queue.Queue(maxsize=12)
     mode = "wake"
     command_started_at = 0.0
+    last_command_activity_at = 0.0
     command_parts = []
 
     def audio_callback(data, frames, timing, status):
@@ -134,6 +139,25 @@ def run():
             except queue.Empty:
                 pass
 
+    def finish_command():
+        nonlocal mode, last_command_activity_at
+        prompt = " ".join(command_parts).strip()
+        if not prompt:
+            logger.info("Пустая команда не отправлена")
+            beep("error")
+        else:
+            logger.info("Отправка команды: %s", prompt)
+            try:
+                submit_prompt(prompt, config.get("composer_bottom_offset", 88))
+                beep("sent")
+            except Exception:
+                logger.exception("Не удалось отправить команду")
+                beep("error")
+        mode = "wake"
+        last_command_activity_at = 0.0
+        command_parts.clear()
+        wake_recognizer.Reset()
+
     microphone = config.get("microphone")
     logger.info("Помощник запущен. Фразы активации: %s", ", ".join(config["wake_phrases"]))
     with sd.RawInputStream(
@@ -147,11 +171,23 @@ def run():
         while True:
             chunk = audio_queue.get()
             now = time.monotonic()
+            auto_send_enabled = config.get("auto_send_enabled", False) is True
+            auto_send_seconds = max(0.8, float(config.get("auto_send_seconds", 2.0)))
+            if auto_send_enabled and mode == "command" and should_auto_send(
+                command_parts,
+                last_command_activity_at,
+                now,
+                auto_send_seconds,
+            ):
+                logger.info("Автоматическая отправка после паузы %.1f с", auto_send_seconds)
+                finish_command()
+                continue
             if mode == "command" and now - command_started_at > config.get("command_timeout_seconds", 90):
                 logger.info("Ожидание команды завершено по тайм-ауту")
                 mode = "wake"
                 command_recognizer.Reset()
                 command_parts.clear()
+                last_command_activity_at = 0.0
                 beep("cancel")
 
             recognizer = wake_recognizer if mode == "wake" else command_recognizer
@@ -166,6 +202,7 @@ def run():
                 beep("awake")
                 mode = "command"
                 command_started_at = now
+                last_command_activity_at = 0.0
                 command_parts.clear()
                 command_recognizer.Reset()
             elif mode == "command":
@@ -174,33 +211,17 @@ def run():
                     beep("cancel")
                     mode = "wake"
                     command_parts.clear()
+                    last_command_activity_at = 0.0
                     wake_recognizer.Reset()
                     continue
 
                 spoken_part, should_send = split_send_phrase(result, config["send_phrases"])
                 if spoken_part:
                     command_parts.append(spoken_part)
+                    last_command_activity_at = now
                 if not should_send:
                     continue
-
-                prompt = " ".join(command_parts).strip()
-                if not prompt:
-                    logger.info("Пустая команда не отправлена")
-                    beep("error")
-                    mode = "wake"
-                    wake_recognizer.Reset()
-                    continue
-                logger.info("Отправка команды: %s", prompt)
-                try:
-                    submit_prompt(prompt, config.get("composer_bottom_offset", 88))
-                    beep("sent")
-                except Exception:
-                    logger.exception("Не удалось отправить команду")
-                    beep("error")
-                finally:
-                    mode = "wake"
-                    command_parts.clear()
-                    wake_recognizer.Reset()
+                finish_command()
 
 if __name__ == "__main__":
     try:

@@ -68,6 +68,19 @@
       menu.hidden = false;
       button.setAttribute("aria-expanded", "true");
       openTaskMenu = wrap;
+      positionTaskMenu(wrap);
+    }
+
+    function positionTaskMenu(wrap) {
+      const menu = wrap?.querySelector(".timeline-task-menu");
+      const button = wrap?.querySelector(".timeline-menu-button");
+      if (!menu || !button || menu.hidden) return;
+      wrap.classList.remove("opens-up");
+      const triggerRect = button.getBoundingClientRect();
+      const menuHeight = menu.getBoundingClientRect().height;
+      const roomAbove = triggerRect.top - 8;
+      const roomBelow = global.innerHeight - triggerRect.bottom - 8;
+      if (roomBelow < menuHeight && roomAbove > roomBelow) wrap.classList.add("opens-up");
     }
 
     function closeTaskMenu() {
@@ -75,7 +88,7 @@
       const menu = openTaskMenu.querySelector(".timeline-task-menu");
       const button = openTaskMenu.querySelector(".timeline-menu-button");
       openTaskMenu.closest(".timeline-task")?.classList.remove("has-open-menu");
-      openTaskMenu.classList.remove("is-open");
+      openTaskMenu.classList.remove("is-open", "opens-up");
       if (menu) menu.hidden = true;
       if (button) button.setAttribute("aria-expanded", "false");
       openTaskMenu = null;
@@ -89,6 +102,8 @@
       document.addEventListener("keydown", (event) => {
         if (event.key === "Escape") closeTaskMenu();
       });
+      document.addEventListener("scroll", () => positionTaskMenu(openTaskMenu), true);
+      global.addEventListener?.("resize", () => positionTaskMenu(openTaskMenu));
     }
 
     return { closeTaskMenu, createTaskMenu };

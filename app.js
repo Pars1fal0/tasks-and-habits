@@ -745,12 +745,26 @@ const importExportController = window.RhythmImportExport.createImportExport({
   toDateKey,
 });
 
+const settingsTransfer = window.RhythmSettingsTransfer.createSettingsTransfer({
+  applyImportedSettings,
+  confirmAction,
+  document,
+  els,
+  getSettings: getUiSettings,
+  render,
+  resetPreferences: resetInterfacePreferences,
+  saveUiState,
+  schemaVersion: SCHEMA_VERSION,
+  showToast,
+  toDateKey,
+});
+
 const settingsController = window.RhythmSettingsController.createSettingsController({
   els,
   exportData,
-  exportSettings,
+  exportSettings: settingsTransfer.exportSettings,
   getSettings: getUiSettings,
-  importSettings,
+  importSettings: settingsTransfer.importSettings,
   openBackupFolder,
   checkRemoteConnection,
   pullRemoteState,
@@ -759,7 +773,7 @@ const settingsController = window.RhythmSettingsController.createSettingsControl
   renderBackupStatus: renderSettingsBackupStatus,
   renderRemoteSyncStatus,
   requestNotifications,
-  resetInterfaceSettings,
+  resetInterfaceSettings: settingsTransfer.resetInterfaceSettings,
   restoreBackup,
   updateSetting,
 });
@@ -2200,52 +2214,7 @@ function updateSetting(name, value) {
   }
 }
 
-function exportSettings() {
-  const payload = {
-    app: "Ритм дня",
-    exportedAt: new Date().toISOString(),
-    schemaVersion: SCHEMA_VERSION,
-    settings: getUiSettings(),
-    type: "settings",
-  };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `ritm-dnya-settings-${toDateKey(new Date())}.json`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-  showToast("Настройки экспортированы");
-}
-
-async function importSettings() {
-  const file = els.settingsImportFile?.files?.[0];
-  if (!file) return;
-
-  try {
-    const parsed = JSON.parse(await file.text());
-    applyImportedSettings(parsed.settings || parsed);
-    saveUiState();
-    render();
-    showToast("Настройки импортированы");
-  } catch {
-    showToast("Не удалось импортировать настройки");
-  } finally {
-    if (els.settingsImportFile) els.settingsImportFile.value = "";
-  }
-}
-
-async function resetInterfaceSettings() {
-  const confirmed = await confirmAction({
-    confirmLabel: "Сбросить",
-    message: "Тема, плотность, формат времени и первый день недели вернутся к настройкам по умолчанию. Данные задач и привычек не изменятся.",
-    tone: "danger",
-    title: "Сбросить настройки интерфейса?",
-  });
-  if (!confirmed) return;
-
+function resetInterfacePreferences() {
   themePreference = "dark";
   densityPreference = "comfortable";
   timeFormat = "24";

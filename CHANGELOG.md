@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.13.3
+
+- Fixed task, habit, goal, overdue, navigation, and timeline menus being clipped by cards or viewport edges.
+- Added browser-level regression coverage for floating card menus.
+- Made the optional voice assistant prefer the largest visible Codex window, ignore cloaked windows, maximize undersized windows, and verify focus before typing.
+- Disabled voice auto-send by default so recognition mistakes require an explicit `Отправь` or `Отправить`.
+- Added an opt-in read-only live Supabase check for Auth, the `rhythm_states` table, and RLS.
+- Extracted settings import, export, and reset behavior from `app.js` into a tested module.
+- Updated release metadata and documentation for the current application structure.
+
 ## 0.13.2
 
 - Extracted application-shell navigation/rendering and state persistence from `app.js` into focused controllers.

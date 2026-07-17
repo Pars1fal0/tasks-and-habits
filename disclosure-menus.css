@@ -1,0 +1,55 @@
+.goal-item:has(.goal-menu[open]),
+.task-item:has(.task-more[open]) {
+  z-index: 40;
+}
+
+.habit-item:has(.habit-more[open]) {
+  z-index: 40;
+  overflow: visible;
+}
+
+.task-more.menu-opens-up .task-more-menu,
+.habit-more.menu-opens-up .habit-more-menu,
+.goal-menu.menu-opens-up .goal-menu-popover,
+.overdue-more.menu-opens-up .overdue-more-menu,
+.nav-more.menu-opens-up .nav-more-menu {
+  top: auto;
+  bottom: calc(100% + 8px);
+}
+
+.task-more.menu-opens-down .task-more-menu,
+.habit-more.menu-opens-down .habit-more-menu,
+.goal-menu.menu-opens-down .goal-menu-popover,
+.overdue-more.menu-opens-down .overdue-more-menu,
+.nav-more.menu-opens-down .nav-more-menu {
+  top: calc(100% + 8px);
+  bottom: auto;
+}
+
+.task-more-menu,
+.habit-more-menu,
+.goal-menu-popover,
+.overdue-more-menu,
+.nav-more-menu,
+.timeline-task-menu {
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.timeline-task-menu-wrap.opens-up .timeline-task-menu {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+
+.nav-more-menu {
+  z-index: 45;
+}
+
+@media (max-width: 680px) {
+  .task-more-menu {
+    right: 0;
+    left: auto;
+    width: min(280px, calc(100vw - 28px));
+  }
+}

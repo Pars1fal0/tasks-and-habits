@@ -11,6 +11,9 @@ import win32gui
 LOGGER = logging.getLogger("codex-voice")
 KEYEVENTF_UNICODE = 0x0004
 INPUT_KEYBOARD = 1
+DWMWA_CLOAKED = 14
+MIN_WINDOW_WIDTH = 500
+MIN_WINDOW_HEIGHT = 400
 
 
 class KeyboardInput(ctypes.Structure):
@@ -51,30 +54,67 @@ class Input(ctypes.Structure):
     _fields_ = [("type", wintypes.DWORD), ("data", InputUnion)]
 
 
+def is_cloaked_window(handle):
+    cloaked = wintypes.DWORD()
+    try:
+        result = ctypes.windll.dwmapi.DwmGetWindowAttribute(
+            handle,
+            DWMWA_CLOAKED,
+            ctypes.byref(cloaked),
+            ctypes.sizeof(cloaked),
+        )
+    except (AttributeError, OSError):
+        return False
+    return result == 0 and bool(cloaked.value)
+
+
+def window_size(handle):
+    left, top, right, bottom = win32gui.GetWindowRect(handle)
+    return max(0, right - left), max(0, bottom - top)
+
+
+def candidate_score(handle, title):
+    width, height = window_size(handle)
+    usable = width >= MIN_WINDOW_WIDTH and height >= MIN_WINDOW_HEIGHT
+    exact_title = title in {"ChatGPT", "Codex"}
+    foreground = handle == win32gui.GetForegroundWindow()
+    return usable, foreground, width * height, exact_title
+
+
 def find_codex_window():
     candidates = []
 
     def collect(handle, _):
-        if not win32gui.IsWindowVisible(handle):
+        if not win32gui.IsWindowVisible(handle) or is_cloaked_window(handle):
             return
         title = win32gui.GetWindowText(handle).strip()
         if title in {"ChatGPT", "Codex"} or "Codex" in title:
-            candidates.append((title in {"ChatGPT", "Codex"}, handle, title))
+            candidates.append((candidate_score(handle, title), handle, title))
 
     win32gui.EnumWindows(collect, None)
     if not candidates:
         raise RuntimeError("Окно Codex не найдено. Сначала открой приложение Codex.")
-    candidates.sort(reverse=True)
-    _, handle, title = candidates[0]
-    LOGGER.info("Найдено окно Codex: %s (handle=%s)", title, handle)
+    candidates.sort(key=lambda candidate: candidate[0], reverse=True)
+    score, handle, title = candidates[0]
+    width, height = window_size(handle)
+    LOGGER.info(
+        "Выбрано окно Codex: %s (handle=%s, size=%sx%s, usable=%s)",
+        title,
+        handle,
+        width,
+        height,
+        score[0],
+    )
     return handle
 
 
 def composer_point(handle, bottom_offset=88):
-    left, top, right, bottom = win32gui.GetWindowRect(handle)
+    client_left, client_top, client_right, client_bottom = win32gui.GetClientRect(handle)
+    left, top = win32gui.ClientToScreen(handle, (client_left, client_top))
+    right, bottom = win32gui.ClientToScreen(handle, (client_right, client_bottom))
     width = right - left
     height = bottom - top
-    if width < 500 or height < 400:
+    if width < MIN_WINDOW_WIDTH or height < MIN_WINDOW_HEIGHT:
         raise RuntimeError("Окно Codex слишком маленькое для безопасной отправки команды.")
     return left + width // 2, bottom - int(bottom_offset)
 
@@ -84,6 +124,9 @@ def activate_window(handle):
         win32gui.ShowWindow(handle, win32con.SW_RESTORE)
     else:
         win32gui.ShowWindow(handle, win32con.SW_SHOW)
+    width, height = window_size(handle)
+    if width < MIN_WINDOW_WIDTH or height < MIN_WINDOW_HEIGHT:
+        win32gui.ShowWindow(handle, win32con.SW_MAXIMIZE)
     try:
         win32gui.SetForegroundWindow(handle)
     except Exception:
@@ -93,6 +136,15 @@ def activate_window(handle):
         finally:
             win32api.keybd_event(win32con.VK_MENU, 0, win32con.KEYEVENTF_KEYUP, 0)
     win32gui.BringWindowToTop(handle)
+
+
+def wait_until_active(handle, timeout_seconds=2.0):
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        if win32gui.GetForegroundWindow() == handle:
+            return
+        time.sleep(0.05)
+    raise RuntimeError("Не удалось активировать основное окно Codex.")
 
 
 def click_point(x, y):
@@ -134,9 +186,12 @@ def press_enter():
 def submit_prompt(text, bottom_offset=88):
     handle = find_codex_window()
     activate_window(handle)
-    time.sleep(0.25)
+    wait_until_active(handle)
+    time.sleep(0.15)
     click_point(*composer_point(handle, bottom_offset))
     time.sleep(0.15)
+    if win32gui.GetForegroundWindow() != handle:
+        raise RuntimeError("Окно Codex потеряло фокус перед вводом команды.")
     send_unicode_text(text)
     time.sleep(0.2)
     press_enter()

@@ -1,9 +1,10 @@
 const CACHE_PREFIX = "rhythm-day-";
-const CACHE_NAME = `${CACHE_PREFIX}app-v48-__BUILD_HASH__`;
+const CACHE_NAME = `${CACHE_PREFIX}app-v49-__BUILD_HASH__`;
 const APP_SHELL = [
   "./",
   "index.html",
   "styles.css",
+  "disclosure-menus.css",
   "app-utils.js",
   "quick-input.js",
   "recurrence.js",
@@ -27,6 +28,7 @@ const APP_SHELL = [
   "storage.js",
   "navigation-state.js",
   "archive-view.js",
+  "disclosure-menus.js",
   "app-events.js",
   "heatmap-view.js",
   "calendar-view.js",
@@ -47,6 +49,7 @@ const APP_SHELL = [
   "task-moves.js",
   "task-state.js",
   "settings-sync.js",
+  "settings-transfer.js",
   "settings-controller.js",
   "timeline-layout.js",
   "timeline-menu.js",

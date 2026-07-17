@@ -39,8 +39,12 @@ $Shortcut.Save()
 Write-Host "[5/5] Starting the assistant..."
 & (Join-Path $Root "stop.ps1") -Quiet
 Start-Process -FilePath "wscript.exe" -ArgumentList ('"' + (Join-Path $Root "start-hidden.vbs") + '"') -WindowStyle Hidden
-Start-Sleep -Seconds 3
-if (-not (Test-Path (Join-Path $Root "assistant.pid"))) {
+$PidPath = Join-Path $Root "assistant.pid"
+$Deadline = (Get-Date).AddSeconds(15)
+while (-not (Test-Path $PidPath) -and (Get-Date) -lt $Deadline) {
+  Start-Sleep -Milliseconds 500
+}
+if (-not (Test-Path $PidPath)) {
   throw "The assistant did not start. Check assistant.log."
 }
 
