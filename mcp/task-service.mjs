@@ -11,6 +11,7 @@ export function createEmptyState() {
     goals: [],
     categories: [],
     taskOrder: {},
+    mcpActivity: [],
     tombstones: { tasks: {}, habits: {}, goals: {}, categories: {} },
     syncMeta: emptySyncMeta(),
   };
@@ -387,6 +388,7 @@ function ensureStateShape(state) {
   state.goals = Array.isArray(state.goals) ? state.goals : [];
   state.categories = Array.isArray(state.categories) ? state.categories : [];
   state.taskOrder = state.taskOrder && typeof state.taskOrder === "object" ? state.taskOrder : {};
+  state.mcpActivity = Array.isArray(state.mcpActivity) ? state.mcpActivity : [];
   state.tombstones = state.tombstones && typeof state.tombstones === "object"
     ? state.tombstones
     : { tasks: {}, habits: {}, goals: {}, categories: {} };

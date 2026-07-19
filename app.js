@@ -60,6 +60,7 @@ const stateNormalizer = window.RhythmStateNormalizer.createStateNormalizer({
   normalizeHabitAvailabilityHistory: window.RhythmHabitConfigHistory.normalizeHabitAvailabilityHistory,
   normalizeHabitTitleHistory: window.RhythmHabitTitleHistory.normalizeHabitTitleHistory,
   normalizeReminderOffset,
+  normalizeMcpActivity: window.RhythmMcpActivity.normalizeActivity,
   pruneTombstones: window.RhythmTombstoneRetention.pruneTombstones,
   normalizeSyncMeta: window.RhythmSyncMetadata.normalizeSyncMeta,
   pruneSyncMeta: window.RhythmSyncMetadata.pruneSyncMeta,
@@ -267,6 +268,7 @@ const els = {
   remoteSyncCheckButton: document.querySelector("#remoteSyncCheckButton"),
   remoteSyncEnabled: document.querySelector("#remoteSyncEnabled"),
   remoteSyncHistory: document.querySelector("#remoteSyncHistory"),
+  mcpActivityList: document.querySelector("#mcpActivityList"),
   remoteSyncPullButton: document.querySelector("#remoteSyncPullButton"),
   remoteSyncPushButton: document.querySelector("#remoteSyncPushButton"),
   remoteSyncStatus: document.querySelector("#remoteSyncStatus"),
@@ -867,6 +869,17 @@ const deviceSyncController = window.RhythmDeviceSyncController.createDeviceSyncC
   syncLatest: (options) => remoteSyncWorkflow.syncLatest(options),
 });
 syncHistory.render(els.remoteSyncHistory, formatBackupDate);
+const mcpActivityController = window.RhythmMcpActivityController.createMcpActivityController({
+  activityApi: window.RhythmMcpActivity,
+  confirmAction,
+  container: els.mcpActivityList,
+  formatDate: formatBackupDate,
+  getState: () => state,
+  render,
+  replaceState,
+  saveState,
+  showToast,
+});
 
 const notificationsController = window.RhythmNotifications.createNotifications({
   els,
@@ -889,6 +902,7 @@ const viewRenderer = window.RhythmViewRenderer.createViewRenderer({
   renderDailyPulse,
   renderGoals,
   renderHabits,
+  renderMcpActivity: mcpActivityController.render,
   renderOverview,
   renderRemoteSyncStatus,
   renderSettingsBackupStatus,

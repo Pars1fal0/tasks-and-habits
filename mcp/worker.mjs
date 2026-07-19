@@ -9,10 +9,21 @@ import {
   searchKnowledge,
   toDateKey,
 } from "./task-service.mjs";
+import { normalizeMcpActivity, recordMcpActivity } from "./activity-service.mjs";
+import {
+  createGoalCommand,
+  deleteTaskCommand,
+  getDayBrief,
+  setHabitValueCommand,
+  undoMcpCommand,
+  updateGoalCheckpointCommand,
+  updateTaskCommand,
+} from "./write-service.mjs";
 import { authenticateSupabaseRequest, createSupabaseStateStore } from "./supabase-state.mjs";
 
 const OAUTH_SCOPES = ["openid", "email"];
 const OAUTH_SECURITY = [{ type: "oauth2", scopes: OAUTH_SCOPES }];
+const requestWindows = new Map();
 
 export default {
   async fetch(request, env, ctx) {
@@ -52,6 +63,12 @@ async function handleMcp(request, env, ctx) {
     anonKey: env.SUPABASE_ANON_KEY,
   });
   if (!auth) return unauthorizedResponse(request);
+  if (request.method === "POST" && !allowMcpRequest(auth.user.id)) {
+    return jsonResponse(
+      { error: "rate_limited", message: "Слишком много команд. Повтори через минуту." },
+      { status: 429, headers: { "Retry-After": "60" } },
+    );
+  }
 
   const store = createSupabaseStateStore({
     supabaseUrl: env.SUPABASE_URL,
@@ -71,14 +88,16 @@ async function handleMcp(request, env, ctx) {
 
 export function createParsitasksServer(context) {
   const server = new McpServer(
-    { name: "parsitasks", version: "0.1.0" },
+    { name: "parsitasks", version: "0.2.0" },
     {
       instructions: [
         "Parsitasks stores the user's tasks, habits, goals, and calendar.",
         "Read current data before proposing broad changes.",
         "Never invent task IDs. Use IDs returned by tools.",
         "Do not claim a write succeeded unless the write tool returned success.",
-        "Deletion is intentionally unavailable.",
+        "For recurring tasks always ask which scope to use: occurrence, following, or series.",
+        "Never set confirm=true for deletion until the user explicitly confirms the exact scope.",
+        "Use a unique requestId for every intended write and reuse it only for retries.",
       ].join(" "),
     },
   );
@@ -188,7 +207,18 @@ export function createParsitasksServer(context) {
     },
     async (input) => safeTool(async () => {
       const today = toDateKey(new Date(), context.timeZone);
-      const result = await context.store.mutate((state) => createTaskCommand(state, input, { today }));
+      const result = await context.store.mutate((state) => {
+        const mutation = createTaskCommand(state, input, { today });
+        if (!mutation.changed) return mutation;
+        const summary = `Задача «${mutation.task.title}» создана на ${mutation.task.date}`;
+        const activity = recordMcpActivity(state, mutation.state, {
+          requestId: input.requestId,
+          type: "create_task",
+          title: "Создание задачи",
+          summary,
+        });
+        return { ...mutation, activity };
+      });
       const payload = { created: result.created, saved: result.saved, task: result.task };
       const summary = result.created
         ? `Задача «${result.task.title}» создана на ${result.task.date}`
@@ -203,6 +233,7 @@ export function createParsitasksServer(context) {
       title: "Изменить выполнение задачи",
       description: "Отмечает конкретное выполнение задачи завершённым или возвращает его в работу.",
       inputSchema: {
+        requestId: z.string().min(8).max(100),
         taskId: z.string().describe("ID задачи. Можно передать task:ID из поиска."),
         date: z.string().optional().describe("Дата выполнения YYYY-MM-DD"),
         completed: z.boolean().optional().describe("true — выполнить, false — вернуть в работу"),
@@ -220,8 +251,20 @@ export function createParsitasksServer(context) {
     async (input) => safeTool(async () => {
       const today = toDateKey(new Date(), context.timeZone);
       const taskId = String(input.taskId || "").replace(/^task:/, "");
-      const result = await context.store.mutate((state) =>
-        completeTaskCommand(state, { ...input, taskId }, { today }));
+      const result = await context.store.mutate((state) => {
+        const mutation = completeTaskCommand(state, { ...input, taskId }, { today });
+        if (!mutation.changed) return mutation;
+        const summary = mutation.completed
+          ? `Задача «${mutation.task.title}» выполнена за ${mutation.date}`
+          : `Задача «${mutation.task.title}» возвращена в работу за ${mutation.date}`;
+        const activity = recordMcpActivity(state, mutation.state, {
+          requestId: input.requestId,
+          type: "complete_task",
+          title: "Статус задачи",
+          summary,
+        });
+        return { ...mutation, activity };
+      });
       const payload = {
         completed: result.completed,
         date: result.date,
@@ -238,7 +281,242 @@ export function createParsitasksServer(context) {
     }),
   );
 
+  registerExtendedTools(server, context);
   return server;
+}
+
+function registerExtendedTools(server, context) {
+  server.registerTool(
+    "update_task",
+    {
+      title: "Изменить задачу",
+      description: "Меняет задачу, переносит её или обновляет расписание. Для повторяющейся задачи scope обязателен.",
+      inputSchema: {
+        requestId: z.string().min(8).max(100),
+        taskId: z.string(),
+        occurrenceDate: z.string().optional().describe("Дата конкретного повторения YYYY-MM-DD"),
+        scope: z.enum(["occurrence", "following", "series"]).optional(),
+        title: z.string().min(1).max(200).optional(),
+        date: z.string().optional(),
+        category: z.string().max(60).optional(),
+        priority: z.enum(["low", "medium", "high"]).optional(),
+        scheduleMode: z.enum(["none", "deadline", "block"]).optional(),
+        time: z.string().optional(),
+        startTime: z.string().optional(),
+        endTime: z.string().optional(),
+        reminderOffset: z.enum(["none", "0", "5", "15", "30", "60", "1440"]).optional(),
+        repeat: z.enum(["none", "daily", "every2days", "every3days", "weekdays", "weekends", "weekly", "monthly", "yearly"]).optional(),
+        repeatUntil: z.string().optional(),
+      },
+      outputSchema: {
+        saved: z.boolean(),
+        scope: z.string(),
+        task: z.record(z.string(), z.unknown()),
+        actionId: z.string(),
+      },
+      securitySchemes: OAUTH_SECURITY,
+      annotations: { readOnlyHint: false, openWorldHint: false, destructiveHint: false },
+    },
+    async (input) => writeTool(context, (state) =>
+      updateTaskCommand(state, input, { requestId: input.requestId })),
+  );
+
+  server.registerTool(
+    "delete_task",
+    {
+      title: "Удалить задачу",
+      description: "Удаляет задачу только после явного подтверждения. Для повторов поддерживает один день, последующие или всю серию.",
+      inputSchema: {
+        requestId: z.string().min(8).max(100),
+        taskId: z.string(),
+        occurrenceDate: z.string().optional(),
+        scope: z.enum(["occurrence", "following", "series"]).optional(),
+        confirm: z.boolean().describe("Передай true только после явного подтверждения пользователя"),
+      },
+      outputSchema: {
+        saved: z.boolean(),
+        scope: z.string(),
+        taskId: z.string(),
+        actionId: z.string(),
+      },
+      securitySchemes: OAUTH_SECURITY,
+      annotations: { readOnlyHint: false, openWorldHint: false, destructiveHint: true },
+    },
+    async (input) => writeTool(context, (state) => deleteTaskCommand(state, input)),
+  );
+
+  server.registerTool(
+    "set_habit_value",
+    {
+      title: "Отметить привычку",
+      description: "Отмечает чек-привычку или устанавливает числовое значение за выбранный день.",
+      inputSchema: {
+        requestId: z.string().min(8).max(100),
+        habitId: z.string(),
+        date: z.string().optional(),
+        completed: z.boolean().optional(),
+        value: z.number().min(0).optional(),
+      },
+      outputSchema: {
+        saved: z.boolean(),
+        date: z.string(),
+        habit: z.record(z.string(), z.unknown()),
+        actionId: z.string(),
+      },
+      securitySchemes: OAUTH_SECURITY,
+      annotations: { readOnlyHint: false, openWorldHint: false, destructiveHint: false },
+    },
+    async (input) => {
+      const today = toDateKey(new Date(), context.timeZone);
+      return writeTool(context, (state) => setHabitValueCommand(state, input, { today }));
+    },
+  );
+
+  server.registerTool(
+    "create_goal",
+    {
+      title: "Создать цель",
+      description: "Создаёт цель с датой и собственными чекпоинтами.",
+      inputSchema: {
+        requestId: z.string().min(8).max(100),
+        title: z.string().min(1).max(200),
+        dueDate: z.string().optional(),
+        why: z.string().max(500).optional(),
+        checkpoints: z.array(z.string().min(1).max(200)).max(50).optional(),
+      },
+      outputSchema: {
+        created: z.boolean(),
+        saved: z.boolean(),
+        goal: z.record(z.string(), z.unknown()),
+        actionId: z.string().optional(),
+      },
+      securitySchemes: OAUTH_SECURITY,
+      annotations: { readOnlyHint: false, openWorldHint: false, destructiveHint: false },
+    },
+    async (input) => writeTool(context, (state) => createGoalCommand(state, input)),
+  );
+
+  server.registerTool(
+    "update_goal_checkpoint",
+    {
+      title: "Изменить чекпоинт цели",
+      description: "Добавляет, переименовывает, завершает или удаляет чекпоинт цели.",
+      inputSchema: {
+        requestId: z.string().min(8).max(100),
+        goalId: z.string(),
+        action: z.enum(["add", "rename", "complete", "delete"]),
+        checkpointId: z.string().optional(),
+        title: z.string().max(200).optional(),
+        completed: z.boolean().optional(),
+        confirm: z.boolean().optional(),
+      },
+      outputSchema: {
+        saved: z.boolean(),
+        goal: z.record(z.string(), z.unknown()),
+        actionId: z.string(),
+      },
+      securitySchemes: OAUTH_SECURITY,
+      annotations: { readOnlyHint: false, openWorldHint: false, destructiveHint: true },
+    },
+    async (input) => writeTool(context, (state) => updateGoalCheckpointCommand(state, input)),
+  );
+
+  server.registerTool(
+    "get_day_brief",
+    {
+      title: "План или итог дня",
+      description: "Возвращает данные для утреннего плана или вечернего итога, включая конфликты таймлайна.",
+      inputSchema: {
+        date: z.string().optional(),
+        mode: z.enum(["plan", "review"]).optional(),
+      },
+      outputSchema: {
+        date: z.string(),
+        mode: z.string(),
+        tasks: z.array(z.record(z.string(), z.unknown())),
+        habits: z.array(z.record(z.string(), z.unknown())),
+        conflicts: z.array(z.array(z.string())),
+        summary: z.record(z.string(), z.number()),
+      },
+      securitySchemes: OAUTH_SECURITY,
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
+    },
+    async ({ date, mode }) => safeTool(async () => {
+      const dateKey = date || toDateKey(new Date(), context.timeZone);
+      const snapshot = await context.store.read();
+      const result = getDayBrief(snapshot.state, dateKey, mode || "plan");
+      return toolResult(result, `${mode === "review" ? "Итог" : "План"} на ${dateKey} подготовлен`);
+    }),
+  );
+
+  server.registerTool(
+    "list_mcp_activity",
+    {
+      title: "Журнал действий ChatGPT",
+      description: "Показывает последние изменения, выполненные через MCP.",
+      inputSchema: { limit: z.number().int().min(1).max(100).optional() },
+      outputSchema: { actions: z.array(z.record(z.string(), z.unknown())) },
+      securitySchemes: OAUTH_SECURITY,
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
+    },
+    async ({ limit }) => safeTool(async () => {
+      const snapshot = await context.store.read();
+      const actions = normalizeMcpActivity(snapshot.state.mcpActivity)
+        .slice(0, limit || 20)
+        .map(({ inverse, ...action }) => action);
+      return toolResult({ actions }, JSON.stringify(actions));
+    }),
+  );
+
+  server.registerTool(
+    "undo_mcp_action",
+    {
+      title: "Отменить действие ChatGPT",
+      description: "Отменяет ранее выполненное MCP-действие по actionId из журнала.",
+      inputSchema: { actionId: z.string() },
+      outputSchema: {
+        saved: z.boolean(),
+        action: z.record(z.string(), z.unknown()),
+      },
+      securitySchemes: OAUTH_SECURITY,
+      annotations: { readOnlyHint: false, openWorldHint: false, destructiveHint: false },
+    },
+    async (input) => safeTool(async () => {
+      const result = await context.store.mutate((state) => undoMcpCommand(state, input));
+      const { inverse, ...action } = result.activity;
+      return toolResult({ saved: result.saved, action }, `Действие «${action.summary}» отменено`);
+    }),
+  );
+}
+
+async function writeTool(context, mutator) {
+  return safeTool(async () => {
+    const result = await context.store.mutate(mutator);
+    const payload = {
+      ...result,
+      state: undefined,
+      activity: undefined,
+      saved: result.saved,
+      actionId: result.activity?.id,
+    };
+    return toolResult(payload, result.summary || "Изменение сохранено в Parsitasks");
+  });
+}
+
+function allowMcpRequest(userId) {
+  const now = Date.now();
+  const current = requestWindows.get(userId);
+  if (!current || now - current.startedAt >= 60_000) {
+    requestWindows.set(userId, { count: 1, startedAt: now });
+    return true;
+  }
+  current.count += 1;
+  if (requestWindows.size > 1000) {
+    for (const [id, window] of requestWindows) {
+      if (now - window.startedAt >= 60_000) requestWindows.delete(id);
+    }
+  }
+  return current.count <= 120;
 }
 
 async function safeTool(operation) {

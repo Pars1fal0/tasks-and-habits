@@ -27,6 +27,7 @@
           break;
         case "settings":
           ctx.renderCategories();
+          ctx.renderMcpActivity?.();
           ctx.renderSettingsBackupStatus?.();
           ctx.renderRemoteSyncStatus?.();
           break;

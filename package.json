@@ -1,6 +1,6 @@
 {
   "name": "rhythm-day",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "private": true,
   "description": "Локальный десктопный трекер задач и привычек",
   "main": "desktop/main.cjs",
@@ -55,6 +55,8 @@
       "import-export.js",
       "manifest.webmanifest",
       "habits-view.js",
+      "mcp-activity.js",
+      "mcp-activity-controller.js",
       "notifications.js",
       "navigation-state.js",
       "planning-history.js",

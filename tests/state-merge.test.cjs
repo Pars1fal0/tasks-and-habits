@@ -165,4 +165,32 @@ module.exports = [
       assert.equal(laptopAfterDesktopPush.tombstones.tasks.shared, "2026-07-13T10:00:00.000Z");
     },
   },
+  {
+    name: "keeps MCP activity and its newest undo status across devices",
+    fn() {
+      const base = {
+        id: "mcp-action-1",
+        title: "Создание задачи",
+        summary: "Задача создана",
+        createdAt: "2026-07-19T10:00:00.000Z",
+        status: "applied",
+        inverse: {},
+      };
+      const merged = mergeStates(
+        { tasks: [], habits: [], goals: [], categories: [], taskOrder: {}, mcpActivity: [base] },
+        {
+          tasks: [], habits: [], goals: [], categories: [], taskOrder: {},
+          mcpActivity: [{
+            ...base,
+            status: "undone",
+            updatedAt: "2026-07-19T11:00:00.000Z",
+            undoneAt: "2026-07-19T11:00:00.000Z",
+          }],
+        },
+      );
+
+      assert.equal(merged.mcpActivity.length, 1);
+      assert.equal(merged.mcpActivity[0].status, "undone");
+    },
+  },
 ];

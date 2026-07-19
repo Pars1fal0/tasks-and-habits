@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.15.0
+
+- Added safe MCP editing and rescheduling with explicit recurring scopes for one occurrence, following occurrences, or a whole series.
+- Added confirmed task deletion, habit logging, goal creation, checkpoint updates, and morning/evening day briefs.
+- Added a synchronized MCP activity log with undo support in both ChatGPT tools and the Settings interface.
+- Added optimistic undo patches and tombstones so removed MCP-created records cannot reappear during device synchronization.
+- Added per-user burst rate limiting and stricter MCP guidance for confirmation, IDs, and recurring changes.
+- Expanded MCP regression coverage for task scopes, deletion safety, habits, goals, timeline conflicts, activity rendering, and undo.
+
 ## 0.14.0
 
 - Added an authenticated MCP endpoint for connecting Parsitasks to ChatGPT.

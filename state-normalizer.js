@@ -11,6 +11,7 @@
         goals: [],
         categories: [],
         taskOrder: {},
+        mcpActivity: config.normalizeMcpActivity?.(raw?.mcpActivity) || [],
         tombstones: pruneTombstones(normalizeTombstones(raw?.tombstones)),
         syncMeta: config.normalizeSyncMeta?.(raw?.syncMeta) || {},
       };

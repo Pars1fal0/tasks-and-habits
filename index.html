@@ -992,6 +992,16 @@
                 <input id="settingsImportFile" type="file" accept="application/json,.json" hidden>
               </div>
             </details>
+            <details class="panel settings-panel settings-accordion" aria-labelledby="mcpActivityHeading">
+              <summary class="panel-heading compact settings-summary">
+                <div>
+                  <span class="metric-label">ChatGPT</span>
+                  <h2 id="mcpActivityHeading">Журнал действий</h2>
+                </div>
+              </summary>
+              <p class="settings-status">Здесь видны изменения, сделанные через MCP. Последнее действие можно безопасно отменить.</p>
+              <div class="mcp-activity-list" id="mcpActivityList" aria-live="polite"></div>
+            </details>
             <details class="panel settings-panel settings-accordion" aria-labelledby="notificationsSettingsHeading">
               <summary class="panel-heading compact settings-summary">
                 <div>
@@ -1107,6 +1117,8 @@
     <script src="tombstone-retention.js?v=1" defer></script>
     <script src="habit-title-history.js?v=1" defer></script>
     <script src="habit-config-history.js?v=1" defer></script>
+    <script src="mcp-activity.js?v=1" defer></script>
+    <script src="mcp-activity-controller.js?v=1" defer></script>
     <script src="pwa-controller.js?v=1" defer></script>
     <script src="state-normalizer.js?v=12" defer></script>
     <script src="state-controller.js?v=1" defer></script>

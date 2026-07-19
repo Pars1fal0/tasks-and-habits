@@ -6,6 +6,7 @@ const stateNormalizerApi = require("../state-normalizer.js");
 const syncMetadata = require("../sync-metadata.js");
 const habitTitleHistory = require("../habit-title-history.js");
 const habitConfigHistory = require("../habit-config-history.js");
+const mcpActivity = require("../mcp-activity.js");
 
 function normalizeDateKey(value, fallback = "") {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ""));
@@ -82,6 +83,7 @@ function createStateNormalizer() {
       return ["none", "0", "5", "15", "30", "60", "1440"].includes(offset) ? offset : hasTime ? "15" : "none";
     },
     normalizeSyncMeta: syncMetadata.normalizeSyncMeta,
+    normalizeMcpActivity: mcpActivity.normalizeActivity,
     pruneSyncMeta: syncMetadata.pruneSyncMeta,
     normalizeTaskFlags: (value) => {
       const flags = {};

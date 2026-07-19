@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "rhythm-day-";
-const CACHE_NAME = `${CACHE_PREFIX}app-v52-__BUILD_HASH__`;
+const CACHE_NAME = `${CACHE_PREFIX}app-v53-__BUILD_HASH__`;
 const APP_SHELL = [
   "./",
   "index.html",
@@ -20,6 +20,8 @@ const APP_SHELL = [
   "tombstone-retention.js",
   "habit-title-history.js",
   "habit-config-history.js",
+  "mcp-activity.js",
+  "mcp-activity-controller.js",
   "pwa-controller.js",
   "state-normalizer.js",
   "state-controller.js",

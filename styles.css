@@ -3532,6 +3532,63 @@ body.has-floating-task-form::before {
   color: var(--danger);
 }
 
+.mcp-activity-list {
+  display: grid;
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--line);
+}
+
+.mcp-activity-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-3);
+  background: var(--surface-elevated);
+}
+
+.mcp-activity-row > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.mcp-activity-row strong,
+.mcp-activity-row span,
+.mcp-activity-row small {
+  overflow-wrap: anywhere;
+}
+
+.mcp-activity-row span,
+.mcp-activity-row small,
+.mcp-activity-empty {
+  color: var(--muted);
+}
+
+.mcp-activity-row.is-undone {
+  opacity: 0.62;
+}
+
+.mcp-activity-empty {
+  margin: 0;
+  padding: var(--space-4);
+  background: var(--surface-elevated);
+}
+
+@media (max-width: 540px) {
+  .mcp-activity-row {
+    grid-template-columns: 1fr;
+  }
+
+  .mcp-activity-row .compact-button {
+    justify-self: start;
+  }
+}
+
 @media (max-width: 640px) {
   .sync-account-fields {
     grid-template-columns: 1fr;

@@ -1,5 +1,6 @@
 (function (global) {
   const syncMetadata = global.RhythmSyncMetadata || require("./sync-metadata.js");
+  const mcpActivity = global.RhythmMcpActivity || require("./mcp-activity.js");
   const habitTitleHistory = global.RhythmHabitTitleHistory || require("./habit-title-history.js");
   const habitConfigHistory = global.RhythmHabitConfigHistory || require("./habit-config-history.js");
   const TASK_DATE_FIELDS = syncMetadata.TASK_DATE_FIELDS;
@@ -42,6 +43,7 @@
       tasks,
       habits: applyEntityOrder(habits, localState.habits, remoteState.habits, localMeta.habitOrderUpdatedAt, remoteMeta.habitOrderUpdatedAt),
       goals,
+      mcpActivity: mcpActivity.mergeActivity(localState.mcpActivity, remoteState.mcpActivity),
       taskOrder: mergeTaskOrder(localState.taskOrder, remoteState.taskOrder, localMeta, remoteMeta, new Set(tasks.map((task) => task.id))),
       tombstones,
       syncMeta,
