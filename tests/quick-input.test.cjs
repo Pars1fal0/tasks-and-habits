@@ -76,4 +76,37 @@ module.exports = [
       assert.equal(parsed.scheduleMode, "none");
     },
   },
+  {
+    name: "keeps an unknown priority visible and reports it",
+    fn() {
+      const parsed = quickInput.parseQuickTaskInput("Проверить отчёт !hgh", {
+        activeDate: "2026-07-19",
+        cleanText,
+        normalizeDateKey,
+        now: new Date(2026, 6, 19, 10, 0),
+        toDateKey,
+        toTimeValue,
+      });
+
+      assert.equal(parsed.title, "Проверить отчёт !hgh");
+      assert.equal(parsed.priority, "medium");
+      assert.equal(parsed.warnings.length, 1);
+    },
+  },
+  {
+    name: "rolls an implicit past calendar date into the next year",
+    fn() {
+      const parsed = quickInput.parseQuickTaskInput("Продлить подписку 10.01", {
+        activeDate: "2026-07-19",
+        cleanText,
+        normalizeDateKey,
+        now: new Date(2026, 6, 19, 10, 0),
+        toDateKey,
+        toTimeValue,
+      });
+
+      assert.equal(parsed.date, "2027-01-10");
+      assert.equal(parsed.title, "Продлить подписку");
+    },
+  },
 ];

@@ -18,6 +18,10 @@
         unit: ctx.cleanText(ctx.els.habitUnit.value),
         goal: type === "number" ? Math.max(1, Number(ctx.els.habitGoal.value || 1)) : 1,
         logs: existing?.logs || {},
+        availabilityHistory: existing?.availabilityHistory || [],
+        archived: existing?.archived === true,
+        archivedAt: existing?.archivedAt || "",
+        archivedFromDate: existing?.archivedFromDate || "",
         createdAt: existing?.createdAt || now,
         updatedAt: now,
       };
@@ -60,6 +64,7 @@
       ctx.syncHabitCustomRepeatPanel();
       ctx.els.habitUnit.value = effectiveConfig.unit || "";
       ctx.els.habitGoal.value = effectiveConfig.goal || "";
+      ctx.markFormPristine?.(ctx.els.habitForm);
       ctx.els.habitTitle.focus();
     }
 
@@ -74,6 +79,7 @@
       ctx.els.habitRepeat.value = "daily";
       ctx.setHabitCustomRepeatForm();
       ctx.syncHabitCustomRepeatPanel();
+      ctx.markFormPristine?.(ctx.els.habitForm);
     }
 
     return { fillHabitForm, resetHabitForm, saveHabitFromForm };

@@ -389,4 +389,41 @@ module.exports = [
       assert.equal(state.tasks.length, 1);
     },
   },
+  {
+    name: "moves this and following recurring occurrences to a later start date",
+    fn() {
+      const task = {
+        id: "daily",
+        title: "Practice",
+        date: "2026-07-01",
+        time: "09:00",
+        scheduleMode: "deadline",
+        categoryId: "study",
+        priority: "high",
+        repeat: "daily",
+        repeatUntil: "2026-08-01",
+        customRepeat: {},
+        completed: { "2026-07-12": true, "2026-07-14": true },
+        acknowledgedOverdue: {},
+        excludedDates: {},
+        notified: { "2026-07-14": true },
+      };
+      const state = { tasks: [task], taskOrder: { "2026-07-14": ["daily"] } };
+
+      const moved = taskMoves.moveRecurringSeriesFollowing({
+        state,
+        task,
+        sourceDateKey: "2026-07-13",
+        targetDateKey: "2026-07-16",
+        helpers: { createId: () => "daily-moved" },
+      });
+
+      assert.equal(task.repeatUntil, "2026-07-12");
+      assert.equal(moved.date, "2026-07-16");
+      assert.equal(moved.priority, "high");
+      assert.deepEqual(moved.completed, {});
+      assert.deepEqual(moved.notified, {});
+      assert.deepEqual(state.taskOrder["2026-07-14"], ["daily-moved"]);
+    },
+  },
 ];

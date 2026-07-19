@@ -28,8 +28,10 @@
       try {
         const text = await file.text();
         const parsed = JSON.parse(text);
-        const importedState = ctx.normalizeState(parsed.state || parsed);
-        createImportSafetyBackup(undo);
+        const candidate = extractImportState(parsed);
+        const importedState = ctx.normalizeState(candidate);
+        const safetyBackup = createImportSafetyBackup(undo);
+        if (safetyBackup?.ok === false) throw new Error("safety-backup-failed");
         ctx.replaceState(importedState);
         ctx.saveState({ skipBackup: true });
         ctx.render();
@@ -42,18 +44,22 @@
     }
 
     function syncDesktopBackup() {
-      if (!window.rhythmDesktop?.writeFileBackup) return;
-      window.rhythmDesktop
+      if (!window.rhythmDesktop?.writeFileBackup) return Promise.resolve({ ok: false, reason: "desktop-unavailable" });
+      return window.rhythmDesktop
         .writeFileBackup({
           schemaVersion: ctx.schemaVersion,
           state: ctx.getState(),
         })
-        .then(() => updateFileBackupStatus())
+        .then(async (result) => {
+          await updateFileBackupStatus();
+          return result || { ok: true };
+        })
         .catch(() => {
           if (ctx.els.fileBackupStatus) {
             ctx.els.fileBackupStatus.hidden = false;
             ctx.els.fileBackupStatus.textContent = "Файловый бэкап: ошибка записи";
           }
+          return { ok: false, reason: "write-failed" };
         });
     }
 
@@ -99,14 +105,15 @@
       if (result.ok) {
         updateBackupStatus();
         if (!silent) ctx.showToast("Локальный бэкап обновлен");
-        return;
+        return result;
       }
 
       if (!silent && result.reason !== "throttled") ctx.showToast("Не удалось создать бэкап");
+      return result;
     }
 
     function createImportSafetyBackup(snapshot) {
-      ctx.storage.createImportSafetyBackup(snapshot, { schemaVersion: ctx.schemaVersion });
+      return ctx.storage.createImportSafetyBackup(snapshot, { schemaVersion: ctx.schemaVersion });
     }
 
     async function restoreBackup() {
@@ -127,7 +134,11 @@
       if (!confirmed) return;
 
       const undo = ctx.createUndoSnapshot();
-      createImportSafetyBackup(undo);
+      const safetyBackup = createImportSafetyBackup(undo);
+      if (safetyBackup?.ok === false) {
+        ctx.showToast("Не удалось сохранить текущее состояние. Восстановление отменено");
+        return;
+      }
       ctx.replaceState(ctx.normalizeState(backup.state || backup));
       ctx.saveState({ skipBackup: true });
       ctx.render();
@@ -156,6 +167,29 @@
         hour: "2-digit",
         minute: "2-digit",
       }).format(date);
+    }
+
+    function extractImportState(parsed) {
+      const candidate = parsed?.state ?? parsed;
+      if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+        throw new Error("invalid-import");
+      }
+      const recognizedKeys = [
+        "tasks",
+        "habits",
+        "goals",
+        "categories",
+        "taskOrder",
+        "tombstones",
+        "syncMeta",
+        "schemaVersion",
+        "defaultsSeeded",
+      ];
+      if (!recognizedKeys.some((key) => Object.hasOwn(candidate, key))) throw new Error("unrecognized-import");
+      ["tasks", "habits", "goals", "categories"].forEach((key) => {
+        if (Object.hasOwn(candidate, key) && !Array.isArray(candidate[key])) throw new Error(`invalid-${key}`);
+      });
+      return candidate;
     }
 
     return {

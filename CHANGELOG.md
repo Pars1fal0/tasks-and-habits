@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.14.0
+
+- Added an authenticated MCP endpoint for connecting Parsitasks to ChatGPT.
+- Added read tools for daily overviews and structured search across tasks, habits, and goals.
+- Added idempotent task creation and per-occurrence completion tools without exposing deletion.
+- Protected MCP access with Supabase OAuth 2.1 discovery, user validation, RLS, and a dedicated consent screen.
+- Applied MCP writes through optimistic concurrency so changes from another device are preserved.
+- Integrated the MCP Worker and OAuth bundle into the existing Cloudflare deployment.
+- Added setup documentation and regression tests for MCP task operations, authentication, and conflicts.
+
+## 0.13.6
+
+- Preserved historical habit names, settings, values, and streaks across dated edits, pauses, and restorations.
+- Prevented stale cloud state from resurrecting locally deleted items by queuing changes made during synchronization.
+- Added password-recovery completion to device synchronization and protected remote replacement with a verified safety backup.
+- Validated imported JSON before replacing data and kept the previous valid state as the automatic undo backup.
+- Made task schedule fields follow the selected mode, kept recurrence edits scoped, and preserved task priority during moves.
+- Expanded the timeline to the full day, constrained blocks to 15-minute boundaries, and improved touch drag, resize, and creation.
+- Added touch-safe calendar dragging and an explicit recurring-move choice for one occurrence or all following occurrences.
+- Prevented accidental form closure with unsaved changes and improved archive filtering, bulk selection, and pagination.
+- Improved quick-input date disambiguation, invalid-token feedback, category safety, and year rollover.
+- Added content security headers, stricter Electron navigation rules, a skip link, and clearer notification limitations.
+- Expanded regression coverage to 145 tests plus Electron smoke, browser E2E, Cloudflare build, and mobile visual checks.
+
 ## 0.13.5
 
 - Merge independently edited task, goal, habit, and category fields across devices instead of choosing one entire record.

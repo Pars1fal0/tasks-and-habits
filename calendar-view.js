@@ -28,9 +28,9 @@
       if (ctx.els.overviewHeading) ctx.els.overviewHeading.textContent = period.heading;
       ctx.els.weeklyTaskText.textContent = `${taskDone} из ${taskTotal} задач ${period.suffix}`;
       ctx.els.weeklyHabitText.textContent = `${habitDone} из ${habitTotal} отметок привычек ${period.suffix}`;
-      renderWeekBoard(week);
-      renderMonthCalendar();
-      renderHeatmap();
+      if (mode === "week") renderWeekBoard(week);
+      if (mode === "month") renderMonthCalendar();
+      if (mode === "year") renderHeatmap();
     }
 
     function overviewPeriod(mode, activeDate, week, helpers) {
@@ -62,7 +62,7 @@
         const openTasks = tasks.filter((task) => !ctx.isTaskDone(task, dateKey));
         const doneCount = tasks.length - openTasks.length;
         const column = document.createElement("article");
-        const header = document.createElement("div");
+        const header = document.createElement("button");
         const weekday = document.createElement("span");
         const day = document.createElement("strong");
         const count = document.createElement("div");
@@ -70,12 +70,12 @@
 
         column.className = "week-board-day calendar-drop-zone";
         column.dataset.date = dateKey;
-        column.tabIndex = 0;
-        column.setAttribute("role", "button");
         column.setAttribute("aria-label", `${ctx.formatLongDate(dateKey)}: ${openTasks.length} открыто, ${doneCount} готово`);
         column.classList.toggle("is-active", dateKey === activeDate);
         column.classList.toggle("is-today", dateKey === ctx.toDateKey(new Date()));
         header.className = "week-board-header";
+        header.type = "button";
+        header.setAttribute("aria-label", `Открыть ${ctx.formatLongDate(dateKey)}`);
         weekday.textContent = ctx.formatWeekday(dateKey);
         day.textContent = String(ctx.parseDate(dateKey).getDate());
         count.className = "week-board-count";
@@ -93,12 +93,7 @@
         }
 
         column.append(header, count, list);
-        column.addEventListener("click", () => ctx.openDateTasks(dateKey));
-        column.addEventListener("keydown", (event) => {
-          if (event.key !== "Enter" && event.key !== " ") return;
-          event.preventDefault();
-          ctx.openDateTasks(dateKey);
-        });
+        header.addEventListener("click", () => ctx.openDateTasks(dateKey));
         ctx.attachTaskDropZone(column, dateKey);
         column.querySelectorAll(".month-task-chip").forEach((chip) => ctx.attachTaskChipDrag(chip));
         ctx.els.weekBoardGrid.appendChild(column);
@@ -138,7 +133,7 @@
         const hiddenTasks = openTasks.slice(3);
         const hiddenCount = hiddenTasks.length;
         const dayCell = document.createElement("div");
-        const head = document.createElement("span");
+        const head = document.createElement("button");
         const dayNumber = document.createElement("strong");
         const items = document.createElement("div");
         const details = [];
@@ -149,13 +144,13 @@
 
         dayCell.className = "month-day calendar-drop-zone";
         dayCell.dataset.date = dateKey;
-        dayCell.tabIndex = 0;
-        dayCell.setAttribute("role", "button");
         dayCell.setAttribute("aria-label", `${ctx.formatLongDate(dateKey)}: ${details.join(", ") || "нет задач"}`);
         dayCell.classList.toggle("is-outside", date.getMonth() !== currentMonth);
         dayCell.classList.toggle("is-active", dateKey === activeDate);
         dayCell.classList.toggle("is-today", dateKey === ctx.toDateKey(new Date()));
         head.className = "month-day-head";
+        head.type = "button";
+        head.setAttribute("aria-label", `Открыть ${ctx.formatLongDate(dateKey)}`);
         dayNumber.textContent = String(date.getDate());
         head.appendChild(dayNumber);
         if (tasks.length) {
@@ -168,12 +163,7 @@
         if (hiddenCount > 0) appendHiddenMonthTasks(dayCell, items, hiddenTasks, dateKey, hiddenCount);
         dayCell.append(head, items);
 
-        dayCell.addEventListener("click", () => ctx.openDateTasks(dateKey));
-        dayCell.addEventListener("keydown", (event) => {
-          if (event.key !== "Enter" && event.key !== " ") return;
-          event.preventDefault();
-          ctx.openDateTasks(dateKey);
-        });
+        head.addEventListener("click", () => ctx.openDateTasks(dateKey));
         ctx.attachTaskDropZone(dayCell, dateKey);
         dayCell.querySelectorAll(".month-task-chip").forEach((chip) => ctx.attachTaskChipDrag(chip));
         ctx.els.monthGrid.appendChild(dayCell);
@@ -203,9 +193,10 @@
     }
 
     function createTaskChip(task, dateKey, className) {
-      const chip = document.createElement("span");
+      const chip = document.createElement("button");
       const category = ctx.getCategory(task.categoryId);
       chip.className = className;
+      chip.type = "button";
       chip.draggable = true;
       chip.dataset.taskId = task.id;
       chip.dataset.date = dateKey;

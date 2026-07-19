@@ -82,7 +82,7 @@
           habit.updatedAt = new Date().toISOString();
           ctx.saveState();
           ctx.renderDailyPulse();
-          ctx.renderOverview();
+          ctx.renderOverviewIfActive?.();
           node.querySelector(".habit-streak").textContent = habitSubtitle(habit);
           const loggedValue = Number(habit.logs[activeDate] || 0);
           const nextPercent = Math.min(100, Math.round((loggedValue / goal) * 100));
@@ -123,10 +123,7 @@
       node.querySelector(".edit-habit").addEventListener("click", () => ctx.fillHabitForm(habit));
       node.querySelector(".archive-habit")?.addEventListener("click", () => {
         const undo = ctx.createUndoSnapshot();
-        habit.archived = true;
-        habit.archivedAt = new Date().toISOString();
-        habit.archivedFromDate = activeDate;
-        habit.updatedAt = habit.archivedAt;
+        Object.assign(habit, ctx.applyHabitAvailabilityChange(habit, false, activeDate));
         ctx.saveState();
         ctx.render();
         ctx.showToast("Привычка приостановлена", { undo });
@@ -168,10 +165,7 @@
         title.textContent = habit.title;
         restore.addEventListener("click", () => {
           const undo = ctx.createUndoSnapshot();
-          habit.archived = false;
-          habit.archivedAt = "";
-          habit.archivedFromDate = "";
-          habit.updatedAt = new Date().toISOString();
+          Object.assign(habit, ctx.applyHabitAvailabilityChange(habit, true, ctx.getActiveDate()));
           ctx.saveState();
           ctx.render();
           ctx.showToast("Привычка снова активна", { undo });

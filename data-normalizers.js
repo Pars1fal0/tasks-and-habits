@@ -32,7 +32,8 @@
       Object.entries(value).forEach(([dateKey, ids]) => {
         const normalizedDate = config.normalizeDateKey(dateKey, "");
         if (!normalizedDate || !Array.isArray(ids)) return;
-        taskOrder[normalizedDate] = [...new Set(ids.map((id) => String(id || "")).filter(Boolean))];
+        const normalizedIds = [...new Set(ids.map((id) => String(id || "")).filter(Boolean))];
+        if (normalizedIds.length) taskOrder[normalizedDate] = normalizedIds;
       });
       return taskOrder;
     }

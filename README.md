@@ -75,6 +75,10 @@
 - `desktop/` — Electron-оболочка, preload, файловые бэкапы и smoke-тест.
 - `CHANGELOG.md` — заметки об изменениях.
 - `supabase-schema.sql` — SQL для таблицы удаленного хранения состояния.
+- `mcp/worker.mjs` — защищенный MCP endpoint для подключения Parsitasks к ChatGPT.
+- `mcp/task-service.mjs` — изолированные операции чтения и изменения задач для MCP.
+- `mcp/supabase-state.mjs` — авторизация, RLS-доступ и optimistic concurrency для MCP-записей.
+- `oauth-consent.html` — экран входа и подтверждения доступа ChatGPT к аккаунту Parsitasks.
 - `voice-assistant/` — отдельный лёгкий Windows-помощник для локальной голосовой активации Codex.
 
 ## Голосовая активация Codex
@@ -124,6 +128,69 @@ npm run test:sync-live
 Сессия аккаунта хранится отдельно на устройстве и не попадает в JSON-экспорт или удаленный `ui_state`. Доступ к данным разрешён только вошедшему пользователю через Supabase Auth и RLS.
 
 `Загрузить из БД` заменяет локальное состояние удаленным, но перед этим создает safety backup.
+
+## Подключение ChatGPT через MCP
+
+MCP работает на `https://parsitasks.ru/mcp` внутри того же Cloudflare Worker. Он позволяет ChatGPT:
+
+- получать обзор задач, привычек и целей;
+- искать и открывать отдельные записи;
+- создавать задачи без дублей при повторном запросе;
+- отмечать конкретный день задачи выполненным или возвращать его в работу.
+
+Удаление через MCP намеренно не реализовано. Каждый запрос выполняется от имени вошедшего пользователя через Supabase Auth и RLS. Запись использует проверку `updated_at`, поэтому параллельное изменение с другого устройства не затирается.
+
+### 1. Настроить Cloudflare
+
+В Cloudflare открой Worker `tasks-and-habits` → `Settings` → `Variables and Secrets` и добавь secret:
+
+```text
+SUPABASE_ANON_KEY=публичный anon или publishable key проекта Supabase
+```
+
+`SUPABASE_URL`, основной адрес сайта и часовой пояс уже заданы в `wrangler.jsonc`. Secret нельзя добавлять в Git.
+
+Для локального запуска скопируй `.dev.vars.example` в `.dev.vars`, впиши ключ и выполни:
+
+```powershell
+npm run mcp:dev
+```
+
+### 2. Включить OAuth в Supabase
+
+1. Открой `Authentication` → `OAuth Server`.
+2. Включи OAuth 2.1 Server.
+3. Укажи Authorization Path: `/oauth/consent`.
+4. Включи Dynamic Client Registration.
+5. В `Authentication` → `URL Configuration` укажи Site URL: `https://parsitasks.ru`.
+6. Рекомендуется использовать асимметричный JWT signing key `RS256` или `ES256`.
+
+После деплоя проверь:
+
+```text
+https://parsitasks.ru/mcp/health
+https://parsitasks.ru/.well-known/oauth-protected-resource
+```
+
+Первый адрес должен вернуть `ok: true`, второй — OAuth metadata с Supabase authorization server.
+
+### 3. Добавить приложение в ChatGPT
+
+1. В ChatGPT открой `Settings` → `Security and login` и включи Developer mode.
+2. Открой `Settings` → `Plugins`.
+3. Нажми `+` и создай developer-mode app.
+4. Название: `Parsitasks`.
+5. MCP server URL: `https://parsitasks.ru/mcp`.
+6. При первом запросе войди в Parsitasks и нажми `Разрешить` на экране согласия.
+
+Примеры запросов:
+
+```text
+Что у меня сегодня?
+Найди мои задачи по SQL.
+Создай завтра в 14:00 задачу «Позвонить врачу» с высоким приоритетом.
+Отметь сегодняшнее выполнение задачи «Решить задачи SQL» завершенным.
+```
 
 ## Запуск в браузере
 

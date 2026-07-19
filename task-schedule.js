@@ -20,6 +20,13 @@
       if (ctx.els.taskDeadlineTimeField) ctx.els.taskDeadlineTimeField.hidden = isBlock || isNone;
       if (ctx.els.taskBlockTimeFields) ctx.els.taskBlockTimeFields.hidden = !isBlock;
       if (ctx.els.taskReminderField) ctx.els.taskReminderField.hidden = isNone;
+      ctx.els.taskTime.disabled = isBlock || isNone;
+      ctx.els.taskTime.required = !isBlock && !isNone;
+      ctx.els.taskStartTime.disabled = !isBlock;
+      ctx.els.taskStartTime.required = isBlock;
+      ctx.els.taskEndTime.disabled = !isBlock;
+      ctx.els.taskEndTime.required = isBlock;
+      ctx.els.taskReminder.disabled = isNone;
       if (isNone) ctx.els.taskReminder.value = "none";
       syncPresets();
     }

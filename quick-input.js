@@ -61,6 +61,7 @@
       categoryId: "",
       categoryName: "",
       priority: "medium",
+      warnings: [],
     };
 
     text = extractQuickTimeRange(text, parsed);
@@ -78,7 +79,8 @@
 
   function extractQuickTime(text, parsed) {
     if (parsed.scheduleMode === "block") return text;
-    return text.replace(/(^|\s)([01]?\d|2[0-3])[:.]([0-5]\d)(?=\s|$)/, (_match, prefix, hours, minutes) => {
+    return text.replace(/(^|\s)([01]?\d|2[0-3])([:.])([0-5]\d)(?=\s|$)/, (_match, prefix, hours, separator, minutes) => {
+      if (separator === "." && Number(hours) >= 1 && Number(minutes) >= 1 && Number(minutes) <= 12) return _match;
       parsed.time = `${String(Number(hours)).padStart(2, "0")}:${minutes}`;
       return prefix;
     });
@@ -90,7 +92,10 @@
       (_match, prefix, startHours, startMinutes, endHours, endMinutes) => {
         const startTime = `${String(Number(startHours)).padStart(2, "0")}:${startMinutes}`;
         const endTime = `${String(Number(endHours)).padStart(2, "0")}:${endMinutes}`;
-        if (timeToMinutes(endTime) <= timeToMinutes(startTime)) return _match;
+        if (timeToMinutes(endTime) <= timeToMinutes(startTime)) {
+          parsed.warnings.push("Временной блок должен заканчиваться позже, чем начинается");
+          return _match;
+        }
         parsed.scheduleMode = "block";
         parsed.startTime = startTime;
         parsed.endTime = endTime;
@@ -113,7 +118,12 @@
 
   function extractQuickPriority(text, parsed) {
     return text.replace(/(^|\s)!([\p{L}\d_-]+)/u, (_match, prefix, value) => {
-      parsed.priority = quickPriorityValue(value);
+      const priority = quickPriorityValue(value);
+      if (!priority) {
+        parsed.warnings.push(`Неизвестный приоритет: !${value}`);
+        return _match;
+      }
+      parsed.priority = priority;
       return prefix;
     });
   }
@@ -132,7 +142,7 @@ function extractQuickCategory(text, parsed, context) {
       (_match, prefix, amountValue, unitValue) => {
         const amount = Number(amountValue);
         if (!Number.isFinite(amount) || amount <= 0) return prefix;
-        const target = new Date();
+        const target = resolveNow(context);
         const unit = unitValue.toLowerCase();
 
         if (unit.startsWith("мин")) {
@@ -154,7 +164,7 @@ function extractQuickCategory(text, parsed, context) {
   }
 
   function extractQuickDate(text, parsed, context) {
-    const base = new Date();
+    const base = resolveNow(context);
     const keywordPatterns = [
       { pattern: /(^|\s)(сегодня)(?=\s|$)/i, days: 0 },
       { pattern: /(^|\s)(завтра)(?=\s|$)/i, days: 1 },
@@ -191,12 +201,16 @@ function extractQuickCategory(text, parsed, context) {
       const day = Number(shortDateMatch[2]);
       const month = Number(shortDateMatch[3]);
       const yearPart = shortDateMatch[4];
-      const year = yearPart ? Number(yearPart.length === 2 ? `20${yearPart}` : yearPart) : base.getFullYear();
-      const date = normalizeDateKey(
+      let year = yearPart ? Number(yearPart.length === 2 ? `20${yearPart}` : yearPart) : base.getFullYear();
+      let date = normalizeDateKey(
         `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
         "",
         context,
       );
+      if (date && !yearPart && date < toDateKey(base, context)) {
+        year += 1;
+        date = normalizeDateKey(`${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`, "", context);
+      }
       if (date) {
         parsed.date = date;
         return text.replace(shortDateMatch[0], shortDateMatch[1]);
@@ -208,12 +222,16 @@ function extractQuickCategory(text, parsed, context) {
       const day = Number(monthNameMatch[2]);
       const month = MONTHS[monthNameMatch[3].toLowerCase()] || 0;
       const yearPart = monthNameMatch[4];
-      const year = yearPart ? Number(yearPart.length === 2 ? `20${yearPart}` : yearPart) : base.getFullYear();
-      const date = normalizeDateKey(
+      let year = yearPart ? Number(yearPart.length === 2 ? `20${yearPart}` : yearPart) : base.getFullYear();
+      let date = normalizeDateKey(
         `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
         "",
         context,
       );
+      if (date && !yearPart && date < toDateKey(base, context)) {
+        year += 1;
+        date = normalizeDateKey(`${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`, "", context);
+      }
       if (date) {
         parsed.date = date;
         return text.replace(monthNameMatch[0], monthNameMatch[1]);
@@ -233,7 +251,8 @@ function extractQuickCategory(text, parsed, context) {
     const normalized = String(value || "").toLowerCase();
     if (["high", "hi", "важно", "важный", "высокий", "срочно", "urgent"].includes(normalized)) return "high";
     if (["low", "низкий", "низко", "потом"].includes(normalized)) return "low";
-    return "medium";
+    if (["medium", "med", "normal", "\u0441\u0440\u0435\u0434\u043d\u0438\u0439", "\u043e\u0431\u044b\u0447\u043d\u043e"].includes(normalized)) return "medium";
+    return "";
   }
 
   function nextWeekdayDate(value, base, context, options = {}) {
@@ -269,6 +288,12 @@ function extractQuickCategory(text, parsed, context) {
   function fallbackDateKey(date) {
     const safeDate = date instanceof Date && Number.isFinite(date.getTime()) ? date : new Date();
     return `${safeDate.getFullYear()}-${String(safeDate.getMonth() + 1).padStart(2, "0")}-${String(safeDate.getDate()).padStart(2, "0")}`;
+  }
+
+  function resolveNow(context = {}) {
+    const value = typeof context.now === "function" ? context.now() : context.now;
+    const date = value ? new Date(value) : new Date();
+    return Number.isFinite(date.getTime()) ? date : new Date();
   }
 
   const api = { parseQuickTaskInput };

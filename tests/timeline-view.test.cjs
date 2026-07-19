@@ -1,7 +1,34 @@
 const assert = require("node:assert/strict");
 const { buildTimelineModel } = require("../timeline-view.js");
+const { TIMELINE_LAST_MINUTE, nextBlockTimes } = require("../timeline-layout.js");
 
 module.exports = [
+  {
+    name: "keeps all 24 hours available even on an empty day",
+    fn() {
+      const model = buildTimelineModel({
+        activeDate: "2026-06-30",
+        formatTime: (value) => value,
+        getCategory: () => null,
+        isTaskDone: () => false,
+        priorityLabels: {},
+        tasks: [],
+      });
+      assert.equal(model.hourRows.length, 24);
+      assert.equal(model.hourRows[0].hour, 0);
+      assert.equal(model.hourRows.at(-1).hour, 23);
+    },
+  },
+  {
+    name: "keeps resized blocks on the 15 minute end-of-day grid",
+    fn() {
+      assert.equal(TIMELINE_LAST_MINUTE, 23 * 60 + 45);
+      assert.deepEqual(nextBlockTimes(23 * 60, 23 * 60 + 30, "end", 60), {
+        start: 23 * 60,
+        end: 23 * 60 + 45,
+      });
+    },
+  },
   {
     name: "groups timed tasks by hour and keeps unscheduled tasks separate",
     fn() {

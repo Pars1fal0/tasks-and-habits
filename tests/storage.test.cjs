@@ -48,4 +48,16 @@ module.exports = [
       assert.deepEqual(JSON.parse(memoryStorage.getItem(storage.keys.state)), backupState);
     },
   },
+  {
+    name: "keeps the previous valid state as the automatic undo backup",
+    fn() {
+      const memoryStorage = createMemoryStorage();
+      const storage = storageApi.createLocalStorageAdapter({ storage: memoryStorage, schemaVersion: 7 });
+      storage.saveState({ tasks: [{ id: "before" }] }, { skipBackup: true });
+      storage.saveState({ tasks: [{ id: "after" }] });
+
+      assert.deepEqual(storage.loadBackup().state.tasks, [{ id: "before" }]);
+      assert.deepEqual(storage.loadState().tasks, [{ id: "after" }]);
+    },
+  },
 ];

@@ -15,7 +15,7 @@ let backgroundNoticeShown = false;
 let reminderSnapshot = [];
 let lastFileBackupAt = 0;
 const sentReminders = new Set();
-const FILE_BACKUP_INTERVAL_MS = 10 * 60 * 1000;
+const FILE_BACKUP_INTERVAL_MS = 5 * 60 * 1000;
 const MAX_FILE_BACKUPS = 20;
 
 if (isAutomationTest) {
@@ -46,7 +46,7 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       preload: path.join(__dirname, "preload.cjs"),
-      sandbox: false,
+      sandbox: true,
     },
   });
 
@@ -429,14 +429,14 @@ function createWindow() {
           button: 0,
           clientX: draggableBlockRect?.left + 20,
           clientY: draggableBlockRect?.top + 20,
-          pointerType: "touch",
+          pointerType: "mouse",
           pointerId: 41,
         }));
         window.dispatchEvent(new PointerEvent("pointermove", {
           bubbles: true,
           clientX: draggableBlockRect?.left + 28,
           clientY: draggableBlockRect?.top + 28,
-          pointerType: "touch",
+          pointerType: "mouse",
           pointerId: 41,
         }));
         const unscheduleTargetRect = document.querySelector(".timeline-unschedule-target")?.getBoundingClientRect();
@@ -444,14 +444,14 @@ function createWindow() {
           bubbles: true,
           clientX: unscheduleTargetRect?.left + unscheduleTargetRect?.width / 2,
           clientY: unscheduleTargetRect?.top + unscheduleTargetRect?.height / 2,
-          pointerType: "touch",
+          pointerType: "mouse",
           pointerId: 41,
         }));
         window.dispatchEvent(new PointerEvent("pointerup", {
           bubbles: true,
           clientX: unscheduleTargetRect?.left + unscheduleTargetRect?.width / 2,
           clientY: unscheduleTargetRect?.top + unscheduleTargetRect?.height / 2,
-          pointerType: "touch",
+          pointerType: "mouse",
           pointerId: 41,
         }));
         const timelineDragToUnscheduledWorks =
@@ -467,6 +467,7 @@ function createWindow() {
           document.querySelectorAll(".timeline-task[role='listitem']").length >= 1;
 
         document.querySelector('[data-view="overview"]').click();
+        document.querySelector('[data-overview-mode="year"]').click();
         const heatmapGrid = document.querySelector("#heatmapGrid");
         const firstHeatmapCell = document.querySelector(".heatmap-cell");
         firstHeatmapCell.dispatchEvent(new Event("pointerenter"));
@@ -478,6 +479,8 @@ function createWindow() {
         const heatmapTooltipSingle = document.querySelectorAll(".heatmap-tooltip.is-visible").length === 1;
         const heatmapTooltipHasDate = /\\d{4}-\\d{2}-\\d{2}/.test(heatmapTooltip?.textContent || "");
         const nativeHeatmapTitleAbsent = !firstHeatmapCell.hasAttribute("title");
+        document.querySelector('[data-overview-mode="month"]').click();
+        const hasMonthCalendar = document.querySelectorAll(".month-day").length === 42;
 
         document.querySelector('[data-view="settings"]').click();
         const themeSelect = document.querySelector("#themePreference");
@@ -722,7 +725,7 @@ function createWindow() {
             Boolean(document.querySelector("#remoteSyncUrl")) &&
             Boolean(document.querySelector("#remoteSyncPushButton")) &&
             Boolean(document.querySelector("#remoteSyncPullButton")),
-          hasMonthCalendar: document.querySelectorAll(".month-day").length === 42,
+          hasMonthCalendar,
           hasWeekBoard,
           hasTodayButton: Boolean(document.querySelector("#todayButton")),
           hasOverdueToggle: Boolean(document.querySelector("#overdueToggle")),
@@ -874,8 +877,13 @@ function createWindow() {
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    if (isAllowedExternalUrl(url)) shell.openExternal(url).catch(() => {});
     return { action: "deny" };
+  });
+  mainWindow.webContents.on("will-navigate", (event, url) => {
+    if (url === mainWindow.webContents.getURL()) return;
+    event.preventDefault();
+    if (isAllowedExternalUrl(url)) shell.openExternal(url).catch(() => {});
   });
 
   mainWindow.loadFile(path.join(appRoot, "index.html"));
@@ -1019,6 +1027,14 @@ function registerIpc() {
       return { ok: false, path: backupDir, error };
     }
   });
+}
+
+function isAllowedExternalUrl(value) {
+  try {
+    return ["https:", "mailto:"].includes(new URL(value).protocol);
+  } catch {
+    return false;
+  }
 }
 
 async function writeFileBackup(payload) {

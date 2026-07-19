@@ -90,7 +90,7 @@ module.exports = [
       );
       assert.equal(normalized.goals[0].status, "done");
       assert.ok(normalized.goals[0].completedAt);
-      assert.deepEqual(normalized.taskOrder, { "2026-06-26": ["123"] });
+      assert.deepEqual(normalized.taskOrder, {});
       assert.deepEqual(normalized.tombstones.tasks, { "task-deleted": "2026-06-27T10:00:00.000Z" });
       assert.ok(normalized.tasks[0].updatedAt);
     },

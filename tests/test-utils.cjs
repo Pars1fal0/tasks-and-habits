@@ -71,6 +71,7 @@ function createStateNormalizer() {
       return logs;
     },
     normalizeHabitConfigHistory: habitConfigHistory.normalizeHabitConfigHistory,
+    normalizeHabitAvailabilityHistory: habitConfigHistory.normalizeHabitAvailabilityHistory,
     normalizeHabitRepeat: (value) =>
       ["daily", "every2days", "every3days", "weekdays", "weekends", "weekly", "custom"].includes(value)
         ? value
@@ -81,6 +82,7 @@ function createStateNormalizer() {
       return ["none", "0", "5", "15", "30", "60", "1440"].includes(offset) ? offset : hasTime ? "15" : "none";
     },
     normalizeSyncMeta: syncMetadata.normalizeSyncMeta,
+    pruneSyncMeta: syncMetadata.pruneSyncMeta,
     normalizeTaskFlags: (value) => {
       const flags = {};
       Object.entries(value || {}).forEach(([dateKey, entry]) => {

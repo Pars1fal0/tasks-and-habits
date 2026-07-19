@@ -1,8 +1,9 @@
 const CACHE_PREFIX = "rhythm-day-";
-const CACHE_NAME = `${CACHE_PREFIX}app-v51-__BUILD_HASH__`;
+const CACHE_NAME = `${CACHE_PREFIX}app-v52-__BUILD_HASH__`;
 const APP_SHELL = [
   "./",
   "index.html",
+  "shell-version.js",
   "styles.css",
   "disclosure-menus.css",
   "app-utils.js",

@@ -6,6 +6,7 @@
     ctx.els.remoteAuthSignUpButton?.addEventListener("click", () => authenticate("signUp"));
     ctx.els.remoteAuthSignOutButton?.addEventListener("click", signOut);
     ctx.els.remoteAuthResetButton?.addEventListener("click", resetPassword);
+    ctx.els.remoteAuthUpdatePasswordButton?.addEventListener("click", updatePassword);
 
     async function authenticate(method) {
       if (busy) return;
@@ -66,25 +67,66 @@
       }
     }
 
+    async function updatePassword() {
+      if (busy) return;
+      const password = ctx.els.remoteAuthPassword?.value || "";
+      if (password.length < 6) {
+        ctx.showToast("Новый пароль должен содержать не меньше 6 символов");
+        ctx.els.remoteAuthPassword?.focus();
+        return;
+      }
+      busy = true;
+      render();
+      try {
+        await ctx.auth.updatePassword(password);
+        ctx.els.remoteAuthPassword.value = "";
+        ctx.showToast("Пароль обновлён");
+      } catch (error) {
+        ctx.showToast(error.message || "Не удалось обновить пароль");
+      } finally {
+        busy = false;
+        render();
+        ctx.renderSyncStatus?.();
+      }
+    }
+
     function render() {
       const session = ctx.auth.getSession();
+      const recoveryMode = ctx.auth.isRecoveryMode?.() === true;
       const email = session?.user?.email || "";
       const projectConfigured = ctx.isProjectConfigured?.() !== false;
       if (ctx.els.remoteAuthStatus) {
         ctx.els.remoteAuthStatus.textContent = busy
           ? "Подключение..."
+          : recoveryMode
+            ? "Введите новый пароль и сохраните его"
           : email
             ? `Выполнен вход: ${email}`
             : projectConfigured
               ? "Вход не выполнен. Данные остаются только на этом устройстве."
               : "Сначала заполни параметры проекта Supabase.";
       }
-      [ctx.els.remoteAuthEmail, ctx.els.remoteAuthPassword, ctx.els.remoteAuthSignInButton, ctx.els.remoteAuthSignUpButton]
+      [ctx.els.remoteAuthEmail, ctx.els.remoteAuthSignInButton, ctx.els.remoteAuthSignUpButton]
         .filter(Boolean)
-        .forEach((element) => { element.disabled = busy || Boolean(session) || !projectConfigured; });
-      if (ctx.els.remoteAuthResetButton) ctx.els.remoteAuthResetButton.disabled = busy || Boolean(session) || !projectConfigured;
+        .forEach((element) => {
+          element.disabled = busy || Boolean(session) || recoveryMode || !projectConfigured;
+          element.hidden = recoveryMode;
+        });
+      if (ctx.els.remoteAuthPassword) {
+        ctx.els.remoteAuthPassword.disabled = busy || (Boolean(session) && !recoveryMode) || !projectConfigured;
+        ctx.els.remoteAuthPassword.autocomplete = recoveryMode ? "new-password" : "current-password";
+        ctx.els.remoteAuthPassword.placeholder = recoveryMode ? "Новый пароль" : "Пароль";
+      }
+      if (ctx.els.remoteAuthResetButton) {
+        ctx.els.remoteAuthResetButton.disabled = busy || Boolean(session) || recoveryMode || !projectConfigured;
+        ctx.els.remoteAuthResetButton.hidden = recoveryMode;
+      }
+      if (ctx.els.remoteAuthUpdatePasswordButton) {
+        ctx.els.remoteAuthUpdatePasswordButton.hidden = !recoveryMode;
+        ctx.els.remoteAuthUpdatePasswordButton.disabled = busy || !projectConfigured;
+      }
       if (ctx.els.remoteAuthSignOutButton) {
-        ctx.els.remoteAuthSignOutButton.hidden = !session;
+        ctx.els.remoteAuthSignOutButton.hidden = !session || recoveryMode;
         ctx.els.remoteAuthSignOutButton.disabled = busy;
       }
     }

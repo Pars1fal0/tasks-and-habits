@@ -23,15 +23,15 @@
         if (ctx.getTaskFilter() === "done") return done;
         return true;
       });
+      const hasActiveFilters = ctx.getTaskFilter() !== "all" || ctx.getTaskCategoryFilter() !== "all" || ctx.getTaskSearchQuery();
+      const canReorder = !hasActiveFilters;
 
       renderOverdueTasks();
       ctx.els.taskList.replaceChildren();
-      visibleTasks.forEach((task) => ctx.els.taskList.appendChild(createTaskNode(task)));
+      visibleTasks.forEach((task) => ctx.els.taskList.appendChild(createTaskNode(task, canReorder)));
 
       const doneCount = tasks.filter((task) => ctx.isTaskDone(task, activeDate)).length;
       const percent = tasks.length ? Math.round((doneCount / tasks.length) * 100) : 0;
-      const hasActiveFilters = ctx.getTaskFilter() !== "all" || ctx.getTaskCategoryFilter() !== "all" || ctx.getTaskSearchQuery();
-
       ctx.els.taskEmpty.textContent = tasks.length
         ? "По текущим фильтрам задач нет."
         : "На выбранный день задач нет.";
@@ -81,7 +81,7 @@
       });
     }
 
-    function createTaskNode(task) {
+    function createTaskNode(task, canReorder = true) {
       const activeDate = ctx.getActiveDate();
       const node = ctx.els.taskTemplate.content.firstElementChild.cloneNode(true);
       const done = ctx.isTaskDone(task, activeDate);
@@ -106,6 +106,8 @@
       node.classList.add(`priority-${task.priority || "medium"}-task`);
       title.textContent = task.title;
       check.classList.toggle("is-checked", done);
+      check.setAttribute("aria-label", done ? `Вернуть задачу «${task.title}» в работу` : `Отметить задачу «${task.title}» выполненной`);
+      check.setAttribute("aria-pressed", String(done));
       priority.textContent = ctx.priorityLabels[task.priority] || "Средний";
       priority.classList.add(`priority-${task.priority || "medium"}`);
       renderTaskMeta(meta, task);
@@ -114,7 +116,16 @@
         restoreOverdue.addEventListener("click", () => ctx.restoreOverdueTask(task, activeDate));
       }
 
+      node.draggable = canReorder;
+      if (dragHandle) {
+        dragHandle.disabled = !canReorder;
+        dragHandle.title = canReorder ? "Изменить порядок задачи" : "Сбрось фильтры, чтобы изменить порядок";
+      }
       node.addEventListener("dragstart", (event) => {
+        if (!canReorder) {
+          event.preventDefault();
+          return;
+        }
         if (!event.target.closest(".drag-handle") && event.target.closest("button, input, select, textarea")) {
           event.preventDefault();
           return;
@@ -134,6 +145,7 @@
         node.classList.remove("is-dragging");
       });
       node.addEventListener("dragover", (event) => {
+        if (!canReorder) return;
         event.preventDefault();
         if (draggedTaskId && draggedTaskId !== task.id) {
           node.classList.add("is-drop-target");
@@ -141,6 +153,7 @@
       });
       node.addEventListener("dragleave", () => node.classList.remove("is-drop-target"));
       node.addEventListener("drop", (event) => {
+        if (!canReorder) return;
         event.preventDefault();
         const sourceId = draggedTaskId || event.dataTransfer.getData("text/plain");
         if (sourceId && sourceId !== task.id) {
@@ -152,7 +165,7 @@
         }
       });
       dragHandle?.setAttribute("aria-label", `Переместить задачу ${task.title}. Стрелки вверх и вниз меняют порядок`);
-      attachTaskAccessibleMove(node, task, dragHandle);
+      if (canReorder) attachTaskAccessibleMove(node, task, dragHandle);
 
       check.addEventListener("click", () => {
         const undo = ctx.createUndoSnapshot();

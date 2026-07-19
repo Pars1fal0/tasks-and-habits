@@ -45,11 +45,12 @@
         ...state,
         schemaVersion: saveOptions.schemaVersion || schemaVersion,
       };
+      const previousState = readJson(keys.state, null);
       writeJson(keys.state, nextState);
 
-      if (!saveOptions.skipBackup) {
+      if (!saveOptions.skipBackup && previousState && typeof previousState === "object") {
         createBackup({
-          state: nextState,
+          state: previousState,
           schemaVersion: saveOptions.schemaVersion || schemaVersion,
           silent: true,
           throttle: true,

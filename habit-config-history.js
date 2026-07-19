@@ -35,9 +35,102 @@
   }
 
   function habitIsArchivedOnDate(habit, dateKey) {
+    if (Array.isArray(habit?.availabilityHistory) && habit.availabilityHistory.length) {
+      const history = normalizeHabitAvailabilityHistory(habit.availabilityHistory, {
+        archived: habit.archived,
+        archivedAt: habit.archivedAt,
+        archivedFromDate: habit.archivedFromDate,
+        startDate: habit.startDate,
+        updatedAt: habit.updatedAt || habit.createdAt,
+      });
+      const targetDate = normalizeDate(dateKey) || "9999-12-31";
+      const entry = [...history].reverse().find((item) => item.fromDate <= targetDate) || history[0];
+      return entry?.active === false;
+    }
     if (habit?.archived !== true) return false;
     const archivedFromDate = normalizeDate(habit.archivedFromDate) || normalizeDate(String(habit.archivedAt || "").slice(0, 10));
     return !archivedFromDate || normalizeDate(dateKey) >= archivedFromDate;
+  }
+
+  function normalizeHabitAvailabilityHistory(value, options = {}) {
+    const fallbackDate = normalizeDate(options.startDate) || "1970-01-01";
+    const fallbackUpdatedAt = validTimestamp(options.updatedAt) || new Date(0).toISOString();
+    const byDate = new Map();
+
+    (Array.isArray(value) ? value : []).forEach((entry) => {
+      const fromDate = normalizeDate(entry?.fromDate);
+      if (!fromDate || typeof entry?.active !== "boolean") return;
+      const normalized = {
+        active: entry.active,
+        fromDate,
+        updatedAt: validTimestamp(entry.updatedAt) || fallbackUpdatedAt,
+      };
+      const existing = byDate.get(fromDate);
+      if (!existing || Date.parse(normalized.updatedAt) >= Date.parse(existing.updatedAt)) byDate.set(fromDate, normalized);
+    });
+
+    if (![...byDate.keys()].some((dateKey) => dateKey <= fallbackDate)) {
+      byDate.set(fallbackDate, { active: true, fromDate: fallbackDate, updatedAt: fallbackUpdatedAt });
+    }
+
+    if (!Array.isArray(value) || value.length === 0) {
+      const archivedFromDate = normalizeDate(options.archivedFromDate)
+        || normalizeDate(String(options.archivedAt || "").slice(0, 10));
+      if (options.archived === true && archivedFromDate) {
+        byDate.set(archivedFromDate, {
+          active: false,
+          fromDate: archivedFromDate,
+          updatedAt: validTimestamp(options.archivedAt) || fallbackUpdatedAt,
+        });
+      }
+    }
+
+    return [...byDate.values()].sort((a, b) => a.fromDate.localeCompare(b.fromDate));
+  }
+
+  function applyHabitAvailabilityChange(habit, active, effectiveDate, options = {}) {
+    const fromDate = normalizeDate(effectiveDate);
+    if (!fromDate) return habit;
+    const updatedAt = validTimestamp(options.updatedAt) || new Date().toISOString();
+    const history = normalizeHabitAvailabilityHistory(habit?.availabilityHistory, {
+      archived: habit?.archived,
+      archivedAt: habit?.archivedAt,
+      archivedFromDate: habit?.archivedFromDate,
+      startDate: habit?.startDate || fromDate,
+      updatedAt: habit?.updatedAt || habit?.createdAt,
+    }).filter((entry) => entry.fromDate !== fromDate);
+    history.push({ active: active === true, fromDate, updatedAt });
+    history.sort((a, b) => a.fromDate.localeCompare(b.fromDate));
+    const latest = history.at(-1);
+    return {
+      ...habit,
+      availabilityHistory: history,
+      archived: latest.active === false,
+      archivedAt: latest.active === false ? latest.updatedAt : "",
+      archivedFromDate: latest.active === false ? latest.fromDate : "",
+      updatedAt,
+    };
+  }
+
+  function mergeHabitAvailabilityHistory(localHabit, remoteHabit) {
+    const local = normalizeHabitAvailabilityHistory(localHabit?.availabilityHistory, {
+      archived: localHabit?.archived,
+      archivedAt: localHabit?.archivedAt,
+      archivedFromDate: localHabit?.archivedFromDate,
+      startDate: localHabit?.startDate,
+      updatedAt: localHabit?.updatedAt || localHabit?.createdAt,
+    });
+    const remote = normalizeHabitAvailabilityHistory(remoteHabit?.availabilityHistory, {
+      archived: remoteHabit?.archived,
+      archivedAt: remoteHabit?.archivedAt,
+      archivedFromDate: remoteHabit?.archivedFromDate,
+      startDate: remoteHabit?.startDate,
+      updatedAt: remoteHabit?.updatedAt || remoteHabit?.createdAt,
+    });
+    return normalizeHabitAvailabilityHistory([...local, ...remote], {
+      startDate: remoteHabit?.startDate || localHabit?.startDate,
+      updatedAt: remoteHabit?.updatedAt || localHabit?.updatedAt,
+    });
   }
 
   function applyHabitConfigChange(habit, config, effectiveDate, options = {}) {
@@ -127,7 +220,16 @@
     return JSON.parse(JSON.stringify(value));
   }
 
-  const api = { applyHabitConfigChange, habitConfigOnDate, habitIsArchivedOnDate, mergeHabitConfigHistory, normalizeHabitConfigHistory };
+  const api = {
+    applyHabitAvailabilityChange,
+    applyHabitConfigChange,
+    habitConfigOnDate,
+    habitIsArchivedOnDate,
+    mergeHabitAvailabilityHistory,
+    mergeHabitConfigHistory,
+    normalizeHabitAvailabilityHistory,
+    normalizeHabitConfigHistory,
+  };
   global.RhythmHabitConfigHistory = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

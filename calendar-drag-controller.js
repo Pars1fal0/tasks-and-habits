@@ -101,20 +101,38 @@
 
     function startPointerDrag(event, chip) {
       if (event.button !== 0 || !chip.dataset.taskId || !chip.dataset.date) return;
+      const isTouch = event.pointerType === "touch";
       pointerDragTask = {
         taskId: chip.dataset.taskId,
         dateKey: chip.dataset.date,
         startX: event.clientX,
         startY: event.clientY,
         dragging: false,
+        activated: !isTouch,
+        longPressTimer: null,
         chip,
       };
+      if (isTouch) {
+        pointerDragTask.longPressTimer = global.setTimeout(() => {
+          if (!pointerDragTask || pointerDragTask.chip !== chip) return;
+          pointerDragTask.activated = true;
+          global.navigator?.vibrate?.(12);
+        }, 320);
+      }
     }
 
     function handlePointerMove(event) {
       if (!pointerDragTask) return;
       const distance = Math.hypot(event.clientX - pointerDragTask.startX, event.clientY - pointerDragTask.startY);
+      if (!pointerDragTask.activated) {
+        if (distance > 8) {
+          global.clearTimeout(pointerDragTask.longPressTimer);
+          pointerDragTask = null;
+        }
+        return;
+      }
       if (!pointerDragTask.dragging && distance < 8) return;
+      event.preventDefault();
       pointerDragTask.dragging = true;
       pointerDragTask.chip.classList.add("is-dragging");
       document.querySelectorAll(".calendar-drop-zone.is-drop-target").forEach((item) => item.classList.remove("is-drop-target"));
@@ -132,6 +150,7 @@
     }
 
     function cancelPointerDrag() {
+      global.clearTimeout(pointerDragTask?.longPressTimer);
       pointerDragTask?.chip?.classList.remove("is-dragging");
       pointerDragTask = null;
       document.querySelectorAll(".calendar-drop-zone.is-drop-target").forEach((item) => item.classList.remove("is-drop-target"));

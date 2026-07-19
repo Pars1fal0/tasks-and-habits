@@ -100,6 +100,9 @@ const { _electron: electron } = require("playwright-core");
 
     await page.setViewportSize({ height: 780, width: 390 });
     await page.locator('.nav-tab[data-view="timeline"]:visible').click();
+    assert.equal(await page.locator(".timeline-hour-slot").count(), 24);
+    assert.equal(await page.locator(".timeline-hour-slot").first().getAttribute("data-hour"), "0");
+    assert.equal(await page.locator(".timeline-hour-slot").last().getAttribute("data-hour"), "23");
     await page.locator('[data-timeline-scale="compact"]').click();
     const compactHeight = await page.locator(".timeline-hour-slot").first().evaluate((node) => node.getBoundingClientRect().height);
     await page.locator('[data-timeline-scale="large"]').click();
@@ -107,8 +110,8 @@ const { _electron: electron } = require("playwright-core");
     assert.ok(largeHeight > compactHeight, "large timeline scale should increase the touch target");
     assert.equal(await page.locator('[data-timeline-scale="large"]').getAttribute("aria-pressed"), "true");
     await page.goBack();
-    await page.waitForSelector('body[data-view="habits"]');
-    assert.equal(await page.evaluate(() => window.location.hash), "#habits");
+    await page.waitForSelector('body[data-view="tasks"]');
+    assert.equal(await page.evaluate(() => window.location.hash), "#tasks");
 
     await page.locator('.nav-tab[data-view="tasks"]:visible').click();
     await page.evaluate(() => {

@@ -6,6 +6,7 @@
     const storage = options.storage || global.localStorage;
     const getConfig = options.getConfig || (() => ({}));
     let session = loadSession();
+    let recoveryMode = false;
     let refreshTimer = null;
 
     function loadSession() {
@@ -83,13 +84,35 @@
 
     async function resetPassword(email) {
       const config = requireConfig();
+      const redirectTo = getRecoveryRedirectUrl();
       const response = await fetchFn(`${config.supabaseUrl}/auth/v1/recover`, {
         method: "POST",
         headers: authHeaders(config),
-        body: JSON.stringify({ email: cleanEmail(email) }),
+        body: JSON.stringify({
+          email: cleanEmail(email),
+          ...(redirectTo ? { redirect_to: redirectTo } : {}),
+        }),
       });
       const data = await readResponse(response);
       if (!response.ok) throw createAuthError(response, data);
+      return data;
+    }
+
+    async function updatePassword(password) {
+      if (!session?.access_token) throw new Error("Ссылка восстановления недействительна или устарела");
+      const config = requireConfig();
+      const response = await fetchFn(`${config.supabaseUrl}/auth/v1/user`, {
+        method: "PUT",
+        headers: {
+          ...authHeaders(config),
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ password }),
+      });
+      const data = await readResponse(response);
+      if (!response.ok) throw createAuthError(response, data);
+      recoveryMode = false;
+      clearRecoveryHash();
       return data;
     }
 
@@ -103,6 +126,10 @@
 
     function getSession() {
       return session;
+    }
+
+    function isRecoveryMode() {
+      return recoveryMode;
     }
 
     async function ensureFreshSession() {
@@ -121,8 +148,45 @@
       return config;
     }
 
+    restoreRecoverySession();
     scheduleRefresh();
-    return { ensureFreshSession, getSession, refreshSession, resetPassword, signIn, signOut, signUp };
+    return {
+      ensureFreshSession,
+      getSession,
+      isRecoveryMode,
+      refreshSession,
+      resetPassword,
+      signIn,
+      signOut,
+      signUp,
+      updatePassword,
+    };
+
+    function restoreRecoverySession() {
+      const params = new URLSearchParams(String(global.location?.hash || "").replace(/^#/, ""));
+      if (params.get("type") !== "recovery" || !params.get("access_token")) return;
+      const user = userFromAccessToken(params.get("access_token"));
+      if (!user.id) return;
+      recoveryMode = true;
+      saveSession({
+        access_token: params.get("access_token"),
+        refresh_token: params.get("refresh_token") || "",
+        token_type: params.get("token_type") || "bearer",
+        expires_at: Math.floor(Date.now() / 1000) + Math.max(60, Number(params.get("expires_in") || 3600)),
+        user,
+      });
+    }
+
+    function getRecoveryRedirectUrl() {
+      const location = global.location;
+      if (!location || !/^https?:$/.test(location.protocol)) return "";
+      return `${location.origin}${location.pathname}`;
+    }
+
+    function clearRecoveryHash() {
+      if (!global.history?.replaceState || !global.location) return;
+      global.history.replaceState(null, "", `${global.location.pathname}${global.location.search}#settings`);
+    }
   }
 
   function authHeaders(config) {
@@ -131,6 +195,17 @@
 
   function cleanEmail(value) {
     return String(value || "").trim().toLowerCase();
+  }
+
+  function userFromAccessToken(token) {
+    try {
+      const encoded = String(token || "").split(".")[1] || "";
+      const normalized = encoded.replace(/-/g, "+").replace(/_/g, "/");
+      const payload = JSON.parse(decodeURIComponent(escape(global.atob(normalized))));
+      return { id: String(payload.sub || ""), email: String(payload.email || "") };
+    } catch {
+      return { id: "", email: "" };
+    }
   }
 
   async function readResponse(response) {

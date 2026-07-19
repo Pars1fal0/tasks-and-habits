@@ -15,6 +15,10 @@ const scriptFiles = fs
   .readdirSync(path.join(root, "scripts"))
   .filter((file) => file.endsWith(".cjs"))
   .map((file) => path.join(root, "scripts", file));
+const mcpFiles = fs
+  .readdirSync(path.join(root, "mcp"))
+  .filter((file) => file.endsWith(".mjs"))
+  .map((file) => path.join(root, "mcp", file));
 
 const forbidden = [
   { pattern: /\binnerHTML\b/, label: "innerHTML" },
@@ -23,7 +27,7 @@ const forbidden = [
   { pattern: /\bprompt\s*\(/, label: "prompt()" },
 ];
 
-sourceFiles.forEach((filePath) => {
+[...sourceFiles, ...mcpFiles].forEach((filePath) => {
   const source = fs.readFileSync(filePath, "utf8");
   forbidden.forEach((rule) => {
     assert.equal(rule.pattern.test(source), false, `${path.basename(filePath)} contains forbidden ${rule.label}`);
@@ -33,6 +37,13 @@ sourceFiles.forEach((filePath) => {
 [...sourceFiles, ...testFiles, ...scriptFiles].forEach((filePath) => {
   const source = fs.readFileSync(filePath, "utf8");
   assert.doesNotThrow(() => new Function(source), `${path.relative(root, filePath)} has invalid JavaScript syntax`);
+});
+
+mcpFiles.forEach((filePath) => {
+  const result = require("node:child_process").spawnSync(process.execPath, ["--check", filePath], {
+    encoding: "utf8",
+  });
+  assert.equal(result.status, 0, `${path.relative(root, filePath)} has invalid JavaScript syntax\n${result.stderr}`);
 });
 
 const indexHtml = fs.readFileSync(path.join(root, "index.html"), "utf8");
@@ -47,4 +58,4 @@ const packagedFiles = new Set(packageJson.build?.files || []);
   assert.equal(packagedFiles.has(file), true, `package.json build.files is missing ${file}`);
 });
 
-console.log(`lint ok - ${sourceFiles.length} source files, ${testFiles.length} test files`);
+console.log(`lint ok - ${sourceFiles.length + mcpFiles.length} source files, ${testFiles.length} test files`);

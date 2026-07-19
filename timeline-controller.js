@@ -1,5 +1,6 @@
 (function (global) {
   const taskMovesApi = global.RhythmTaskMoves || (typeof require !== "undefined" ? require("./task-moves.js") : null);
+  const TIMELINE_LAST_MINUTE = 23 * 60 + 45;
 
   function createTimelineController(ctx) {
     function deleteTask(taskId) {
@@ -124,7 +125,10 @@
       if (!task) return false;
       const currentMinutes = ctx.timeToMinutes(ctx.taskSortTime(task));
       if (!Number.isFinite(currentMinutes)) return false;
-      const nextMinutes = Math.max(0, Math.min(23 * 60 + 59, currentMinutes + offsetMinutes));
+      const blockDuration = ctx.isTimeBlock(task)
+        ? Math.max(15, ctx.timeToMinutes(task.endTime) - ctx.timeToMinutes(task.startTime))
+        : 0;
+      const nextMinutes = Math.max(0, Math.min(TIMELINE_LAST_MINUTE - blockDuration, currentMinutes + offsetMinutes));
       const nextTime = ctx.minutesToTime(nextMinutes);
       return updateTaskTime(taskId, nextTime, `${ctx.messages.movedTo} ${ctx.formatTime(nextTime)}`);
     }
@@ -172,7 +176,7 @@
       if (ctx.isTimeBlock(task)) {
         const duration = helpers.timeToMinutes(task.endTime) - helpers.timeToMinutes(task.startTime);
         const nextStart = helpers.timeToMinutes(nextTime);
-        const nextEnd = Math.min(23 * 60 + 59, nextStart + duration);
+        const nextEnd = Math.min(TIMELINE_LAST_MINUTE, nextStart + duration);
         const endTime = helpers.minutesToTime(nextEnd);
         return {
           scheduleMode: "block",
@@ -183,7 +187,7 @@
       }
       if (!helpers.cleanTimeValue(task.time)) {
         const nextStart = helpers.timeToMinutes(nextTime);
-        const nextEnd = Math.min(23 * 60 + 59, nextStart + 60);
+        const nextEnd = Math.min(TIMELINE_LAST_MINUTE, nextStart + 60);
         const endTime = helpers.minutesToTime(nextEnd);
         return {
           scheduleMode: "block",

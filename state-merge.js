@@ -84,7 +84,10 @@
   function mergeHabit(local, remote, localMeta, remoteMeta) {
     const titleHistory = habitTitleHistory.mergeHabitTitleHistory(local, remote);
     const configHistory = habitConfigHistory.mergeHabitConfigHistory(local, remote);
+    const availabilityHistory = habitConfigHistory.mergeHabitAvailabilityHistory(local, remote);
     const latestConfig = configHistory.at(-1);
+    const latestAvailability = availabilityHistory.at(-1);
+    const archived = latestAvailability?.active === false;
     const newest = chooseNewest(local, remote);
     return {
       ...mergeEntityFields(
@@ -103,6 +106,10 @@
       unit: latestConfig.unit,
       goal: latestConfig.goal,
       configHistory,
+      availabilityHistory,
+      archived,
+      archivedAt: archived ? latestAvailability.updatedAt : "",
+      archivedFromDate: archived ? latestAvailability.fromDate : "",
       logs: mergeDatedValues(
         local.logs,
         remote.logs,

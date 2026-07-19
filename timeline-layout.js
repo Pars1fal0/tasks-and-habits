@@ -2,6 +2,7 @@
   const TIMELINE_HOUR_HEIGHT = 96;
   const TIMELINE_SLOT_MINUTES = 15;
   const DEFAULT_BLOCK_MINUTES = 60;
+  const TIMELINE_LAST_MINUTE = 23 * 60 + 45;
 
   function buildTimelineModel({ activeDate, formatTime, getCategory, isTaskDone, now = new Date(), priorityLabels, tasks, todayKey }) {
     const timedTasks = [];
@@ -47,10 +48,8 @@
     unscheduledTasks.sort((a, b) => priorityRank(a.task.priority) - priorityRank(b.task.priority) || a.title.localeCompare(b.title));
 
     const currentHour = activeDate === resolvedTodayKey ? Math.floor(currentMinutes / 60) : null;
-    const earliestHour = timedTasks.length ? Math.min(...timedTasks.map((entry) => Math.floor(entry.minutes / 60))) : 8;
-    const latestHour = timedTasks.length ? Math.max(...timedTasks.map((entry) => Math.floor((entry.endMinutes || entry.minutes) / 60))) : 18;
-    const startHour = Math.min(8, earliestHour, Number.isFinite(currentHour) ? currentHour : 8);
-    const endHour = Math.max(20, latestHour, Number.isFinite(currentHour) ? currentHour : 20);
+    const startHour = 0;
+    const endHour = 23;
     const hourRows = [];
 
     for (let hour = startHour; hour <= endHour; hour += 1) {
@@ -115,7 +114,7 @@
       const nextStart = Math.max(0, Math.min(end - TIMELINE_SLOT_MINUTES, start + delta));
       return { start: nextStart, end };
     }
-    const nextEnd = Math.max(start + TIMELINE_SLOT_MINUTES, Math.min(23 * 60 + 59, end + delta));
+    const nextEnd = Math.max(start + TIMELINE_SLOT_MINUTES, Math.min(TIMELINE_LAST_MINUTE, end + delta));
     return { start, end: nextEnd };
   }
 
@@ -192,6 +191,7 @@
   const api = {
     DEFAULT_BLOCK_MINUTES,
     TIMELINE_HOUR_HEIGHT,
+    TIMELINE_LAST_MINUTE,
     TIMELINE_SLOT_MINUTES,
     buildTimelineModel,
     formatBlockLabel,

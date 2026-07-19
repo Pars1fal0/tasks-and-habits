@@ -107,6 +107,19 @@
     return task;
   }
 
+  function moveRecurringSeriesFollowing({ state, task, sourceDateKey, targetDateKey, helpers = {} }) {
+    if (!task || task.repeat === "none" || !sourceDateKey || !targetDateKey || targetDateKey <= sourceDateKey) return null;
+    const nextSeries = splitEditedRecurringSeries(state, task, sourceDateKey, task, helpers);
+    if (!nextSeries) return null;
+    nextSeries.date = targetDateKey;
+    nextSeries.completed = {};
+    nextSeries.acknowledgedOverdue = {};
+    nextSeries.excludedDates = {};
+    nextSeries.notified = {};
+    nextSeries.updatedAt = new Date().toISOString();
+    return nextSeries;
+  }
+
   function createEditedOccurrence(state, task, dateKey, editedTask, helpers = {}) {
     const now = new Date().toISOString();
     const completed = task.completed?.[dateKey] === true ? { [dateKey]: true } : {};
@@ -301,6 +314,7 @@
   }
 
   const api = {
+    moveRecurringSeriesFollowing,
     moveRecurringOccurrence,
     moveSingleTask,
     postponeTask,

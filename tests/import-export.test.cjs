@@ -32,4 +32,52 @@ module.exports = [
       assert.equal(calls[4][2].undo, undo);
     },
   },
+  {
+    name: "rejects unrelated JSON before replacing application data",
+    async fn() {
+      let replaced = false;
+      let normalized = false;
+      const messages = [];
+      const importFile = {
+        files: [{ text: async () => JSON.stringify({ unrelated: true }) }],
+        value: "selected",
+      };
+      const controller = createImportExport({
+        createUndoSnapshot: () => ({ state: "{}" }),
+        normalizeState: () => { normalized = true; },
+        replaceState: () => { replaced = true; },
+        showToast: (message) => messages.push(message),
+        storage: { createImportSafetyBackup: () => ({ ok: true }) },
+        els: { importFile },
+      });
+
+      await controller.importData();
+
+      assert.equal(normalized, false);
+      assert.equal(replaced, false);
+      assert.equal(importFile.value, "");
+      assert.match(messages.at(-1), /JSON/);
+    },
+  },
+  {
+    name: "aborts import when the safety backup cannot be written",
+    async fn() {
+      let replaced = false;
+      const importFile = {
+        files: [{ text: async () => JSON.stringify({ tasks: [], habits: [], goals: [], categories: [] }) }],
+        value: "selected",
+      };
+      const controller = createImportExport({
+        createUndoSnapshot: () => ({ state: '{"tasks":[{"id":"safe"}]}' }),
+        normalizeState: (state) => state,
+        replaceState: () => { replaced = true; },
+        showToast() {},
+        storage: { createImportSafetyBackup: () => ({ ok: false }) },
+        els: { importFile },
+      });
+
+      await controller.importData();
+      assert.equal(replaced, false);
+    },
+  },
 ];

@@ -1,9 +1,11 @@
 const assert = require("node:assert/strict");
 const {
+  applyHabitAvailabilityChange,
   applyHabitConfigChange,
   habitConfigOnDate,
   habitIsArchivedOnDate,
   mergeHabitConfigHistory,
+  mergeHabitAvailabilityHistory,
 } = require("../habit-config-history.js");
 
 module.exports = [
@@ -13,6 +15,51 @@ module.exports = [
       const habit = { archived: true, archivedFromDate: "2026-07-20" };
       assert.equal(habitIsArchivedOnDate(habit, "2026-07-19"), false);
       assert.equal(habitIsArchivedOnDate(habit, "2026-07-20"), true);
+    },
+  },
+  {
+    name: "keeps a past pause after the habit is restored",
+    fn() {
+      let habit = {
+        id: "habit-1",
+        startDate: "2026-07-01",
+        archived: false,
+        updatedAt: "2026-07-01T08:00:00.000Z",
+      };
+      habit = applyHabitAvailabilityChange(habit, false, "2026-07-10", { updatedAt: "2026-07-10T08:00:00.000Z" });
+      habit = applyHabitAvailabilityChange(habit, true, "2026-07-13", { updatedAt: "2026-07-13T08:00:00.000Z" });
+
+      assert.equal(habitIsArchivedOnDate(habit, "2026-07-09"), false);
+      assert.equal(habitIsArchivedOnDate(habit, "2026-07-11"), true);
+      assert.equal(habitIsArchivedOnDate(habit, "2026-07-13"), false);
+      assert.equal(habit.archived, false);
+    },
+  },
+  {
+    name: "merges pause and restore history from different devices",
+    fn() {
+      const history = mergeHabitAvailabilityHistory(
+        {
+          startDate: "2026-07-01",
+          availabilityHistory: [
+            { active: true, fromDate: "2026-07-01", updatedAt: "2026-07-01T08:00:00.000Z" },
+            { active: false, fromDate: "2026-07-10", updatedAt: "2026-07-10T08:00:00.000Z" },
+          ],
+        },
+        {
+          startDate: "2026-07-01",
+          availabilityHistory: [
+            { active: true, fromDate: "2026-07-01", updatedAt: "2026-07-01T08:00:00.000Z" },
+            { active: true, fromDate: "2026-07-13", updatedAt: "2026-07-13T08:00:00.000Z" },
+          ],
+        },
+      );
+
+      assert.deepEqual(history.map((entry) => [entry.fromDate, entry.active]), [
+        ["2026-07-01", true],
+        ["2026-07-10", false],
+        ["2026-07-13", true],
+      ]);
     },
   },
   {

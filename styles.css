@@ -106,6 +106,22 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+.skip-link {
+  position: fixed;
+  z-index: 5000;
+  top: 10px;
+  left: 10px;
+  transform: translateY(-160%);
+  border-radius: var(--radius-xs);
+  padding: 9px 12px;
+  background: var(--text-strong);
+  color: var(--surface);
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
 :root[data-theme="light"] body {
   background: linear-gradient(180deg, #fbfcfc 0, var(--bg) 420px);
 }
@@ -1736,6 +1752,18 @@ body.has-floating-task-form::before {
     opacity 160ms var(--ease);
 }
 
+.archive-load-more {
+  justify-self: center;
+  margin: 8px 0 2px;
+}
+
+.quick-preview-warning {
+  margin: 0;
+  color: var(--coral);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
 .task-item:hover,
 .overdue-item:hover,
 .habit-item:hover,
@@ -2770,6 +2798,7 @@ body.has-floating-task-form::before {
   transition:
     background 160ms var(--ease),
     box-shadow 160ms var(--ease);
+  touch-action: pan-y;
 }
 
 .timeline-hour-slot.is-drop-target {
@@ -2922,6 +2951,7 @@ body.has-floating-task-form::before {
     background 160ms var(--ease),
     opacity 160ms var(--ease),
     transform 160ms var(--ease);
+  touch-action: pan-y;
 }
 
 .timeline-task.is-scheduled {
@@ -3657,6 +3687,12 @@ body.has-floating-task-form::before {
   color: var(--muted);
   font-size: 12px;
   font-weight: 680;
+  width: 100%;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
 }
 
 .week-board-header strong,
@@ -3688,7 +3724,7 @@ body.has-floating-task-form::before {
 }
 
 .week-task-chip,
-.month-day-items span {
+.month-task-chip {
   overflow: hidden;
   min-width: 0;
   border: 1px solid var(--line);
@@ -3725,10 +3761,11 @@ body.has-floating-task-form::before {
   font-weight: 600;
 }
 
-.month-day-items span {
+.month-task-chip {
   padding: 3px 6px;
   font-size: 12px;
   line-height: 1.25;
+  text-align: left;
 }
 
 .week-task-chip.is-done {
@@ -3765,7 +3802,7 @@ body.has-floating-task-form::before {
 .month-task-chip {
   border-left: 3px solid var(--chip-color, var(--muted-2));
   cursor: grab;
-  touch-action: none;
+  touch-action: pan-x pan-y;
 }
 
 .month-task-chip:active {

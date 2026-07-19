@@ -1,6 +1,8 @@
 server*.log
 dist/
 web-dist/
+.wrangler-build/
+.wrangler/
 node_modules/
 voice-assistant/.venv/
 voice-assistant/__pycache__/

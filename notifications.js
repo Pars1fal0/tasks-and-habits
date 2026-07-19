@@ -10,12 +10,17 @@
         dates.forEach((dateKey) => {
           const reminderAt = getReminderDate(task, dateKey);
           if (!reminderAt || reminderAt > now || ctx.isTaskDone(task, dateKey) || task.notified?.[dateKey]) return;
-          task.notified[dateKey] = true;
-          new Notification("Ритм дня", {
-            body: task.title,
-            tag: `${task.id}-${dateKey}`,
-          });
-          ctx.saveState();
+          try {
+            new Notification("Ритм дня", {
+              body: task.title,
+              tag: `${task.id}-${dateKey}`,
+            });
+            task.notified ||= {};
+            task.notified[dateKey] = true;
+            ctx.saveState();
+          } catch {
+            // Keep the reminder pending so a later check can try again.
+          }
         });
       });
     }
@@ -50,6 +55,11 @@
         return;
       }
       setNotifyButtonLabel(permission === "granted" ? "Уведомления включены" : "Уведомления");
+      if (ctx.els.desktopStatus) {
+        ctx.els.desktopStatus.textContent = permission === "granted"
+          ? "В браузере напоминания работают, пока вкладка открыта"
+          : "Для фоновых напоминаний используй desktop-версию";
+      }
     }
 
     function setNotifyButtonLabel(label) {

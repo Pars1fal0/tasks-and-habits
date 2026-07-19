@@ -45,12 +45,17 @@ module.exports = [
         assert.equal(els.taskDeadlineTimeField.hidden, true);
         assert.equal(els.taskBlockTimeFields.hidden, true);
         assert.equal(els.taskReminderField.hidden, true);
+        assert.equal(els.taskTime.disabled, true);
+        assert.equal(els.taskStartTime.disabled, true);
         assert.equal(buttons[0].active, true);
 
         schedule.applyPreset("09:00");
         assert.equal(schedule.getMode(), "deadline");
         assert.equal(els.taskTime.value, "09:00");
         assert.equal(els.taskDeadlineTimeField.hidden, false);
+        assert.equal(els.taskTime.disabled, false);
+        assert.equal(els.taskTime.required, true);
+        assert.equal(els.taskStartTime.disabled, true);
         assert.equal(buttons[1].active, true);
       } finally {
         global.document = previousDocument;

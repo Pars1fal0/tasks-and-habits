@@ -96,7 +96,7 @@
               completed: config.normalizeTaskFlags(task.completed),
               acknowledgedOverdue: config.normalizeTaskFlags(task.acknowledgedOverdue),
               excludedDates: config.normalizeTaskFlags(task.excludedDates),
-              notified: config.normalizeTaskFlags(task.notified),
+              notified: pruneOldNotificationFlags(config.normalizeTaskFlags(task.notified)),
               createdAt: task.createdAt || new Date().toISOString(),
               updatedAt: task.updatedAt || task.createdAt || new Date().toISOString(),
             };
@@ -129,6 +129,15 @@
               updatedAt,
             });
             const latestConfig = configHistory.at(-1);
+            const availabilityHistory = config.normalizeHabitAvailabilityHistory(habit.availabilityHistory, {
+              archived: habit.archived,
+              archivedAt: habit.archivedAt,
+              archivedFromDate: habit.archivedFromDate,
+              startDate,
+              updatedAt,
+            });
+            const latestAvailability = availabilityHistory.at(-1);
+            const archived = latestAvailability?.active === false;
             return {
               id: habit.id || config.createId(),
               title: titleHistory.at(-1)?.title || "Привычка",
@@ -140,11 +149,10 @@
               unit: latestConfig.unit,
               goal: latestConfig.goal,
               configHistory,
-              archived: habit.archived === true,
-              archivedAt: habit.archived === true ? habit.archivedAt || new Date().toISOString() : "",
-              archivedFromDate: habit.archived === true
-                ? config.normalizeDateKey(habit.archivedFromDate || String(habit.archivedAt || "").slice(0, 10), startDate)
-                : "",
+              availabilityHistory,
+              archived,
+              archivedAt: archived ? latestAvailability.updatedAt : "",
+              archivedFromDate: archived ? latestAvailability.fromDate : "",
               logs: config.normalizeHabitLogs(habit.logs, type),
               createdAt,
               updatedAt,
@@ -192,7 +200,13 @@
           })
         : [];
 
-      normalized.taskOrder = config.normalizeTaskOrder(raw.taskOrder);
+      const taskIds = new Set(normalized.tasks.map((task) => task.id));
+      normalized.taskOrder = Object.fromEntries(
+        Object.entries(config.normalizeTaskOrder(raw.taskOrder))
+          .map(([dateKey, ids]) => [dateKey, ids.filter((id) => taskIds.has(id))])
+          .filter(([, ids]) => ids.length),
+      );
+      normalized.syncMeta = config.pruneSyncMeta?.(normalized.syncMeta, normalized) || normalized.syncMeta;
       return normalized;
     }
 
@@ -239,6 +253,13 @@
 
   function isValidTimestamp(value) {
     return typeof value === "string" && Number.isFinite(Date.parse(value));
+  }
+
+  function pruneOldNotificationFlags(flags) {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 120);
+    const cutoffKey = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, "0")}-${String(cutoff.getDate()).padStart(2, "0")}`;
+    return Object.fromEntries(Object.entries(flags || {}).filter(([dateKey]) => dateKey >= cutoffKey));
   }
 
   const api = { createStateNormalizer };

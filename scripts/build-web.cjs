@@ -1,5 +1,6 @@
 const fs = require("node:fs");
 const crypto = require("node:crypto");
+const esbuild = require("esbuild");
 const path = require("node:path");
 const vm = require("node:vm");
 
@@ -10,7 +11,7 @@ const shellSource = serviceWorker.match(/const APP_SHELL = \[([\s\S]*?)\];/)?.[1
 
 if (!shellSource) throw new Error("Unable to find APP_SHELL in sw.js");
 
-const files = [...vm.runInNewContext(`[${shellSource}]`), "sw.js"]
+const files = [...vm.runInNewContext(`[${shellSource}]`), "sw.js", "_headers"]
   .map((file) => String(file).replace(/^\.\//, ""))
   .filter((file) => file && file !== ".");
 
@@ -18,8 +19,11 @@ fs.rmSync(output, { force: true, recursive: true });
 fs.mkdirSync(output, { recursive: true });
 
 const uniqueFiles = new Set(files);
+const extraAssets = ["oauth-consent.html", "oauth-consent.css"];
 const buildHasher = crypto.createHash("sha256");
 [...uniqueFiles].filter((file) => file !== "sw.js").forEach((file) => buildHasher.update(fs.readFileSync(path.join(root, file))));
+extraAssets.forEach((file) => buildHasher.update(fs.readFileSync(path.join(root, file))));
+buildHasher.update(fs.readFileSync(path.join(root, "mcp", "oauth-consent-entry.mjs")));
 const buildHash = buildHasher.digest("hex").slice(0, 12);
 
 for (const file of uniqueFiles) {
@@ -34,5 +38,18 @@ for (const file of uniqueFiles) {
   }
 }
 
+extraAssets.forEach((file) => {
+  fs.copyFileSync(path.join(root, file), path.join(output, file));
+});
+esbuild.buildSync({
+  bundle: true,
+  entryPoints: [path.join(root, "mcp", "oauth-consent-entry.mjs")],
+  format: "iife",
+  minify: true,
+  outfile: path.join(output, "oauth-consent.js"),
+  platform: "browser",
+  target: ["es2022"],
+});
+
 fs.writeFileSync(path.join(output, ".nojekyll"), "", "utf8");
-console.log(`web build ok - ${uniqueFiles.size} files - cache ${buildHash}`);
+console.log(`web build ok - ${uniqueFiles.size + extraAssets.length + 1} files - cache ${buildHash}`);

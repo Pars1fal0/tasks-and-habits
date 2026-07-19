@@ -1,6 +1,6 @@
 {
   "name": "rhythm-day",
-  "version": "0.13.5",
+  "version": "0.14.0",
   "private": true,
   "description": "Локальный десктопный трекер задач и привычек",
   "main": "desktop/main.cjs",
@@ -12,7 +12,9 @@
     "test": "node tests/run-tests.cjs",
     "test:sync-live": "node tests/remote-sync-live.cjs",
     "build:web": "node scripts/build-web.cjs",
-    "build:cloudflare": "npm test && npm run lint && npm run build:web",
+    "build:worker": "wrangler deploy --dry-run --outdir .wrangler-build",
+    "build:cloudflare": "npm test && npm run lint && npm run build:web && npm run build:worker",
+    "mcp:dev": "npm run build:web && wrangler dev",
     "build:win": "electron-builder --win portable nsis",
     "pack:win": "electron-builder --win portable"
   },
@@ -70,6 +72,7 @@
       "settings-sync.js",
       "settings-transfer.js",
       "save-status.js",
+      "shell-version.js",
       "settings-controller.js",
       "state-normalizer.js",
       "state-controller.js",
@@ -116,9 +119,14 @@
     }
   },
   "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@supabase/supabase-js": "^2.110.7",
+    "agents": "^0.17.4",
     "electron": "^42.5.0",
     "electron-builder": "^26.0.12",
+    "esbuild": "^0.28.1",
     "playwright-core": "^1.61.1",
-    "wrangler": "^4.110.0"
+    "wrangler": "^4.110.0",
+    "zod": "^4.4.3"
   }
 }

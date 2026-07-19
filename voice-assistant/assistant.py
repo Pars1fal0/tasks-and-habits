@@ -24,6 +24,18 @@ PID_PATH = ROOT / "assistant.pid"
 LOG_PATH = ROOT / "assistant.log"
 SAMPLE_RATE = 16_000
 DEFAULT_SEND_PHRASES = ("отправь", "отправить", "отправляй")
+DEFAULT_WAKE_PHRASES = (
+    "кодекс работай",
+    "кодекс работать",
+    "кодекс слушай",
+    "кодекса работай",
+    "кодекса работать",
+    "кодекс работа",
+)
+PHRASE_WORD_ALIASES = {
+    "кодекса": "кодекс",
+    "кодек": "кодекс",
+}
 
 
 def configure_logging():
@@ -36,12 +48,14 @@ def load_config():
     if not CONFIG_PATH.exists():
         raise RuntimeError("Не найден config.json. Запусти install.ps1.")
     config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
-    phrases = [normalize_phrase(value) for value in config.get("wake_phrases", [])]
+    phrases = [normalize_phrase(value) for value in [*config.get("wake_phrases", []), *DEFAULT_WAKE_PHRASES]]
     config["wake_phrases"] = [value for value in phrases if value]
     configured_send_phrases = [
         config.get("send_phrase", "отправь"),
         *config.get("send_phrases", []),
         *DEFAULT_SEND_PHRASES,
+        "отправь сообщение",
+        "отправить сообщение",
     ]
     config["send_phrases"] = list(
         dict.fromkeys(normalize_phrase(value) for value in configured_send_phrases if normalize_phrase(value))
@@ -53,7 +67,8 @@ def load_config():
 
 
 def normalize_phrase(value):
-    return " ".join(str(value or "").lower().replace("ё", "е").split())
+    words = str(value or "").lower().replace("ё", "е").split()
+    return " ".join(PHRASE_WORD_ALIASES.get(word, word) for word in words)
 
 
 def create_recognizer(model, phrases):
@@ -159,6 +174,11 @@ def run():
         wake_recognizer.Reset()
 
     microphone = config.get("microphone")
+    try:
+        device_info = sd.query_devices(microphone, "input")
+        logger.info("Микрофон: %s", device_info.get("name", microphone))
+    except Exception:
+        logger.warning("Не удалось получить сведения о выбранном микрофоне")
     logger.info("Помощник запущен. Фразы активации: %s", ", ".join(config["wake_phrases"]))
     with sd.RawInputStream(
         samplerate=SAMPLE_RATE,

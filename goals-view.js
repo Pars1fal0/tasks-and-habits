@@ -114,6 +114,7 @@
       ctx.els.goalFormHeading.textContent = "Редактировать цель";
       ctx.els.resetGoalForm.textContent = "Отмена";
       ctx.els.goalFormPanel.classList.remove("is-collapsed");
+      ctx.markFormPristine?.(ctx.els.goalForm);
       ctx.els.goalTitle.focus();
     }
 
@@ -125,6 +126,7 @@
       ctx.checkpointEditor.setSteps();
       ctx.els.goalFormHeading.textContent = "Новая цель";
       ctx.els.resetGoalForm.textContent = "Очистить";
+      ctx.markFormPristine?.(ctx.els.goalForm);
     }
 
     function toggleGoalStep(goalId, stepId, done) {

@@ -227,4 +227,64 @@ module.exports = [
       assert.equal(workflow.getStatus().pending, true);
     },
   },
+  {
+    name: "flushes a queued local change after another sync operation finishes",
+    async fn() {
+      let pending = false;
+      let pushes = 0;
+      let releaseCheck;
+      const checkGate = new Promise((resolve) => { releaseCheck = resolve; });
+      const workflow = createRemoteSyncWorkflow({
+        createImportSafetyBackup: () => ({ ok: true }),
+        createUndoSnapshot: () => ({ state: "{}" }),
+        describeError: (error) => error.message,
+        formatDate: (value) => value,
+        getLocalUpdatedAt: () => "2026-07-19T08:00:00.000Z",
+        getRemoteUiSettings: () => ({}),
+        getSettings: () => ({ accessToken: "jwt", enabled: true, anonKey: "anon", supabaseUrl: "url", userId: "user" }),
+        getState: () => ({ tasks: [{ id: "changed" }] }),
+        getSyncMeta: () => ({ lastPulledAt: "", lastPushedAt: "", pending }),
+        isRemoteVersionNewer: () => false,
+        latestIsoDate: (...values) => values.filter(Boolean).sort().at(-1) || "",
+        mergeStates: (local) => local,
+        remoteSync: {
+          normalizeConfig: (config) => config,
+          isConfigured: (config) => config.enabled,
+          checkConnection: async () => {
+            await checkGate;
+            return { found: false };
+          },
+          pullState: async () => ({ found: false }),
+          pushState: async () => {
+            pushes += 1;
+            return { row: { updated_at: "2026-07-19T08:00:01.000Z" } };
+          },
+        },
+        render() {},
+        renderSaveStatus() {},
+        replaceState() {},
+        saveState() {},
+        saveUiState() {},
+        schemaVersion: 12,
+        setSyncMeta: (meta) => {
+          if (typeof meta.pending === "boolean") pending = meta.pending;
+        },
+        showToast() {},
+        statusElement: { textContent: "" },
+        syncControls() {},
+      });
+
+      const checkPromise = workflow.check();
+      workflow.schedulePush();
+      const queued = await workflow.push({ silent: true });
+      assert.deepEqual(queued, { queued: true });
+      releaseCheck();
+      await checkPromise;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+
+      assert.equal(pushes, 1);
+      assert.equal(pending, false);
+      assert.equal(workflow.getStatus().pending, false);
+    },
+  },
 ];

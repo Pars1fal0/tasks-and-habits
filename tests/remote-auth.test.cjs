@@ -89,4 +89,45 @@ module.exports = [
       assert.equal(JSON.parse(calls[0].options.body).email, "me@example.com");
     },
   },
+  {
+    name: "accepts a recovery session and updates the password",
+    async fn() {
+      const previousLocation = global.location;
+      const previousHistory = global.history;
+      const payload = Buffer.from(JSON.stringify({ sub: "u1", email: "me@example.com" })).toString("base64url");
+      const token = `header.${payload}.signature`;
+      const calls = [];
+      global.location = {
+        hash: `#access_token=${token}&refresh_token=refresh&type=recovery&expires_in=3600`,
+        origin: "https://parsitasks.ru",
+        pathname: "/",
+        protocol: "https:",
+        search: "",
+      };
+      global.history = { replaceState: (...args) => calls.push({ history: args }) };
+      try {
+        const auth = createRemoteAuth({
+          fetch: async (url, options) => {
+            calls.push({ url, options });
+            return { ok: true, text: async () => "{}" };
+          },
+          getConfig: () => ({ anonKey: "anon", supabaseUrl: "https://demo.supabase.co" }),
+          storage: createStorage(),
+        });
+
+        assert.equal(auth.isRecoveryMode(), true);
+        assert.equal(auth.getSession().user.id, "u1");
+        await auth.updatePassword("new-secret");
+        assert.equal(auth.isRecoveryMode(), false);
+        assert.match(calls.find((call) => call.url)?.url || "", /auth\/v1\/user$/);
+        assert.equal(JSON.parse(calls.find((call) => call.url)?.options.body).password, "new-secret");
+        await auth.signOut();
+      } finally {
+        if (previousLocation === undefined) delete global.location;
+        else global.location = previousLocation;
+        if (previousHistory === undefined) delete global.history;
+        else global.history = previousHistory;
+      }
+    },
+  },
 ];

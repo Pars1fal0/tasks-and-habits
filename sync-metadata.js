@@ -110,6 +110,34 @@
     };
   }
 
+  function pruneSyncMeta(value = {}, state = {}) {
+    const meta = normalizeSyncMeta(value);
+    const ids = {
+      tasks: new Set(idsOf(state.tasks)),
+      habits: new Set(idsOf(state.habits)),
+      goals: new Set(idsOf(state.goals)),
+      categories: new Set(idsOf(state.categories)),
+    };
+    Object.keys(meta.entityFields).forEach((type) => {
+      Object.keys(meta.entityFields[type]).forEach((id) => {
+        if (!ids[type]?.has(id)) delete meta.entityFields[type][id];
+      });
+    });
+    Object.keys(meta.taskFields).forEach((id) => {
+      if (!ids.tasks.has(id)) delete meta.taskFields[id];
+    });
+    Object.keys(meta.habitLogs).forEach((id) => {
+      if (!ids.habits.has(id)) delete meta.habitLogs[id];
+    });
+    Object.keys(meta.goalSteps).forEach((id) => {
+      if (!ids.goals.has(id)) delete meta.goalSteps[id];
+    });
+    Object.keys(meta.goalStepOrder).forEach((id) => {
+      if (!ids.goals.has(id)) delete meta.goalStepOrder[id];
+    });
+    return meta;
+  }
+
   function normalizeEntityFields(value = {}) {
     const result = {};
     Object.keys(ENTITY_FIELDS).forEach((type) => {
@@ -164,7 +192,7 @@
     return JSON.parse(JSON.stringify(value));
   }
 
-  const api = { ENTITY_FIELDS, TASK_DATE_FIELDS, clone, createSyncMetadataTracker, normalizeSyncMeta };
+  const api = { ENTITY_FIELDS, TASK_DATE_FIELDS, clone, createSyncMetadataTracker, normalizeSyncMeta, pruneSyncMeta };
   global.RhythmSyncMetadata = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

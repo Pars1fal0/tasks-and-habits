@@ -4,60 +4,16 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#0b100f">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://*.supabase.co; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
     <title>Ритм дня</title>
     <link rel="icon" href="data:,">
     <link rel="manifest" href="manifest.webmanifest">
-    <script>
-      (() => {
-        const shellVersion = "0.13.5";
-        const versionKey = "rhythm-shell-version";
-        const retryKey = "rhythm-shell-refresh";
-        let storedVersion = "";
-        let alreadyRetried = false;
-
-        try {
-          storedVersion = localStorage.getItem(versionKey) || "";
-          alreadyRetried = sessionStorage.getItem(retryKey) === shellVersion;
-        } catch {}
-
-        const hasOldShell =
-          storedVersion !== shellVersion &&
-          "serviceWorker" in navigator &&
-          navigator.serviceWorker.controller;
-
-        if (hasOldShell && !alreadyRetried) {
-          document.documentElement.style.visibility = "hidden";
-          try {
-            sessionStorage.setItem(retryKey, shellVersion);
-          } catch {}
-
-          const clearWorkers = navigator.serviceWorker
-            .getRegistrations()
-            .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())));
-          const clearCaches = "caches" in window
-            ? caches.keys().then((keys) =>
-                Promise.all(
-                  keys
-                    .filter((key) => key.startsWith("rhythm-day-"))
-                    .map((key) => caches.delete(key))
-                )
-              )
-            : Promise.resolve();
-
-          Promise.allSettled([clearWorkers, clearCaches]).then(() => window.location.reload());
-          return;
-        }
-
-        try {
-          localStorage.setItem(versionKey, shellVersion);
-          sessionStorage.removeItem(retryKey);
-        } catch {}
-      })();
-    </script>
+    <script src="shell-version.js?v=1"></script>
     <link rel="stylesheet" href="styles.css?v=28">
     <link rel="stylesheet" href="disclosure-menus.css?v=1">
   </head>
   <body>
+    <a class="skip-link" href="#mainWorkspace">Перейти к содержимому</a>
     <svg class="icon-sprite" aria-hidden="true">
       <symbol id="icon-archive" viewBox="0 0 24 24"><path d="M4 7h16v13H4V7Z"/><path d="M3 4h18v3H3V4Z"/><path d="M9 11h6"/></symbol>
       <symbol id="icon-bell" viewBox="0 0 24 24"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z"/><path d="M10 21h4"/></symbol>
@@ -187,7 +143,7 @@
         </div>
       </aside>
 
-      <main class="workspace">
+      <main class="workspace" id="mainWorkspace" tabindex="-1">
         <header class="topbar">
           <div class="title-block">
             <p class="eyebrow" id="todayLabel"></p>
@@ -284,7 +240,7 @@
           <form class="quick-task-form" id="quickTaskForm">
             <label class="quick-task-input">
               <span>Быстрый ввод</span>
-              <input id="quickTaskInput" type="text" autocomplete="off" placeholder="Созвон завтра 14:00-15:30 #работа !high">
+              <input id="quickTaskInput" type="text" maxlength="200" autocomplete="off" placeholder="Созвон завтра 14:00-15:30 #работа !high">
             </label>
             <button class="primary-button compact-button" type="submit">Добавить</button>
             <div class="quick-input-hints" id="quickInputHints" aria-label="Подсказки быстрого ввода">
@@ -1018,6 +974,7 @@
                   <button class="primary-button compact-button" id="remoteAuthSignInButton" type="button">Войти</button>
                   <button class="ghost-button compact-button" id="remoteAuthSignUpButton" type="button">Регистрация</button>
                   <button class="ghost-button compact-button" id="remoteAuthResetButton" type="button">Сбросить пароль</button>
+                  <button class="primary-button compact-button" id="remoteAuthUpdatePasswordButton" type="button" hidden>Сохранить новый пароль</button>
                   <button class="ghost-button compact-button" id="remoteAuthSignOutButton" type="button" hidden>Выйти</button>
                 </div>
                 <p class="settings-status" id="remoteAuthStatus" aria-live="polite">Вход не выполнен</p>

@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <meta name="robots" content="noindex">
+    <title>Подключение ChatGPT — Parsitasks</title>
+    <link rel="stylesheet" href="/oauth-consent.css">
+  </head>
+  <body>
+    <main class="consent-shell">
+      <section class="consent-panel" aria-labelledby="consentTitle">
+        <header class="brand-header">
+          <span class="brand-mark" aria-hidden="true">P</span>
+          <div>
+            <p class="eyebrow">PARsitasks</p>
+            <h1 id="consentTitle">Подключение помощника</h1>
+          </div>
+        </header>
+
+        <p id="consentStatus" class="status" role="status" aria-live="polite">Проверяем запрос…</p>
+
+        <form id="loginForm" class="auth-form" hidden>
+          <div>
+            <h2>Войдите в Parsitasks</h2>
+            <p>Используйте тот же аккаунт, в котором хранятся ваши задачи.</p>
+          </div>
+          <label>
+            Email
+            <input id="loginEmail" type="email" autocomplete="email" required>
+          </label>
+          <label>
+            Пароль
+            <input id="loginPassword" type="password" autocomplete="current-password" minlength="6" required>
+          </label>
+          <button class="primary-button" type="submit">Войти и продолжить</button>
+        </form>
+
+        <section id="approvalPanel" class="approval" hidden>
+          <div class="client-row">
+            <div id="clientLogoFallback" class="client-logo" aria-hidden="true">AI</div>
+            <div>
+              <p class="eyebrow">Запрашивает доступ</p>
+              <h2 id="clientName">ChatGPT</h2>
+              <p id="accountEmail" class="muted"></p>
+            </div>
+          </div>
+
+          <div class="permissions">
+            <h3>После подключения помощник сможет</h3>
+            <ul>
+              <li>просматривать задачи, привычки и цели;</li>
+              <li>создавать новые задачи;</li>
+              <li>отмечать задачи выполненными или возвращать их в работу.</li>
+            </ul>
+          </div>
+
+          <p class="safety-note">Удаление данных через помощника отключено. Запись выполняется только в ваш аккаунт.</p>
+
+          <div class="actions">
+            <button id="approveButton" class="primary-button" type="button">Разрешить</button>
+            <button id="denyButton" class="secondary-button" type="button">Отказать</button>
+          </div>
+        </section>
+      </section>
+    </main>
+    <script src="/oauth-consent.js"></script>
+  </body>
+</html>

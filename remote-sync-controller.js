@@ -3,6 +3,8 @@
     let inFlight = false;
     let lastError = "";
     let pending = ctx.getSyncMeta?.().pending === true;
+    let pendingVersion = pending ? 1 : 0;
+    let queuedPush = false;
     let timerId = null;
 
     function getConfig() {
@@ -50,14 +52,19 @@
     }
 
     function schedulePush() {
+      pendingVersion += 1;
       setPending(true);
       if (!isReady()) return renderStatus();
       renderStatus();
+      queuePush();
+    }
+
+    function queuePush(delay = 1200) {
       if (timerId) clearTimeout(timerId);
       timerId = setTimeout(() => {
         timerId = null;
         push({ silent: true });
-      }, 1200);
+      }, delay);
     }
 
     async function push(options = {}) {
@@ -68,7 +75,11 @@
         if (manual) ctx.showToast("Заполни настройки удаленной БД");
         return;
       }
-      if (inFlight) return;
+      if (inFlight) {
+        queuedPush = true;
+        return { queued: true };
+      }
+      const pushVersion = pendingVersion;
       begin();
       try {
         let mergedRemote = false;
@@ -93,7 +104,8 @@
           }
         }
         ctx.setSyncMeta({ lastPushedAt: snapshotVersion(pushed) || pushedAt });
-        setPending(false);
+        if (pendingVersion === pushVersion) setPending(false);
+        else queuedPush = true;
         ctx.recordSyncEvent?.("push");
         if (manual) ctx.showToast(mergedRemote ? "Данные устройств объединены и сохранены" : "Данные сохранены в БД");
       } catch (error) {
@@ -180,7 +192,8 @@
       begin();
       try {
         const undo = ctx.createUndoSnapshot();
-        ctx.createImportSafetyBackup({ state: JSON.stringify(ctx.getState()) });
+        const safetyBackup = ctx.createImportSafetyBackup({ state: JSON.stringify(ctx.getState()) });
+        if (safetyBackup?.ok === false) throw new Error("safety-backup-failed");
         const nextState = confirmed === "secondary" ? ctx.mergeStates(ctx.getState(), pulled.state) : pulled.state;
         ctx.replaceState(nextState);
         const pulledAt = new Date().toISOString();
@@ -229,7 +242,8 @@
 
     function applyMergedSnapshot(pulled, detail) {
       const undo = ctx.createUndoSnapshot();
-      ctx.createImportSafetyBackup(undo);
+      const safetyBackup = ctx.createImportSafetyBackup(undo);
+      if (safetyBackup?.ok === false) throw new Error("safety-backup-failed");
       ctx.replaceState(ctx.mergeStates(ctx.getState(), pulled.state));
       const pulledAt = new Date().toISOString();
       ctx.setSyncMeta({ lastPulledAt: snapshotVersion(pulled) || pulledAt });
@@ -275,6 +289,10 @@
       ctx.syncControls();
       renderStatus();
       ctx.renderSaveStatus?.();
+      if (queuedPush && pending && isReady()) {
+        queuedPush = false;
+        queuePush(0);
+      }
     }
 
     function setStatus(message) {

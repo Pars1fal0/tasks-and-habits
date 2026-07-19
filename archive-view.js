@@ -1,7 +1,11 @@
 ﻿(function (global) {
   function createArchiveView(ctx) {
+    const PAGE_SIZE = 100;
     const selectedKeys = new Set();
     let visibleEntries = [];
+    let filteredEntries = [];
+    let visibleLimit = PAGE_SIZE;
+    let filterSignature = "";
     let period = ["all", "week", "month", "quarter"].includes(ctx.initialPeriod)
       ? ctx.initialPeriod
       : "all";
@@ -16,37 +20,52 @@
     ctx.els?.archiveBulkDelete?.addEventListener("click", deleteSelected);
     ctx.els?.archivePeriodFilter?.addEventListener("change", () => {
       period = ctx.els.archivePeriodFilter.value || "all";
+      selectedKeys.clear();
+      visibleLimit = PAGE_SIZE;
       ctx.onPeriodChange?.(period);
       renderArchive();
     });
 
     function renderArchive() {
       const allEntries = ctx.archiveEntries();
-      const entries = allEntries.filter((entry) => {
+      const nextFilterSignature = JSON.stringify([
+        period,
+        ctx.getArchiveCategoryFilter(),
+        ctx.getArchiveSearchQuery(),
+      ]);
+      if (filterSignature && filterSignature !== nextFilterSignature) {
+        selectedKeys.clear();
+        visibleLimit = PAGE_SIZE;
+      }
+      filterSignature = nextFilterSignature;
+      filteredEntries = allEntries.filter((entry) => {
         return (
           ctx.matchesCategoryFilter(entry.task, ctx.getArchiveCategoryFilter()) &&
           ctx.archiveEntryMatchesSearch(entry, ctx.getArchiveSearchQuery()) &&
           global.RhythmPlanningHistory.archiveEntryInPeriod(entry.dateKey, period, ctx.toDateKey(new Date()), ctx.addDays)
         );
       });
-      visibleEntries = entries;
-      const validKeys = new Set(allEntries.map(entryKey));
+      visibleEntries = filteredEntries.slice(0, visibleLimit);
+      const validKeys = new Set(filteredEntries.map(entryKey));
       [...selectedKeys].forEach((key) => {
         if (!validKeys.has(key)) selectedKeys.delete(key);
       });
       ctx.els.archiveList.replaceChildren();
       let currentDateKey = "";
-      entries.forEach((entry) => {
+      visibleEntries.forEach((entry) => {
         if (entry.dateKey !== currentDateKey) {
           currentDateKey = entry.dateKey;
           ctx.els.archiveList.appendChild(createArchiveDateHeader(entry.dateKey));
         }
         ctx.els.archiveList.appendChild(createArchiveNode(entry));
       });
+      if (filteredEntries.length > visibleEntries.length) {
+        ctx.els.archiveList.appendChild(createLoadMoreButton(filteredEntries.length - visibleEntries.length));
+      }
       ctx.els.archiveEmpty.textContent = allEntries.length
         ? "По текущим фильтрам записей нет."
         : "Завершенных задач пока нет.";
-      ctx.els.archiveEmpty.classList.toggle("is-visible", entries.length === 0);
+      ctx.els.archiveEmpty.classList.toggle("is-visible", filteredEntries.length === 0);
       renderBulkBar();
     }
 
@@ -55,6 +74,18 @@
       header.className = "archive-date-header";
       header.textContent = ctx.formatLongDate(dateKey);
       return header;
+    }
+
+    function createLoadMoreButton(remaining) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "ghost-button archive-load-more";
+      button.textContent = `Показать ещё (${Math.min(PAGE_SIZE, remaining)})`;
+      button.addEventListener("click", () => {
+        visibleLimit += PAGE_SIZE;
+        renderArchive();
+      });
+      return button;
     }
 
     function createArchiveNode(entry) {
@@ -140,7 +171,7 @@
     }
 
     function selectedEntries() {
-      return ctx.archiveEntries().filter((entry) => selectedKeys.has(entryKey(entry)));
+      return filteredEntries.filter((entry) => selectedKeys.has(entryKey(entry)));
     }
 
     async function restoreSelected() {
@@ -222,6 +253,8 @@
     }
     function setPeriod(value) {
       period = ["all", "week", "month", "quarter"].includes(value) ? value : "all";
+      selectedKeys.clear();
+      visibleLimit = PAGE_SIZE;
       if (ctx.els.archivePeriodFilter) ctx.els.archivePeriodFilter.value = period;
       ctx.onPeriodChange?.(period);
       renderArchive();

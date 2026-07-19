@@ -16,6 +16,11 @@
         ctx.showToast("Укажи корректный временной блок");
         return;
       }
+      if (scheduleMode === "deadline" && !deadlineTime) {
+        ctx.showToast("Укажи время дедлайна или выбери режим «Без времени»");
+        ctx.els.taskTime.focus();
+        return;
+      }
       if (repeatUntil && repeatUntil < (ctx.els.taskDate.value || ctx.getActiveDate())) {
         ctx.showToast("Дата окончания повтора не может быть раньше начала");
         ctx.els.taskRepeatUntil.focus();
@@ -38,15 +43,24 @@
         completed: existing?.completed || {},
         acknowledgedOverdue: existing?.acknowledgedOverdue || {},
         excludedDates: existing?.excludedDates || {},
-        notified: existing?.notified || {},
+        notified: { ...(existing?.notified || {}) },
         createdAt: existing?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
 
       const isRecurringEdit = Boolean(existing && existing.repeat !== "none" && !existing.sourceTaskId);
+      const repeatEditScope = getRepeatEditScope();
+      const notificationChanged = Boolean(existing && notificationScheduleChanged(existing, task));
       const savedTask = isRecurringEdit
-        ? ctx.updateRecurringTask(existing, task, editingOccurrenceDate || ctx.getActiveDate(), getRepeatEditScope())
+        ? ctx.updateRecurringTask(existing, task, editingOccurrenceDate || ctx.getActiveDate(), repeatEditScope)
         : (ctx.upsertTask(task), task);
+      if (notificationChanged) {
+        clearStaleNotificationFlags(savedTask, {
+          currentDate: editingOccurrenceDate || task.date,
+          previousDate: existing.date,
+          scope: isRecurringEdit ? repeatEditScope : "occurrence",
+        });
+      }
       ctx.setActiveDate(isRecurringEdit ? editingOccurrenceDate || ctx.getActiveDate() : savedTask.date);
       resetTaskForm({ open: false });
       ctx.saveState();
@@ -79,6 +93,7 @@
       ctx.syncCustomRepeatPanel();
       ctx.syncTaskTimePresets();
       syncRepeatEditScope(isRecurringSeries, editingOccurrenceDate);
+      ctx.markFormPristine?.(ctx.els.taskForm);
       ctx.els.taskTitle.focus();
     }
 
@@ -105,6 +120,7 @@
       ctx.els.taskReminder.value = "none";
       ctx.syncTaskTimePresets();
       syncRepeatEditScope(false);
+      ctx.markFormPristine?.(ctx.els.taskForm);
     }
 
     function getRepeatEditScope() {
@@ -136,6 +152,23 @@
       const [year, month, day] = String(dateKey).split("-").map(Number);
       if (!year || !month || !day) return dateKey;
       return new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long" }).format(new Date(year, month - 1, day));
+    }
+
+    function notificationScheduleChanged(previous, next) {
+      return ["date", "scheduleMode", "startTime", "endTime", "time", "reminderOffset"]
+        .some((field) => String(previous?.[field] || "") !== String(next?.[field] || ""));
+    }
+
+    function clearStaleNotificationFlags(task, options = {}) {
+      task.notified ||= {};
+      if (options.scope === "series") {
+        Object.keys(task.notified).forEach((dateKey) => {
+          if (!options.currentDate || dateKey >= options.currentDate) delete task.notified[dateKey];
+        });
+        return;
+      }
+      delete task.notified[options.currentDate];
+      delete task.notified[options.previousDate];
     }
 
     ctx.els.taskRepeatEditScope?.addEventListener("change", (event) => {

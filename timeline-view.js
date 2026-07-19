@@ -5,6 +5,7 @@
     (typeof require !== "undefined" ? require("./timeline-layout.js") : null);
   const {
     DEFAULT_BLOCK_MINUTES,
+    TIMELINE_LAST_MINUTE,
     TIMELINE_SLOT_MINUTES,
     buildTimelineModel,
     formatBlockLabel,
@@ -238,22 +239,41 @@
       const startY = event.clientY;
       const originalStart = entry.minutes;
       const duration = entry.isTimeBlock ? Math.max(TIMELINE_SLOT_MINUTES, entry.endMinutes - entry.minutes) : 0;
+      const isTouch = event.pointerType === "touch";
       let didMove = false;
       let latestStart = originalStart;
       let dropWithoutTime = false;
+      let active = false;
+      let cancelled = false;
+      let longPressTimer = null;
 
-      card.setPointerCapture?.(event.pointerId);
-      card.classList.add("is-dragging");
-      card.setAttribute("aria-grabbed", "true");
-      card.setAttribute("data-drag-label", entry.timeLabel || formatHourMinute(Math.floor(originalStart / 60), originalStart % 60));
+      const activate = () => {
+        if (active || cancelled) return;
+        active = true;
+        card.setPointerCapture?.(event.pointerId);
+        card.classList.add("is-dragging");
+        card.setAttribute("aria-grabbed", "true");
+        card.setAttribute("data-drag-label", entry.timeLabel || formatHourMinute(Math.floor(originalStart / 60), originalStart % 60));
+        if (isTouch) global.navigator?.vibrate?.(12);
+      };
+      if (isTouch) longPressTimer = global.setTimeout(activate, 320);
+      else activate();
 
       const onMove = (moveEvent) => {
+        const distance = Math.hypot(moveEvent.clientX - startX, moveEvent.clientY - startY);
+        if (!active) {
+          if (distance > 8) {
+            cancelled = true;
+            global.clearTimeout(longPressTimer);
+          }
+          return;
+        }
         moveEvent.preventDefault();
         const rawDelta = ((moveEvent.clientY - startY) / getSlotHeight(card.closest(".timeline-hour-slot"))) * 60;
         const delta = snapMinutes(rawDelta);
-        const maxStart = duration ? 23 * 60 + 59 - duration : 23 * 60 + 59;
+        const maxStart = duration ? TIMELINE_LAST_MINUTE - duration : TIMELINE_LAST_MINUTE;
         const nextStart = Math.max(0, Math.min(maxStart, originalStart + delta));
-        if (Math.hypot(moveEvent.clientX - startX, moveEvent.clientY - startY) > 3) didMove = true;
+        if (distance > 3) didMove = true;
         if (didMove) timelineDrag.showUnscheduledTarget();
         dropWithoutTime = didMove && timelineDrag.isOverUnscheduledTarget(moveEvent);
         timelineDrag.setUnscheduledTargetActive(dropWithoutTime);
@@ -273,6 +293,11 @@
       };
 
       const onUp = (upEvent) => {
+        global.clearTimeout(longPressTimer);
+        if (!active) {
+          cleanup(upEvent);
+          return;
+        }
         const shouldClearTime = dropWithoutTime || timelineDrag.isOverUnscheduledTarget(upEvent);
         cleanup(upEvent);
         if (!didMove || (!shouldClearTime && latestStart === originalStart)) return;
@@ -288,11 +313,13 @@
       };
 
       const onCancel = (cancelEvent) => {
+        cancelled = true;
+        global.clearTimeout(longPressTimer);
         cleanup(cancelEvent);
       };
 
       const cleanup = (nextEvent) => {
-        card.releasePointerCapture?.(nextEvent.pointerId);
+        if (active) card.releasePointerCapture?.(nextEvent?.pointerId);
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerup", onUp);
         window.removeEventListener("pointercancel", onCancel);
@@ -349,17 +376,36 @@
       if (!ctx.createTaskAtTime) return;
       slot.addEventListener("pointerdown", (event) => {
         if (event.button !== 0 || event.target.closest(".timeline-task") || event.target.closest(".timeline-now-line")) return;
-        const startMinutes = minuteFromPointerFree(event, slot, hour);
-        let latestEnd = Math.min(23 * 60 + 59, startMinutes + DEFAULT_BLOCK_MINUTES);
+        const startMinutes = Math.min(TIMELINE_LAST_MINUTE - TIMELINE_SLOT_MINUTES, minuteFromPointerFree(event, slot, hour));
+        let latestEnd = Math.min(TIMELINE_LAST_MINUTE, startMinutes + DEFAULT_BLOCK_MINUTES);
+        const isTouch = event.pointerType === "touch";
         let didMove = false;
+        let active = false;
+        let cancelled = false;
         const startY = event.clientY;
         const preview = document.createElement("span");
         preview.className = "timeline-create-preview";
-        slot.appendChild(preview);
-        updateCreatePreview(preview, startMinutes, latestEnd);
-        slot.setPointerCapture?.(event.pointerId);
+        let longPressTimer = null;
+
+        const activate = () => {
+          if (active || cancelled) return;
+          active = true;
+          slot.appendChild(preview);
+          updateCreatePreview(preview, startMinutes, latestEnd);
+          slot.setPointerCapture?.(event.pointerId);
+          if (isTouch) global.navigator?.vibrate?.(12);
+        };
+        if (isTouch) longPressTimer = global.setTimeout(activate, 320);
+        else activate();
 
         const onMove = (moveEvent) => {
+          if (!active) {
+            if (Math.abs(moveEvent.clientY - startY) > 8) {
+              cancelled = true;
+              global.clearTimeout(longPressTimer);
+            }
+            return;
+          }
           moveEvent.preventDefault();
           if (Math.abs(moveEvent.clientY - startY) > 4) didMove = true;
           const rawEnd = minuteFromPointerFree(moveEvent, slot, hour);
@@ -369,6 +415,11 @@
         };
 
         const onUp = (upEvent) => {
+          global.clearTimeout(longPressTimer);
+          if (!active) {
+            cleanup(upEvent);
+            return;
+          }
           cleanup(upEvent);
           if (!didMove) return;
           slot.dataset.suppressClick = "true";
@@ -378,10 +429,14 @@
           ctx.createTaskAtTime(formatMinutes(startMinutes), formatMinutes(latestEnd));
         };
 
-        const onCancel = (cancelEvent) => cleanup(cancelEvent);
+        const onCancel = (cancelEvent) => {
+          cancelled = true;
+          global.clearTimeout(longPressTimer);
+          cleanup(cancelEvent);
+        };
 
         const cleanup = (nextEvent) => {
-          slot.releasePointerCapture?.(nextEvent.pointerId);
+          if (active) slot.releasePointerCapture?.(nextEvent?.pointerId);
           window.removeEventListener("pointermove", onMove);
           window.removeEventListener("pointerup", onUp);
           window.removeEventListener("pointercancel", onCancel);
@@ -397,9 +452,9 @@
       slot.addEventListener("click", (event) => {
         if (slot.dataset.suppressClick === "true") return;
         if (event.target.closest(".timeline-task") || event.target.closest(".timeline-now-line")) return;
-        const minutes = minuteFromPointer(event, slot, hour);
+        const minutes = Math.min(TIMELINE_LAST_MINUTE - TIMELINE_SLOT_MINUTES, minuteFromPointer(event, slot, hour));
         const startTime = formatMinutes(minutes);
-        const end = Math.min(23 * 60 + 59, minutes + DEFAULT_BLOCK_MINUTES);
+        const end = Math.min(TIMELINE_LAST_MINUTE, minutes + DEFAULT_BLOCK_MINUTES);
         const endTime = formatMinutes(end);
         ctx.createTaskAtTime(startTime, endTime);
       });
@@ -409,13 +464,13 @@
       const rect = slot.getBoundingClientRect();
       const y = Math.max(0, Math.min(rect.height, event.clientY - rect.top));
       const minutesInHour = Math.min(45, Math.max(0, snapMinutes((y / getSlotHeight(slot)) * 60)));
-      return Math.min(23 * 60 + 59, hour * 60 + minutesInHour);
+      return Math.min(TIMELINE_LAST_MINUTE, hour * 60 + minutesInHour);
     }
 
     function minuteFromPointerFree(event, slot, hour) {
       const rect = slot.getBoundingClientRect();
       const rawMinutes = hour * 60 + snapMinutes(((event.clientY - rect.top) / getSlotHeight(slot)) * 60);
-      return Math.max(0, Math.min(23 * 60 + 59, rawMinutes));
+      return Math.max(0, Math.min(TIMELINE_LAST_MINUTE, rawMinutes));
     }
 
     function updateCreatePreview(preview, startMinutes, endMinutes) {

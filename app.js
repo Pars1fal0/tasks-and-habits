@@ -57,10 +57,12 @@ const stateNormalizer = window.RhythmStateNormalizer.createStateNormalizer({
   normalizeHabitLogs,
   normalizeHabitRepeat,
   normalizeHabitConfigHistory: window.RhythmHabitConfigHistory.normalizeHabitConfigHistory,
+  normalizeHabitAvailabilityHistory: window.RhythmHabitConfigHistory.normalizeHabitAvailabilityHistory,
   normalizeHabitTitleHistory: window.RhythmHabitTitleHistory.normalizeHabitTitleHistory,
   normalizeReminderOffset,
   pruneTombstones: window.RhythmTombstoneRetention.pruneTombstones,
   normalizeSyncMeta: window.RhythmSyncMetadata.normalizeSyncMeta,
+  pruneSyncMeta: window.RhythmSyncMetadata.pruneSyncMeta,
   normalizeTaskFlags,
   normalizeTaskOrder,
   randomCategoryColor,
@@ -116,8 +118,12 @@ let remoteSyncLastPulledAt = initialUiState.remoteSyncLastPulledAt || "";
 let remoteSyncPending = initialUiState.remoteSyncPending === true;
 let localStateUpdatedAt = initialUiState.localStateUpdatedAt || "";
 let autoBackupTimerId = null;
-let lastAutoBackupAt = "";
+let lastAutoBackupAt = typeof initialUiState.lastAutoBackupAt === "string"
+  && Number.isFinite(Date.parse(initialUiState.lastAutoBackupAt))
+  ? initialUiState.lastAutoBackupAt
+  : "";
 let nextAutoBackupAt = "";
+const formSnapshots = new WeakMap();
 let localStorageError = initialStateLoad.status === "corrupt"
   ? "Локальные данные повреждены · восстанови backup или облако"
   : initialStateLoad.status === "recovered-memory"
@@ -253,6 +259,7 @@ const els = {
   remoteAuthEmail: document.querySelector("#remoteAuthEmail"),
   remoteAuthPassword: document.querySelector("#remoteAuthPassword"),
   remoteAuthResetButton: document.querySelector("#remoteAuthResetButton"),
+  remoteAuthUpdatePasswordButton: document.querySelector("#remoteAuthUpdatePasswordButton"),
   remoteAuthSignInButton: document.querySelector("#remoteAuthSignInButton"),
   remoteAuthSignOutButton: document.querySelector("#remoteAuthSignOutButton"),
   remoteAuthSignUpButton: document.querySelector("#remoteAuthSignUpButton"),
@@ -436,10 +443,12 @@ const tasksView = window.RhythmTasksView.createTasksView({
   isTaskDone,
   isTaskExcluded,
   matchesCategoryFilter,
-  openDate: (dateKey) => {
+  openDate: async (dateKey) => {
+    if (!(await confirmDiscardOpenForms())) return;
     activeDate = dateKey;
     saveUiState();
     resetTaskForm({ open: false });
+    resetHabitForm({ open: false });
     render();
     scrollWorkspaceTop();
   },
@@ -468,6 +477,7 @@ const tasksView = window.RhythmTasksView.createTasksView({
 });
 
 const habitsView = window.RhythmHabitsView.createHabitsView({
+  applyHabitAvailabilityChange: window.RhythmHabitConfigHistory.applyHabitAvailabilityChange,
   els,
   confirmAction,
   createUndoSnapshot,
@@ -484,7 +494,9 @@ const habitsView = window.RhythmHabitsView.createHabitsView({
   habitsForDate,
   render: renderHabitSurfaces,
   renderDailyPulse,
-  renderOverview,
+  renderOverviewIfActive: () => {
+    if (activeView === "overview") renderOverview();
+  },
   reorderHabit,
   saveState,
   showToast,
@@ -505,6 +517,7 @@ const goalsView = window.RhythmGoalsView.createGoalsView({
   deleteGoal,
   getActiveDate: () => activeDate,
   getState: () => state,
+  markFormPristine,
   normalizeDateKey,
   render: renderGoalSurfaces,
   saveState,
@@ -654,6 +667,7 @@ const taskFormController = window.RhythmTaskForm.createTaskForm({
   getTaskScheduleMode,
   isTimeBlock,
   isValidTimeBlock,
+  markFormPristine,
   normalizeDateKey,
   render,
   saveState,
@@ -697,6 +711,7 @@ const habitFormController = window.RhythmHabitForm.createHabitForm({
   getHabitCustomRepeatFromForm,
   habitConfigOnDate,
   habitTitleOnDate: window.RhythmHabitTitleHistory.habitTitleOnDate,
+  markFormPristine,
   normalizeHabitRepeat,
   normalizeCustomRepeat: window.RhythmRecurrence.normalizeCustomRepeat,
   render,
@@ -910,10 +925,15 @@ const appEvents = window.RhythmAppEvents.createAppEvents({
     syncNavigationRoute();
     renderOverview();
   },
-  changeActiveDate: (value) => {
+  changeActiveDate: async (value) => {
+    if (!(await confirmDiscardOpenForms())) {
+      els.activeDate.value = activeDate;
+      return;
+    }
     activeDate = value || toDateKey(new Date());
     saveUiState();
     resetTaskForm({ open: false });
+    resetHabitForm({ open: false });
     render();
   },
   changeArchiveCategoryFilter: (value) => {
@@ -970,19 +990,9 @@ const appEvents = window.RhythmAppEvents.createAppEvents({
     saveUiState();
     renderTasks();
   },
-  closeGoalForm: () => {
-    els.goalFormPanel.classList.add("is-collapsed");
-    els.openGoalForm.focus();
-  },
-  closeHabitForm: () => {
-    els.habitFormPanel.classList.add("is-collapsed");
-    els.openHabitForm.focus();
-  },
-  closeTaskForm: () => {
-    els.taskFormPanel.classList.add("is-collapsed");
-    closeFloatingTaskForm();
-    els.openTaskForm.focus();
-  },
+  closeGoalForm: () => closeFormWithConfirmation(els.goalForm, els.goalFormPanel, els.openGoalForm),
+  closeHabitForm: () => closeFormWithConfirmation(els.habitForm, els.habitFormPanel, els.openHabitForm),
+  closeTaskForm: () => closeFormWithConfirmation(els.taskForm, els.taskFormPanel, els.openTaskForm, closeFloatingTaskForm),
   els,
   exportData,
   goToday,
@@ -1067,7 +1077,6 @@ function init() {
   if (initialStateLoad.status === "corrupt") showToast("Локальные данные повреждены. Загрузи backup или данные из облака");
   deviceSyncController.start().then(() => remoteSyncWorkflow.resumePending());
   syncDesktopReminders();
-  syncDesktopBackup();
   setInterval(checkDueNotifications, 30000);
   setInterval(syncDesktopReminders, 60000);
   setInterval(handleDateRollover, 30000);
@@ -1281,21 +1290,53 @@ function deleteGoal(goalId) {
   taskState.deleteGoal(goalId);
 }
 
-function openDateTasks(dateKey) {
+async function openDateTasks(dateKey) {
+  if (!(await confirmDiscardOpenForms())) return;
   activeDate = dateKey;
   activeView = "tasks";
   saveUiState();
   syncNavigationRoute();
   resetTaskForm({ open: false });
+  resetHabitForm({ open: false });
   render();
   scrollWorkspaceTop();
 }
 
-function moveTaskToDate(taskId, sourceDateKey, targetDateKey) {
+async function moveTaskToDate(taskId, sourceDateKey, targetDateKey) {
   const task = state.tasks.find((item) => item.id === taskId);
   const sourceDate = normalizeDateKey(sourceDateKey || activeDate, "");
   const targetDate = normalizeDateKey(targetDateKey, "");
   if (!task || !sourceDate || !targetDate || sourceDate === targetDate) return;
+  if (task.repeat !== "none" && !task.sourceTaskId && targetDate > sourceDate) {
+    const scope = await confirmAction({
+      title: "Перенести повторяющуюся задачу?",
+      message: `Перенести только ${formatLongDate(sourceDate)} или сдвинуть эту дату и все последующие повторения?`,
+      secondaryLabel: "Только этот день",
+      confirmLabel: "Этот и последующие",
+    });
+    if (!scope) return;
+    if (scope === true) {
+      const undo = createUndoSnapshot();
+      const movedSeries = window.RhythmTaskMoves.moveRecurringSeriesFollowing({
+        state,
+        task,
+        sourceDateKey: sourceDate,
+        targetDateKey: targetDate,
+        helpers: { createId },
+      });
+      if (!movedSeries) {
+        showToast("Не удалось перенести серию");
+        return;
+      }
+      activeDate = targetDate;
+      saveState();
+      resetTaskForm({ open: false });
+      resetHabitForm({ open: false });
+      render();
+      showToast(`Серия перенесена на ${formatLongDate(targetDate)}`, { undo });
+      return;
+    }
+  }
   postponeTask(task, sourceDate, targetDate);
 }
 
@@ -1335,6 +1376,7 @@ function postponeTask(task, sourceDateKey, targetDateKey, options = {}) {
   activeDate = targetDate;
   saveState();
   resetTaskForm({ open: false });
+  resetHabitForm({ open: false });
   render();
   showToast(`Задача перенесена на ${formatLongDate(targetDate)}`, { undo });
 }
@@ -1397,13 +1439,18 @@ function resetGoalForm(options) {
 
 function saveQuickTask(event) {
   event.preventDefault();
-  const undo = createUndoSnapshot();
-  const parsed = parseQuickTaskInput(els.quickTaskInput.value);
+  const parsed = parseQuickTaskPreview(els.quickTaskInput.value);
   if (!parsed.title) {
     showToast("Напиши название задачи");
     els.quickTaskInput.focus();
     return;
   }
+  if (parsed.warnings?.length) {
+    showToast(parsed.warnings[0]);
+    return;
+  }
+  const undo = createUndoSnapshot();
+  if (!parsed.categoryId && parsed.categoryName) parsed.categoryId = getOrCreateCategory(parsed.categoryName);
 
   const task = {
     id: createId(),
@@ -1458,7 +1505,14 @@ function updateQuickTaskPreview() {
   ];
 
   els.quickTaskPreview.hidden = false;
-  els.quickTaskPreview.replaceChildren(createQuickPreviewSummary(parsed), createQuickPreviewChips(details));
+  const children = [createQuickPreviewSummary(parsed), createQuickPreviewChips(details)];
+  if (parsed.warnings?.length) {
+    const warning = document.createElement("p");
+    warning.className = "quick-preview-warning";
+    warning.textContent = parsed.warnings.join(". ");
+    children.push(warning);
+  }
+  els.quickTaskPreview.replaceChildren(...children);
 }
 
 function createQuickPreviewSummary(parsed) {
@@ -1636,6 +1690,54 @@ function resetHabitForm(options) {
   habitFormController.resetHabitForm(options);
 }
 
+function markFormPristine(form) {
+  if (form) formSnapshots.set(form, serializeForm(form));
+}
+
+function isFormDirty(form) {
+  return Boolean(form && formSnapshots.has(form) && formSnapshots.get(form) !== serializeForm(form));
+}
+
+function serializeForm(form) {
+  const values = [...new FormData(form).entries()].map(([key, value]) => [key, String(value)]);
+  return JSON.stringify(values);
+}
+
+async function closeFormWithConfirmation(form, panel, focusTarget, afterClose) {
+  if (isFormDirty(form)) {
+    const confirmed = await confirmAction({
+      title: "Закрыть без сохранения?",
+      message: "Внесённые в форму изменения будут потеряны.",
+      confirmLabel: "Закрыть",
+      secondaryLabel: "Продолжить редактирование",
+      tone: "danger",
+    });
+    if (confirmed !== true) return false;
+  }
+  panel?.classList.add("is-collapsed");
+  afterClose?.();
+  focusTarget?.focus();
+  return true;
+}
+
+async function confirmDiscardOpenForms() {
+  const forms = [
+    [els.taskForm, els.taskFormPanel],
+    [els.habitForm, els.habitFormPanel],
+    [els.goalForm, els.goalFormPanel],
+  ];
+  const hasDirtyOpenForm = forms.some(([form, panel]) => panel && !panel.classList.contains("is-collapsed") && isFormDirty(form));
+  if (!hasDirtyOpenForm) return true;
+  const confirmed = await confirmAction({
+    title: "Перейти без сохранения?",
+    message: "Открытая форма содержит несохранённые изменения.",
+    confirmLabel: "Перейти",
+    secondaryLabel: "Остаться",
+    tone: "danger",
+  });
+  return confirmed === true;
+}
+
 function saveCategoryFromForm(event) {
   categoriesController.saveCategoryFromForm(event);
 }
@@ -1778,7 +1880,7 @@ function habitStreak(habit, dateKey = toDateKey(new Date())) {
 
   while (guard < 3660) {
     const cursorKey = toDateKey(cursor);
-    if (habitOccursOn(habit, cursorKey)) {
+    if (!window.RhythmHabitConfigHistory.habitIsArchivedOnDate(habit, cursorKey) && habitOccursOn(habit, cursorKey)) {
       if (!isHabitComplete(habit, cursorKey)) break;
       count += 1;
     }
@@ -1962,7 +2064,7 @@ function syncDesktopReminders() {
 }
 
 function syncDesktopBackup() {
-  importExportController.syncDesktopBackup();
+  return importExportController.syncDesktopBackup();
 }
 
 async function updateFileBackupStatus() {
@@ -1989,23 +2091,28 @@ function getReminderDate(task, dateKey) {
   return notificationsController.getReminderDate(task, dateKey);
 }
 
-function shiftDate(days) {
+async function shiftDate(days) {
+  if (!(await confirmDiscardOpenForms())) return;
   const date = parseDate(activeDate);
   date.setDate(date.getDate() + days);
   activeDate = toDateKey(date);
   saveUiState();
   resetTaskForm({ open: false });
+  resetHabitForm({ open: false });
   render();
 }
 
-function goToday() {
+async function goToday() {
+  if (!(await confirmDiscardOpenForms())) return;
   activeDate = toDateKey(new Date());
   saveUiState();
   resetTaskForm({ open: false });
+  resetHabitForm({ open: false });
   render();
 }
 
-function shiftMonth(months) {
+async function shiftMonth(months) {
+  if (!(await confirmDiscardOpenForms())) return;
   const date = parseDate(activeDate);
   const targetDay = date.getDate();
   const target = new Date(date.getFullYear(), date.getMonth() + months, 1);
@@ -2014,6 +2121,7 @@ function shiftMonth(months) {
   activeDate = toDateKey(target);
   saveUiState();
   resetTaskForm({ open: false });
+  resetHabitForm({ open: false });
   render();
 }
 
@@ -2029,6 +2137,7 @@ function saveUiState() {
       currentToday,
       densityPreference,
       firstDayOfWeek,
+      lastAutoBackupAt,
       localStateUpdatedAt,
       notificationSetting,
       overviewMode,
@@ -2303,10 +2412,13 @@ function scheduleAutoBackup() {
   nextAutoBackupAt = new Date(Date.now() + intervalMs).toISOString();
   renderSettingsBackupStatus();
 
-  autoBackupTimerId = setInterval(() => {
-    createBackup({ silent: true });
-    syncDesktopBackup();
-    lastAutoBackupAt = new Date().toISOString();
+  autoBackupTimerId = setInterval(async () => {
+    const localResult = createBackup({ silent: true });
+    const fileResult = await syncDesktopBackup();
+    if (localResult?.ok || fileResult?.ok) {
+      lastAutoBackupAt = new Date().toISOString();
+      saveUiState();
+    }
     nextAutoBackupAt = new Date(Date.now() + intervalMs).toISOString();
     renderSettingsBackupStatus();
   }, intervalMs);
@@ -2349,15 +2461,11 @@ function formatTaskScheduleLabel(task) {
 }
 
 function parseQuickTaskInput(value) {
-  return window.RhythmQuickInput.parseQuickTaskInput(value, {
-    activeDate,
-    cleanText,
-    getOrCreateCategory,
-    normalizeCategoryName: normalizeQuickCategoryName,
-    normalizeDateKey,
-    toDateKey,
-    toTimeValue,
-  });
+  const parsed = parseQuickTaskPreview(value);
+  if (parsed.title && !parsed.categoryId && parsed.categoryName) {
+    parsed.categoryId = getOrCreateCategory(parsed.categoryName);
+  }
+  return parsed;
 }
 
 function getOrCreateCategory(value) {
@@ -2414,7 +2522,6 @@ function saveState(options = {}) {
   renderSaveStatus();
   if (!options.skipBackup) updateBackupStatus();
   syncDesktopReminders();
-  if (!options.skipBackup) syncDesktopBackup();
   if (!options.skipBackup && !options.skipRemote) scheduleRemotePush();
   return true;
 }
