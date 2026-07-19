@@ -1,6 +1,4 @@
 (function (global) {
-  const SECRET_REMOTE_KEYS = new Set(["remoteSyncAnonKey", "remoteSyncPending", "remoteSyncUrl"]);
-
   function createSettingsState(options = {}) {
     const validBackupSchedules = options.validBackupSchedules || ["0", "5", "15", "30", "60"];
     const cleanText = options.cleanText || ((value) => String(value || "").trim());
@@ -52,13 +50,9 @@
       };
     }
 
-    function createRemoteUiSettings(settings = {}, overrides = {}) {
-      const merged = { ...settings, ...overrides };
-      const safe = {};
-      Object.entries(merged).forEach(([key, value]) => {
-        if (!SECRET_REMOTE_KEYS.has(key)) safe[key] = value;
-      });
-      return safe;
+    function createRemoteUiSettings() {
+      // Interface preferences remain device-local by design.
+      return {};
     }
 
     function isRemoteVersionNewer(remoteUpdatedAt, ...localAnchors) {

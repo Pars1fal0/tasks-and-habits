@@ -119,6 +119,25 @@ def composer_point(handle, bottom_offset=88):
     return left + width // 2, bottom - int(bottom_offset)
 
 
+def wait_until_usable(handle, timeout_seconds=3.0):
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        width, height = window_size(handle)
+        client_left, client_top, client_right, client_bottom = win32gui.GetClientRect(handle)
+        client_width = client_right - client_left
+        client_height = client_bottom - client_top
+        if (
+            width >= MIN_WINDOW_WIDTH
+            and height >= MIN_WINDOW_HEIGHT
+            and client_width >= MIN_WINDOW_WIDTH
+            and client_height >= MIN_WINDOW_HEIGHT
+        ):
+            return
+        time.sleep(0.05)
+    width, height = window_size(handle)
+    raise RuntimeError(f"Окно Codex не удалось развернуть для ввода команды ({width}x{height}).")
+
+
 def activate_window(handle):
     if win32gui.IsIconic(handle):
         win32gui.ShowWindow(handle, win32con.SW_RESTORE)
@@ -127,6 +146,7 @@ def activate_window(handle):
     width, height = window_size(handle)
     if width < MIN_WINDOW_WIDTH or height < MIN_WINDOW_HEIGHT:
         win32gui.ShowWindow(handle, win32con.SW_MAXIMIZE)
+        wait_until_usable(handle)
     try:
         win32gui.SetForegroundWindow(handle)
     except Exception:
@@ -187,7 +207,7 @@ def submit_prompt(text, bottom_offset=88):
     handle = find_codex_window()
     activate_window(handle)
     wait_until_active(handle)
-    time.sleep(0.15)
+    wait_until_usable(handle)
     click_point(*composer_point(handle, bottom_offset))
     time.sleep(0.15)
     if win32gui.GetForegroundWindow() != handle:

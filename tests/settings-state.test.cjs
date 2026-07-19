@@ -3,7 +3,7 @@ const { createSettingsState } = require("../settings-state.js");
 
 module.exports = [
   {
-    name: "normalizes imported settings and keeps remote sync keys local-only",
+    name: "normalizes imported settings and keeps all interface settings device-local",
     fn() {
       const settingsState = createSettingsState({
         cleanText: (value) => String(value || "").trim(),
@@ -23,10 +23,7 @@ module.exports = [
       assert.equal(normalized.themePreference, "dark");
       assert.equal(normalized.remoteSyncAnonKey, "secret");
       assert.equal(normalized.remoteSyncPending, false);
-      assert.equal(remoteSafe.remoteSyncAnonKey, undefined);
-      assert.equal(remoteSafe.remoteSyncPending, undefined);
-      assert.equal(remoteSafe.remoteSyncUrl, undefined);
-      assert.equal(remoteSafe.remoteSyncLastPushedAt, "2026-07-02T10:00:00.000Z");
+      assert.deepEqual(remoteSafe, {});
       assert.equal(settingsState.isRemoteVersionNewer("2026-07-02T10:05:00.000Z", "2026-07-02T10:00:00.000Z"), true);
       assert.equal(settingsState.isRemoteVersionNewer("2026-07-02T09:55:00.000Z", "2026-07-02T10:00:00.000Z"), false);
     },

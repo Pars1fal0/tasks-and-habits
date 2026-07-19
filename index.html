@@ -9,7 +9,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <script>
       (() => {
-        const shellVersion = "0.13.4";
+        const shellVersion = "0.13.5";
         const versionKey = "rhythm-shell-version";
         const retryKey = "rhythm-shell-refresh";
         let storedVersion = "";
@@ -100,15 +100,15 @@
         </div>
 
         <nav class="nav-tabs" aria-label="Разделы">
-          <button class="nav-tab is-active" data-view="tasks" type="button" aria-current="page">
+          <button class="nav-tab is-active" data-view="tasks" data-mobile-label="Задачи" type="button" aria-current="page">
             <svg class="ui-icon"><use href="#icon-tasks"></use></svg>
             <span>Задачи</span>
           </button>
-          <button class="nav-tab" data-view="timeline" type="button">
+          <button class="nav-tab" data-view="timeline" data-mobile-label="Время" type="button">
             <svg class="ui-icon"><use href="#icon-clock"></use></svg>
             <span>Таймлайн</span>
           </button>
-          <button class="nav-tab" data-view="habits" type="button">
+          <button class="nav-tab" data-view="habits" data-mobile-label="Привыч." type="button">
             <svg class="ui-icon"><use href="#icon-habit"></use></svg>
             <span>Привычки</span>
           </button>
@@ -116,7 +116,7 @@
             <svg class="ui-icon"><use href="#icon-target"></use></svg>
             <span>Цели</span>
           </button>
-          <button class="nav-tab" data-view="overview" type="button">
+          <button class="nav-tab" data-view="overview" data-mobile-label="Кален." type="button">
             <svg class="ui-icon"><use href="#icon-calendar"></use></svg>
             <span>Календарь</span>
           </button>
@@ -356,15 +356,15 @@
                     <div class="schedule-mode-control" aria-label="Тип времени задачи">
                       <label>
                         <input id="taskScheduleNone" type="radio" name="taskScheduleMode" value="none" checked>
-                        <span>Без времени</span>
+                        <span data-mobile-label="Нет времени">Без времени</span>
                       </label>
                       <label>
                         <input id="taskScheduleDeadline" type="radio" name="taskScheduleMode" value="deadline">
-                        <span>Дедлайн</span>
+                        <span data-mobile-label="Дедлайн">Дедлайн</span>
                       </label>
                       <label>
                         <input id="taskScheduleBlock" type="radio" name="taskScheduleMode" value="block">
-                        <span>Временной блок</span>
+                        <span data-mobile-label="Блок">Блок времени</span>
                       </label>
                     </div>
                     <div class="form-grid">

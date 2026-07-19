@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.13.5
+
+- Merge independently edited task, goal, habit, and category fields across devices instead of choosing one entire record.
+- Keep cloud delivery queued when a browser storage quota error leaves the newest state only in memory.
+- Wait for the Codex window to finish restoring or maximizing before voice input clicks the composer.
+- Keep interface preferences explicitly device-local instead of uploading unused remote UI settings.
+- Improved the 320px task form, bottom navigation labels, goal cards, timeline menus, and sticky mobile header.
+- Added regression coverage for field-level synchronization, storage quota recovery, and narrow schedule controls.
+
 ## 0.13.4
 
 - Persisted pending cloud uploads and resume them after reconnect, sign-in, or application restart.

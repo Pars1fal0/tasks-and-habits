@@ -84,7 +84,19 @@ const { _electron: electron } = require("playwright-core");
         navigationBox && navigationBox.x >= 0 && navigationBox.x + navigationBox.width <= width + 0.5,
         `navigation must fit ${width}px`,
       );
+      const mobileLabels = await page.locator(".nav-tabs > .nav-tab[data-mobile-label] span").evaluateAll((nodes) =>
+        nodes.map((node) => getComputedStyle(node, "::after").content.replaceAll('"', "")),
+      );
+      assert.deepEqual(mobileLabels, ["Задачи", "Время", "Привыч.", "Кален."]);
     }
+
+    await page.locator('.nav-tab[data-view="tasks"]:visible').click();
+    await page.locator("#openTaskForm").click();
+    const scheduleModesFit = await page.locator(".schedule-mode-control").evaluate((node) =>
+      node.scrollWidth <= node.clientWidth + 1,
+    );
+    assert.equal(scheduleModesFit, true, "task schedule modes must fit 320px without horizontal scrolling");
+    await page.keyboard.press("Escape");
 
     await page.setViewportSize({ height: 780, width: 390 });
     await page.locator('.nav-tab[data-view="timeline"]:visible').click();
@@ -97,9 +109,30 @@ const { _electron: electron } = require("playwright-core");
     await page.goBack();
     await page.waitForSelector('body[data-view="habits"]');
     assert.equal(await page.evaluate(() => window.location.hash), "#habits");
+
+    await page.locator('.nav-tab[data-view="tasks"]:visible').click();
+    await page.evaluate(() => {
+      const originalSetItem = Storage.prototype.setItem;
+      window.__restoreStorageSetItem = () => { Storage.prototype.setItem = originalSetItem; };
+      Storage.prototype.setItem = function setItem(key, value) {
+        if (key === "rhythm-day-state-v1") throw new DOMException("Quota exceeded", "QuotaExceededError");
+        return originalSetItem.call(this, key, value);
+      };
+    });
+    await page.locator(".quick-task-disclosure").evaluate((node) => { node.open = true; });
+    await page.locator("#quickTaskInput").fill("Проверить сохранение");
+    await page.locator("#quickTaskForm").evaluate((form) => form.requestSubmit());
+    assert.match(await page.locator("#saveStatus").textContent(), /хранилище заполнено/i);
+    assert.equal(await page.locator(".task-item").filter({ hasText: "Проверить сохранение" }).count(), 1);
+    assert.equal(
+      await page.evaluate(() => JSON.parse(localStorage.getItem("rhythm-day-ui-v1") || "{}").remoteSyncPending),
+      true,
+      "a failed local write must still queue the in-memory change for cloud sync",
+    );
+    await page.evaluate(() => window.__restoreStorageSetItem?.());
     assert.deepEqual(pageErrors, []);
 
-    console.log("e2e ok - archive, calendar periods, sync states, mobile dialogs, and timeline scale");
+    console.log("e2e ok - archive, calendar periods, sync states, mobile dialogs, timeline scale, and quota recovery");
   } finally {
     await electronApp.close();
   }

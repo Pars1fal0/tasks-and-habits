@@ -28,6 +28,7 @@ module.exports = [
       assert.match(control, /candidate_score/);
       assert.match(control, /is_cloaked_window/);
       assert.match(control, /wait_until_active/);
+      assert.match(control, /wait_until_usable/);
       assert.match(control, /SW_MAXIMIZE/);
       assert.doesNotMatch(control, /pywinauto|comtypes/i);
       assert.doesNotMatch(control, /clipboard/i);

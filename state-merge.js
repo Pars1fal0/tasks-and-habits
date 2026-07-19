@@ -3,6 +3,7 @@
   const habitTitleHistory = global.RhythmHabitTitleHistory || require("./habit-title-history.js");
   const habitConfigHistory = global.RhythmHabitConfigHistory || require("./habit-config-history.js");
   const TASK_DATE_FIELDS = syncMetadata.TASK_DATE_FIELDS;
+  const ENTITY_FIELDS = syncMetadata.ENTITY_FIELDS;
 
   function mergeStates(localState = {}, remoteState = {}) {
     const localMeta = syncMetadata.normalizeSyncMeta(localState.syncMeta);
@@ -21,7 +22,18 @@
       mergeEntities(localState.goals, remoteState.goals, (local, remote) => mergeGoal(local, remote, localMeta, remoteMeta)),
       tombstones.goals,
     );
-    const categories = withoutDeleted(mergeEntities(localState.categories, remoteState.categories), tombstones.categories);
+    const categories = withoutDeleted(
+      mergeEntities(localState.categories, remoteState.categories, (local, remote) =>
+        mergeEntityFields(
+          local,
+          remote,
+          chooseNewest(local, remote),
+          ENTITY_FIELDS.categories,
+          localMeta.entityFields.categories?.[local.id],
+          remoteMeta.entityFields.categories?.[remote.id],
+        )),
+      tombstones.categories,
+    );
     return {
       ...localState,
       ...remoteState,
@@ -48,7 +60,14 @@
 
   function mergeTask(local, remote, localMeta, remoteMeta) {
     const newest = chooseNewest(local, remote);
-    const result = { ...newest };
+    const result = mergeEntityFields(
+      local,
+      remote,
+      newest,
+      ENTITY_FIELDS.tasks,
+      localMeta.entityFields.tasks?.[local.id],
+      remoteMeta.entityFields.tasks?.[remote.id],
+    );
     TASK_DATE_FIELDS.forEach((field) => {
       result[field] = mergeDatedValues(
         local[field],
@@ -66,8 +85,16 @@
     const titleHistory = habitTitleHistory.mergeHabitTitleHistory(local, remote);
     const configHistory = habitConfigHistory.mergeHabitConfigHistory(local, remote);
     const latestConfig = configHistory.at(-1);
+    const newest = chooseNewest(local, remote);
     return {
-      ...chooseNewest(local, remote),
+      ...mergeEntityFields(
+        local,
+        remote,
+        newest,
+        ENTITY_FIELDS.habits,
+        localMeta.entityFields.habits?.[local.id],
+        remoteMeta.entityFields.habits?.[remote.id],
+      ),
       title: titleHistory.at(-1)?.title || "Привычка",
       titleHistory,
       type: latestConfig.type,
@@ -89,6 +116,14 @@
 
   function mergeGoal(local, remote, localMeta, remoteMeta) {
     const newest = chooseNewest(local, remote);
+    const mergedFields = mergeEntityFields(
+      local,
+      remote,
+      newest,
+      ENTITY_FIELDS.goals,
+      localMeta.entityFields.goals?.[local.id],
+      remoteMeta.entityFields.goals?.[remote.id],
+    );
     const localVersions = localMeta.goalSteps?.[local.id] || {};
     const remoteVersions = remoteMeta.goalSteps?.[remote.id] || {};
     const localSteps = mapById(local.steps);
@@ -109,11 +144,29 @@
     const steps = orderFromIds(mergedById, preferredOrder);
     const achieved = steps.length > 0 && steps.every((step) => step.done === true);
     return {
-      ...newest,
+      ...mergedFields,
       steps,
       status: achieved ? "done" : "active",
       completedAt: achieved ? newest.completedAt || latestTimestamp(local.completedAt, remote.completedAt) : "",
     };
+  }
+
+  function mergeEntityFields(local, remote, base, fields, localVersions = {}, remoteVersions = {}) {
+    const result = { ...base };
+    fields.forEach((field) => {
+      const source = chooseVersionedSource(
+        Object.hasOwn(local, field),
+        Object.hasOwn(remote, field),
+        localVersions[field],
+        remoteVersions[field],
+        timestampOf(local),
+        timestampOf(remote),
+      );
+      const entity = source === "local" ? local : remote;
+      if (Object.hasOwn(entity, field)) result[field] = clone(entity[field]);
+      else delete result[field];
+    });
+    return result;
   }
 
   function mergeDatedValues(local = {}, remote = {}, localVersions = {}, remoteVersions = {}, localParent = 0, remoteParent = 0) {
@@ -170,6 +223,7 @@
 
   function mergeSyncMeta(local, remote) {
     return {
+      entityFields: mergeTimestampTree(local.entityFields, remote.entityFields),
       taskFields: mergeTimestampTree(local.taskFields, remote.taskFields),
       habitLogs: mergeTimestampTree(local.habitLogs, remote.habitLogs),
       taskOrder: mergeTimestampTree(local.taskOrder, remote.taskOrder),

@@ -1,5 +1,14 @@
 (function (global) {
   const TASK_DATE_FIELDS = ["completed", "acknowledgedOverdue", "excludedDates", "notified"];
+  const ENTITY_FIELDS = {
+    tasks: [
+      "title", "date", "time", "scheduleMode", "startTime", "endTime", "categoryId", "priority",
+      "repeat", "repeatUntil", "sourceTaskId", "movedFromDate", "customRepeat", "reminderOffset",
+    ],
+    habits: ["startDate", "archived", "archivedAt", "archivedFromDate"],
+    goals: ["title", "dueDate"],
+    categories: ["name", "color"],
+  };
 
   function createSyncMetadataTracker(options = {}) {
     const now = options.now || (() => new Date().toISOString());
@@ -7,6 +16,7 @@
     function trackChanges(previousState = {}, nextState = {}) {
       const meta = normalizeSyncMeta(nextState.syncMeta);
       const changedAt = now();
+      trackEntityFields(previousState, nextState, meta, changedAt);
       trackTaskFields(previousState.tasks, nextState.tasks, meta, changedAt);
       trackHabitLogs(previousState.habits, nextState.habits, meta, changedAt);
       trackTaskOrder(previousState.taskOrder, nextState.taskOrder, meta, changedAt);
@@ -17,6 +27,21 @@
     }
 
     return { trackChanges };
+  }
+
+  function trackEntityFields(previousState, nextState, meta, changedAt) {
+    Object.entries(ENTITY_FIELDS).forEach(([type, fields]) => {
+      const previousById = mapById(previousState?.[type]);
+      (Array.isArray(nextState?.[type]) ? nextState[type] : []).forEach((entity) => {
+        const previous = previousById.get(entity.id);
+        if (!previous) return;
+        fields.forEach((field) => {
+          if (!sameValue(previous[field], entity[field])) {
+            (((meta.entityFields[type] ||= {})[entity.id] ||= {}))[field] = changedAt;
+          }
+        });
+      });
+    });
   }
 
   function trackTaskFields(previousTasks = [], nextTasks = [], meta, changedAt) {
@@ -75,6 +100,7 @@
 
   function normalizeSyncMeta(value = {}) {
     return {
+      entityFields: normalizeEntityFields(value.entityFields),
       taskFields: normalizeNestedTimestampMap(value.taskFields, 3),
       habitLogs: normalizeNestedTimestampMap(value.habitLogs, 2),
       taskOrder: normalizeTimestampMap(value.taskOrder),
@@ -82,6 +108,14 @@
       goalSteps: normalizeNestedTimestampMap(value.goalSteps, 2),
       goalStepOrder: normalizeTimestampMap(value.goalStepOrder),
     };
+  }
+
+  function normalizeEntityFields(value = {}) {
+    const result = {};
+    Object.keys(ENTITY_FIELDS).forEach((type) => {
+      result[type] = normalizeNestedTimestampMap(value?.[type], 2);
+    });
+    return result;
   }
 
   function normalizeNestedTimestampMap(value, depth) {
@@ -130,7 +164,7 @@
     return JSON.parse(JSON.stringify(value));
   }
 
-  const api = { TASK_DATE_FIELDS, clone, createSyncMetadataTracker, normalizeSyncMeta };
+  const api = { ENTITY_FIELDS, TASK_DATE_FIELDS, clone, createSyncMetadataTracker, normalizeSyncMeta };
   global.RhythmSyncMetadata = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

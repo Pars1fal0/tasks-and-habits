@@ -44,9 +44,35 @@ module.exports = [
     },
   },
   {
+    name: "records independent entity field edits",
+    fn() {
+      const tracker = createSyncMetadataTracker({ now: () => "2026-07-13T14:00:00.000Z" });
+      const previous = {
+        tasks: [{ id: "task", title: "Old", priority: "low" }],
+        habits: [],
+        goals: [{ id: "goal", title: "Goal", dueDate: "2026-08-01" }],
+        categories: [{ id: "category", name: "Work", color: "#111111" }],
+      };
+      const next = {
+        tasks: [{ id: "task", title: "New", priority: "low" }],
+        habits: [],
+        goals: [{ id: "goal", title: "Goal", dueDate: "2026-08-15" }],
+        categories: [{ id: "category", name: "Work", color: "#222222" }],
+      };
+
+      tracker.trackChanges(previous, next);
+
+      assert.equal(next.syncMeta.entityFields.tasks.task.title, "2026-07-13T14:00:00.000Z");
+      assert.equal(next.syncMeta.entityFields.tasks.task.priority, undefined);
+      assert.equal(next.syncMeta.entityFields.goals.goal.dueDate, "2026-07-13T14:00:00.000Z");
+      assert.equal(next.syncMeta.entityFields.categories.category.color, "2026-07-13T14:00:00.000Z");
+    },
+  },
+  {
     name: "drops malformed synchronization metadata",
     fn() {
       assert.deepEqual(normalizeSyncMeta({ habitLogs: { habit: { bad: "yesterday" } } }).habitLogs, {});
+      assert.deepEqual(normalizeSyncMeta({ entityFields: { tasks: { task: { title: "yesterday" } } } }).entityFields.tasks, {});
     },
   },
 ];

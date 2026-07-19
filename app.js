@@ -2401,6 +2401,9 @@ function saveState(options = {}) {
     state = stateController.saveState(state, options);
     localStorageError = "";
   } catch {
+    localStateUpdatedAt = options.localUpdatedAt || new Date().toISOString();
+    if (!options.skipRemote) scheduleRemotePush();
+    syncDesktopReminders();
     localStorageError = "Локальное хранилище заполнено · экспортируй данные";
     renderSaveStatus();
     showToast("Не удалось сохранить данные. Экспортируй JSON, чтобы не потерять изменения");

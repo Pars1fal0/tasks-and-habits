@@ -104,6 +104,30 @@ module.exports = [
     },
   },
   {
+    name: "merges independent task fields edited on different devices",
+    fn() {
+      const localEdit = "2026-07-13T10:00:00.000Z";
+      const remoteEdit = "2026-07-13T11:00:00.000Z";
+      const merged = mergeStates(
+        {
+          tasks: [{ id: "task", title: "Local title", priority: "low", updatedAt: localEdit }],
+          habits: [], goals: [], categories: [], taskOrder: {},
+          syncMeta: { entityFields: { tasks: { task: { title: localEdit } } } },
+        },
+        {
+          tasks: [{ id: "task", title: "Original title", priority: "high", updatedAt: remoteEdit }],
+          habits: [], goals: [], categories: [], taskOrder: {},
+          syncMeta: { entityFields: { tasks: { task: { priority: remoteEdit } } } },
+        },
+      );
+
+      assert.equal(merged.tasks[0].title, "Local title");
+      assert.equal(merged.tasks[0].priority, "high");
+      assert.equal(merged.syncMeta.entityFields.tasks.task.title, localEdit);
+      assert.equal(merged.syncMeta.entityFields.tasks.task.priority, remoteEdit);
+    },
+  },
+  {
     name: "does not resurrect an entity deleted on another device",
     fn() {
       const merged = mergeStates(
