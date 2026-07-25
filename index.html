@@ -9,7 +9,7 @@
     <link rel="icon" href="data:,">
     <link rel="manifest" href="manifest.webmanifest">
     <script src="shell-version.js?v=1"></script>
-    <link rel="stylesheet" href="styles.css?v=29">
+    <link rel="stylesheet" href="styles.css?v=30">
     <link rel="stylesheet" href="disclosure-menus.css?v=1">
   </head>
   <body>
@@ -161,6 +161,9 @@
           </div>
 
           <div class="date-control" aria-label="Дата">
+            <button class="icon-button global-search-button" id="globalSearchButton" type="button" aria-label="Поиск по приложению">
+              <svg class="ui-icon"><use href="#icon-search"></use></svg>
+            </button>
             <button class="icon-button" id="prevDay" type="button" aria-label="Предыдущий день">
               <svg class="ui-icon"><use href="#icon-chevron-left"></use></svg>
             </button>
@@ -171,6 +174,20 @@
             <button class="ghost-button compact-button today-button" id="todayButton" type="button">Сегодня</button>
           </div>
         </header>
+
+        <dialog class="global-search-dialog" id="globalSearchDialog" aria-labelledby="globalSearchHeading">
+          <div class="global-search-head">
+            <label class="search-box global-search-box">
+              <svg class="ui-icon"><use href="#icon-search"></use></svg>
+              <input id="globalSearchInput" type="search" placeholder="Задачи, привычки, цели и дневник" autocomplete="off">
+            </label>
+            <button class="icon-button" id="globalSearchClose" type="button" aria-label="Закрыть поиск">
+              <svg class="ui-icon"><use href="#icon-close"></use></svg>
+            </button>
+          </div>
+          <h2 class="sr-only" id="globalSearchHeading">Поиск по приложению</h2>
+          <div class="global-search-results" id="globalSearchResults" aria-live="polite"></div>
+        </dialog>
 
         <div class="update-banner" id="updateBanner" role="status" aria-live="polite" hidden>
           <div>
@@ -784,14 +801,57 @@
             </div>
             <span class="journal-save-status" id="journalStatus" role="status" aria-live="polite">Запись сохранится автоматически</span>
           </div>
-          <section class="panel journal-panel">
-            <label class="sr-only" for="journalText">Запись в дневнике за выбранный день</label>
-            <textarea id="journalText" maxlength="50000" placeholder="Что произошло сегодня?" spellcheck="true"></textarea>
-            <div class="journal-editor-footer">
-              <span>Личная запись</span>
-              <span id="journalCount">0 / 50 000</span>
+          <div class="journal-layout">
+            <aside class="journal-sidebar">
+              <section class="panel journal-calendar-panel" aria-labelledby="journalCalendarTitle">
+                <div class="journal-calendar-heading">
+                  <button class="icon-button compact-icon-button" id="journalPrevMonth" type="button" aria-label="Предыдущий месяц">
+                    <svg class="ui-icon"><use href="#icon-chevron-left"></use></svg>
+                  </button>
+                  <strong id="journalCalendarTitle">Месяц</strong>
+                  <button class="icon-button compact-icon-button" id="journalNextMonth" type="button" aria-label="Следующий месяц">
+                    <svg class="ui-icon"><use href="#icon-chevron-right"></use></svg>
+                  </button>
+                </div>
+                <div class="journal-weekdays" id="journalWeekdays" aria-hidden="true"></div>
+                <div class="journal-calendar-grid" id="journalCalendarGrid"></div>
+              </section>
+              <details class="panel journal-search-panel">
+                <summary>
+                  <svg class="ui-icon"><use href="#icon-search"></use></svg>
+                  Найти запись
+                </summary>
+                <label class="search-box">
+                  <svg class="ui-icon"><use href="#icon-search"></use></svg>
+                  <input id="journalSearch" type="search" placeholder="Текст записи" autocomplete="off">
+                </label>
+                <div class="journal-search-dates">
+                  <label><span>С</span><input id="journalSearchFrom" type="date"></label>
+                  <label><span>По</span><input id="journalSearchTo" type="date"></label>
+                </div>
+                <div class="journal-search-results" id="journalSearchResults" aria-live="polite"></div>
+              </details>
+            </aside>
+            <div class="journal-main">
+              <section class="panel journal-panel">
+                <button class="journal-prompt" id="journalPrompt" type="button"></button>
+                <label class="sr-only" for="journalText">Запись в дневнике за выбранный день</label>
+                <textarea id="journalText" maxlength="50000" placeholder="Что произошло сегодня?" spellcheck="true"></textarea>
+                <div class="journal-editor-footer">
+                  <span>Личная запись</span>
+                  <span id="journalCount">0 / 50 000</span>
+                </div>
+              </section>
+              <details class="panel journal-history-panel">
+                <summary>
+                  <svg class="ui-icon"><use href="#icon-history"></use></svg>
+                  Предыдущие версии
+                  <span id="journalHistoryCount"></span>
+                </summary>
+                <div class="journal-history-list" id="journalHistoryList"></div>
+              </details>
             </div>
-          </section>
+          </div>
         </section>
 
         <section class="view" id="archiveView" aria-labelledby="archiveHeading">
@@ -1061,6 +1121,26 @@
                   <h2 id="mcpActivityHeading">Журнал действий</h2>
                 </div>
               </summary>
+              <label class="settings-row">
+                <span>
+                  <strong>Чтение дневника</strong>
+                  <small>Разрешает ChatGPT читать записи и составлять резюме только по твоему запросу.</small>
+                </span>
+                <select id="mcpJournalRead" aria-label="Доступ ChatGPT к чтению дневника">
+                  <option value="on">Разрешено</option>
+                  <option value="off">Запрещено</option>
+                </select>
+              </label>
+              <label class="settings-row">
+                <span>
+                  <strong>Запись в дневник</strong>
+                  <small>Разрешает ChatGPT добавлять новые абзацы. Существующий текст не заменяется.</small>
+                </span>
+                <select id="mcpJournalWrite" aria-label="Доступ ChatGPT к записи в дневник">
+                  <option value="on">Разрешено</option>
+                  <option value="off">Запрещено</option>
+                </select>
+              </label>
               <p class="settings-status">Здесь видны изменения, сделанные через MCP. Последнее действие можно безопасно отменить.</p>
               <div class="mcp-activity-list" id="mcpActivityList" aria-live="polite"></div>
             </details>
@@ -1181,11 +1261,11 @@
     <script src="sync-history.js?v=1" defer></script>
     <script src="sync-diagnostics.js?v=1" defer></script>
     <script src="settings-state.js?v=2" defer></script>
-    <script src="profile-settings.js?v=1" defer></script>
+    <script src="profile-settings.js?v=2" defer></script>
     <script src="hosted-config.js?v=1" defer></script>
-    <script src="journal-model.js?v=1" defer></script>
+    <script src="journal-model.js?v=2" defer></script>
     <script src="data-normalizers.js?v=1" defer></script>
-    <script src="sync-metadata.js?v=2" defer></script>
+    <script src="sync-metadata.js?v=3" defer></script>
     <script src="tombstone-retention.js?v=2" defer></script>
     <script src="habit-title-history.js?v=1" defer></script>
     <script src="habit-config-history.js?v=1" defer></script>
@@ -1197,7 +1277,7 @@
     <script src="state-merge.js?v=8" defer></script>
     <script src="date-rollover.js?v=1" defer></script>
     <script src="planning-history.js?v=1" defer></script>
-    <script src="journal-view.js?v=1" defer></script>
+    <script src="journal-view.js?v=2" defer></script>
     <script src="storage.js?v=1" defer></script>
     <script src="navigation-state.js?v=2" defer></script>
     <script src="archive-view.js?v=4" defer></script>
@@ -1210,6 +1290,7 @@
     <script src="form-dialog.js?v=1" defer></script>
     <script src="categories.js?v=4" defer></script>
     <script src="goal-checkpoint-editor.js?v=2" defer></script>
+    <script src="global-search.js?v=1" defer></script>
     <script src="goals-view.js?v=9" defer></script>
     <script src="habit-form.js?v=5" defer></script>
     <script src="habits-view.js?v=5" defer></script>
@@ -1223,8 +1304,8 @@
     <script src="task-state.js?v=4" defer></script>
     <script src="settings-sync.js?v=1" defer></script>
     <script src="settings-transfer.js?v=1" defer></script>
-    <script src="save-status.js?v=1" defer></script>
-    <script src="settings-controller.js?v=5" defer></script>
+    <script src="save-status.js?v=2" defer></script>
+    <script src="settings-controller.js?v=6" defer></script>
     <script src="timeline-layout.js?v=1" defer></script>
     <script src="timeline-menu.js?v=2" defer></script>
     <script src="timeline-drag.js?v=2" defer></script>
@@ -1233,6 +1314,6 @@
     <script src="view-renderer.js?v=2" defer></script>
     <script src="app-shell-controller.js?v=2" defer></script>
     <script src="toast.js?v=1" defer></script>
-    <script src="app.js?v=39" defer></script>
+    <script src="app.js?v=40" defer></script>
   </body>
 </html>

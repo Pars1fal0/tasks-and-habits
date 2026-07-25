@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.19.0
+
+- Expanded the daily journal with month navigation, entry markers, text/date search, rotating reflection prompts, and up to 20 restorable revisions per day.
+- Added workspace-wide search for tasks, habits, goals, completed work, and journal entries with direct navigation to the result.
+- Added independent synchronized permissions for ChatGPT journal reading and writing.
+- Added an MCP period reader for on-demand weekly journal summaries while preserving the rule that ChatGPT may not invent personal events.
+- Clarified local, pending, syncing, synced, offline, and error save states in the top bar.
+- Added module, browser, mobile, Electron, synchronization, and MCP regression coverage for the new workflows.
+
 ## 0.18.0
 
 - Added a dedicated daily journal with one automatically saved multiline entry per selected date.

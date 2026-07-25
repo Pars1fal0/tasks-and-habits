@@ -7,7 +7,7 @@
     ],
     habits: ["startDate", "archived", "archivedAt", "archivedFromDate"],
     goals: ["title", "dueDate", "why"],
-    journalEntries: ["date", "text"],
+    journalEntries: ["date", "text", "revisions"],
     categories: ["name", "color"],
   };
 

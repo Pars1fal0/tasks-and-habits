@@ -1,5 +1,6 @@
 (function (global) {
   const MAX_JOURNAL_LENGTH = 50000;
+  const MAX_JOURNAL_REVISIONS = 20;
 
   function normalizeJournalEntries(value, options = {}) {
     const createId = options.createId || (() => `journal-${Date.now().toString(36)}`);
@@ -13,6 +14,7 @@
         id: String(entry?.id || createId()),
         date,
         text: normalizeJournalText(entry?.text),
+        revisions: normalizeRevisions(entry?.revisions),
         createdAt,
         updatedAt,
       };
@@ -40,12 +42,19 @@
     if (existing && existing.text === text) return { changed: false, entries: next, entry: existing };
 
     if (existing) {
+      const previousAge = Date.parse(now) - Date.parse(existing.updatedAt || "");
+      if (existing.text && (!existing.revisions?.length || previousAge >= 30000)) {
+        existing.revisions = normalizeRevisions([
+          ...(existing.revisions || []),
+          { text: existing.text, savedAt: existing.updatedAt || now },
+        ]);
+      }
       existing.text = text;
       existing.updatedAt = now;
       return { changed: true, entries: next, entry: existing };
     }
 
-    const entry = { id: createId(), date, text, createdAt: now, updatedAt: now };
+    const entry = { id: createId(), date, text, revisions: [], createdAt: now, updatedAt: now };
     next.push(entry);
     next.sort((left, right) => left.date.localeCompare(right.date));
     return { changed: true, entries: next, entry };
@@ -67,6 +76,70 @@
       .slice(0, MAX_JOURNAL_LENGTH);
   }
 
+  function normalizeRevisions(value) {
+    const seen = new Set();
+    return (Array.isArray(value) ? value : [])
+      .map((revision) => ({
+        text: normalizeJournalText(revision?.text),
+        savedAt: validTimestamp(revision?.savedAt) || "",
+      }))
+      .filter((revision) => {
+        const key = `${revision.savedAt}\n${revision.text}`;
+        if (!revision.text || !revision.savedAt || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .sort((left, right) => left.savedAt.localeCompare(right.savedAt))
+      .slice(-MAX_JOURNAL_REVISIONS);
+  }
+
+  function restoreJournalRevision(entries, date, savedAt, options = {}) {
+    const entry = journalEntryForDate(entries, date);
+    const revision = entry?.revisions?.find((item) => item.savedAt === savedAt);
+    if (!revision) return { changed: false, entries: normalizeJournalEntries(entries), entry };
+    return upsertJournalEntry(entries, { date, text: revision.text }, options);
+  }
+
+  function searchJournalEntries(entries, query, options = {}) {
+    const search = String(query || "").trim().toLocaleLowerCase("ru-RU");
+    const from = normalizeDateKey(options.from);
+    const to = normalizeDateKey(options.to);
+    return normalizeJournalEntries(entries)
+      .filter((entry) => (!from || entry.date >= from) && (!to || entry.date <= to))
+      .filter((entry) => !search || entry.text.toLocaleLowerCase("ru-RU").includes(search))
+      .sort((left, right) => right.date.localeCompare(left.date));
+  }
+
+  function buildJournalMonth(entries, anchorDate, firstDay = "monday") {
+    const anchor = parseDateKey(anchorDate) || new Date();
+    const year = anchor.getUTCFullYear();
+    const month = anchor.getUTCMonth();
+    const first = new Date(Date.UTC(year, month, 1));
+    const offset = (first.getUTCDay() - (firstDay === "sunday" ? 0 : 1) + 7) % 7;
+    const entryDates = new Set(normalizeJournalEntries(entries).filter((entry) => entry.text).map((entry) => entry.date));
+    const days = [];
+    for (let index = 0; index < 42; index += 1) {
+      const date = new Date(Date.UTC(year, month, 1 - offset + index));
+      const dateKey = date.toISOString().slice(0, 10);
+      days.push({
+        date: dateKey,
+        day: date.getUTCDate(),
+        currentMonth: date.getUTCMonth() === month,
+        hasEntry: entryDates.has(dateKey),
+      });
+    }
+    return { month, year, days };
+  }
+
+  function journalEntriesForPeriod(entries, from, to) {
+    return searchJournalEntries(entries, "", { from, to });
+  }
+
+  function parseDateKey(value) {
+    const normalized = normalizeDateKey(value);
+    return normalized ? new Date(`${normalized}T00:00:00.000Z`) : null;
+  }
+
   function normalizeDateKey(value) {
     const text = String(value || "");
     const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
@@ -85,10 +158,15 @@
 
   const api = {
     MAX_JOURNAL_LENGTH,
+    MAX_JOURNAL_REVISIONS,
     appendJournalText,
+    buildJournalMonth,
+    journalEntriesForPeriod,
     journalEntryForDate,
     normalizeJournalEntries,
     normalizeJournalText,
+    restoreJournalRevision,
+    searchJournalEntries,
     upsertJournalEntry,
   };
   global.RhythmJournalModel = api;

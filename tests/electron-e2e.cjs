@@ -50,6 +50,16 @@ const { _electron: electron } = require("playwright-core");
     await page.waitForSelector('body[data-view="journal"]');
     assert.match(await page.locator("#journalText").inputValue(), /Запись сохранилась/);
 
+    assert.equal(await page.locator(".journal-calendar-day").count(), 42);
+    await page.locator("#journalSearch").evaluate((node) => node.closest("details")?.querySelector("summary")?.click());
+    await page.locator("#journalSearch").fill("дневник");
+    assert.equal(await page.locator(".journal-search-result").count(), 1);
+    await page.locator("#globalSearchButton").click();
+    await page.locator("#globalSearchInput").fill("дневник");
+    assert.equal(await page.locator(".global-search-result").count(), 1);
+    await page.locator(".global-search-result").click();
+    assert.equal(await page.evaluate(() => window.location.hash), "#journal");
+
     await page.locator('.nav-tab[data-view="settings"]:visible').click();
     assert.equal(await page.evaluate(() => window.location.hash), "#settings");
     assert.equal(await page.locator(".settings-accordion").first().getAttribute("open"), null);
@@ -61,6 +71,12 @@ const { _electron: electron } = require("playwright-core");
     assert.equal(
       await page.evaluate(() => JSON.parse(localStorage.getItem("rhythm-day-state-v1")).profile.timeZone),
       "Asia/Yekaterinburg",
+    );
+    await page.locator("#mcpJournalRead").evaluate((node) => node.closest("details")?.querySelector("summary")?.click());
+    await page.locator("#mcpJournalRead").selectOption("off");
+    assert.equal(
+      await page.evaluate(() => JSON.parse(localStorage.getItem("rhythm-day-state-v1")).profile.journalAccess.read),
+      false,
     );
     await page.evaluate(() => {
       window.__verificationResult = null;

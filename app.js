@@ -204,6 +204,11 @@ const els = {
   goalList: document.querySelector("#goalList"),
   goalOverdueMetric: document.querySelector("#goalOverdueMetric"),
   goalTitle: document.querySelector("#goalTitle"),
+  globalSearchButton: document.querySelector("#globalSearchButton"),
+  globalSearchClose: document.querySelector("#globalSearchClose"),
+  globalSearchDialog: document.querySelector("#globalSearchDialog"),
+  globalSearchInput: document.querySelector("#globalSearchInput"),
+  globalSearchResults: document.querySelector("#globalSearchResults"),
   habitDoneMetric: document.querySelector("#habitDoneMetric"),
   habitEmpty: document.querySelector("#habitEmpty"),
   habitArchiveCount: document.querySelector("#habitArchiveCount"),
@@ -232,9 +237,23 @@ const els = {
   importButton: document.querySelector("#importButton"),
   importFile: document.querySelector("#importFile"),
   journalCount: document.querySelector("#journalCount"),
+  journalCalendarGrid: document.querySelector("#journalCalendarGrid"),
+  journalCalendarTitle: document.querySelector("#journalCalendarTitle"),
   journalDate: document.querySelector("#journalDate"),
+  journalHistoryCount: document.querySelector("#journalHistoryCount"),
+  journalHistoryList: document.querySelector("#journalHistoryList"),
+  journalNextMonth: document.querySelector("#journalNextMonth"),
+  journalPrevMonth: document.querySelector("#journalPrevMonth"),
+  journalPrompt: document.querySelector("#journalPrompt"),
+  journalSearch: document.querySelector("#journalSearch"),
+  journalSearchFrom: document.querySelector("#journalSearchFrom"),
+  journalSearchResults: document.querySelector("#journalSearchResults"),
+  journalSearchTo: document.querySelector("#journalSearchTo"),
   journalStatus: document.querySelector("#journalStatus"),
   journalText: document.querySelector("#journalText"),
+  journalWeekdays: document.querySelector("#journalWeekdays"),
+  mcpJournalRead: document.querySelector("#mcpJournalRead"),
+  mcpJournalWrite: document.querySelector("#mcpJournalWrite"),
   monthGrid: document.querySelector("#monthGrid"),
   monthLabel: document.querySelector("#monthLabel"),
   monthWeekdays: document.querySelector("#monthWeekdays"),
@@ -674,7 +693,19 @@ const archiveView = window.RhythmArchiveView.createArchiveView({
 });
 
 const journalView = window.RhythmJournalView.createJournalView({
+  buildMonth: window.RhythmJournalModel.buildJournalMonth,
+  confirmRestore: () => confirmAction({
+    title: "Восстановить эту версию?",
+    message: "Текущий текст останется в истории, поэтому его можно будет вернуть.",
+    confirmLabel: "Восстановить",
+  }),
   els,
+  formatDateTime: (timestamp) => new Intl.DateTimeFormat("ru-RU", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(timestamp)),
   formatLongDate,
   formatTime: (timestamp) => new Intl.DateTimeFormat("ru-RU", {
     hour: "2-digit",
@@ -682,7 +713,22 @@ const journalView = window.RhythmJournalView.createJournalView({
   }).format(new Date(timestamp)),
   getActiveDate: () => activeDate,
   getEntry: (dateKey) => window.RhythmJournalModel.journalEntryForDate(state.journalEntries, dateKey),
+  getEntries: () => state.journalEntries,
+  getFirstDayOfWeek: () => firstDayOfWeek,
   maxLength: window.RhythmJournalModel.MAX_JOURNAL_LENGTH,
+  restoreRevision: (dateKey, savedAt) => {
+    const result = window.RhythmJournalModel.restoreJournalRevision(
+      state.journalEntries,
+      dateKey,
+      savedAt,
+      { createId },
+    );
+    if (!result.changed) return result;
+    state.journalEntries = result.entries;
+    saveState();
+    return result;
+  },
+  searchEntries: window.RhythmJournalModel.searchJournalEntries,
   saveEntry: (dateKey, text) => {
     const result = window.RhythmJournalModel.upsertJournalEntry(
       state.journalEntries,
@@ -695,6 +741,33 @@ const journalView = window.RhythmJournalView.createJournalView({
     saveState();
     return result;
   },
+  setActiveDate: (dateKey) => {
+    activeDate = dateKey;
+    els.activeDate.value = activeDate;
+    saveUiState();
+    resetTaskForm({ open: false });
+    resetHabitForm({ open: false });
+    render();
+  },
+  showToast,
+});
+
+const globalSearch = window.RhythmGlobalSearch.createGlobalSearch({
+  els,
+  formatDate: formatLongDate,
+  getState: () => state,
+  openResult: (result) => {
+    if (result.date) {
+      activeDate = result.date;
+      els.activeDate.value = activeDate;
+    }
+    activeView = result.view;
+    saveUiState();
+    syncNavigationRoute();
+    render();
+    scrollWorkspaceTop();
+  },
+  search: window.RhythmGlobalSearch.searchWorkspace,
 });
 
 const taskFormController = window.RhythmTaskForm.createTaskForm({
@@ -834,7 +907,7 @@ const settingsController = window.RhythmSettingsController.createSettingsControl
   els,
   exportData,
   exportSettings: settingsTransfer.exportSettings,
-  getSettings: () => ({ ...getUiSettings(), timeZone: state.profile.timeZone }),
+  getSettings: () => ({ ...getUiSettings(), journalAccess: state.profile.journalAccess, timeZone: state.profile.timeZone }),
   importSettings: settingsTransfer.importSettings,
   openBackupFolder,
   checkRemoteConnection,
@@ -846,6 +919,7 @@ const settingsController = window.RhythmSettingsController.createSettingsControl
   resetInterfaceSettings: settingsTransfer.resetInterfaceSettings,
   restoreBackup,
   updateSetting,
+  updateJournalPermission,
   updateTimeZone,
 });
 
@@ -1184,6 +1258,7 @@ async function init() {
   confirmDialog.bindEvents();
   remoteDataController.bindEvents();
   journalView.bindEvents();
+  globalSearch.bindEvents();
   appEvents.bind();
   syncNavigationRoute({ replace: true });
   resetTaskForm({ open: false });
@@ -1259,6 +1334,7 @@ function renderSaveStatus() {
     localUpdatedAt: localStateUpdatedAt,
     online: navigator.onLine,
     remoteEnabled: remoteSyncEnabled === "on",
+    remoteLastPushedAt: remoteSyncLastPushedAt,
     syncStatus: remoteSyncWorkflow.getStatus(),
   });
 }
@@ -2339,11 +2415,28 @@ function updateTimeZone(value) {
     showToast("Укажи часовой пояс в формате Europe/Moscow");
     return;
   }
-  state.profile = { timeZone: normalized, updatedAt: new Date().toISOString() };
+  state.profile = { ...state.profile, timeZone: normalized, updatedAt: new Date().toISOString() };
   saveState();
   settingsController.syncControls();
   render();
   showToast(`Часовой пояс: ${normalized}`);
+}
+
+function updateJournalPermission(permission, value) {
+  if (!["read", "write"].includes(permission)) return;
+  const enabled = value !== "off";
+  state.profile = {
+    ...state.profile,
+    journalAccess: {
+      read: state.profile?.journalAccess?.read !== false,
+      write: state.profile?.journalAccess?.write !== false,
+      [permission]: enabled,
+    },
+    updatedAt: new Date().toISOString(),
+  };
+  saveState();
+  settingsController.syncControls();
+  showToast(enabled ? "Доступ ChatGPT разрешён" : "Доступ ChatGPT отключён");
 }
 
 function applyThemePreference() {

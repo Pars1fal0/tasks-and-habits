@@ -11,6 +11,19 @@ export function getJournalEntry(state, date) {
   };
 }
 
+export function getJournalPeriod(state, from, to) {
+  const entries = journalModel.journalEntriesForPeriod(state?.journalEntries, from, to);
+  return {
+    from,
+    to,
+    entries: entries.map((entry) => ({
+      date: entry.date,
+      text: entry.text,
+      updatedAt: entry.updatedAt,
+    })),
+  };
+}
+
 export function appendJournalEntryCommand(state, input, options = {}) {
   const before = clone(state);
   const nextState = clone(state);

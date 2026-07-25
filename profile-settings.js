@@ -15,6 +15,10 @@
 
   function normalizeProfile(value = {}) {
     return {
+      journalAccess: {
+        read: value?.journalAccess?.read !== false,
+        write: value?.journalAccess?.write !== false,
+      },
       timeZone: normalizeTimeZone(value.timeZone, detectTimeZone()),
       updatedAt: validTimestamp(value.updatedAt) ? value.updatedAt : "",
     };

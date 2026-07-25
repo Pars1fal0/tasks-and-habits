@@ -11,7 +11,7 @@ import {
   toDateKey,
 } from "./task-service.mjs";
 import { normalizeMcpActivity, recordMcpActivity } from "./activity-service.mjs";
-import { appendJournalEntryCommand, getJournalEntry } from "./journal-service.mjs";
+import { appendJournalEntryCommand, getJournalEntry, getJournalPeriod } from "./journal-service.mjs";
 import { registerManagementTools } from "./management-tools.mjs";
 import { registerParsitasksPrompts } from "./prompts.mjs";
 import {
@@ -92,7 +92,7 @@ async function handleMcp(request, env, ctx) {
 
 export function createParsitasksServer(context) {
   const server = new McpServer(
-    { name: "parsitasks", version: "0.5.0" },
+    { name: "parsitasks", version: "0.6.0" },
     {
       instructions: [
         "Parsitasks stores the user's tasks, habits, goals, calendar, and private daily journal.",
@@ -103,6 +103,7 @@ export function createParsitasksServer(context) {
         "Never set confirm=true for deletion until the user explicitly confirms the exact scope.",
         "Habit edits are dated. Preserve history by using fromDate instead of rewriting past days.",
         "Journal entries are private user-authored memories. Never invent events or imply that planned tasks actually happened.",
+        "Respect the user's independent journal read and write permissions. Do not work around a denied permission.",
         "Append journal text only when the user asks to record it. Read the existing entry before summarizing it.",
         "Use calendar and backlog tools before suggesting broad rescheduling.",
         "Use a unique requestId for every intended write and reuse it only for retries.",
@@ -154,8 +155,41 @@ export function createParsitasksServer(context) {
       annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
     },
     async ({ date }) => readTool(context, (state) => {
+      assertJournalAccess(state, "read");
       const dateKey = date || todayForState(state, context);
       return getJournalEntry(state, dateKey);
+    }),
+  );
+
+  server.registerTool(
+    "get_journal_period",
+    {
+      title: "Прочитать дневник за период",
+      description: "Возвращает записи дневника за диапазон дат для обзора или недельного резюме.",
+      inputSchema: {
+        from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe("Начальная дата YYYY-MM-DD."),
+        to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe("Конечная дата YYYY-MM-DD, включительно."),
+      },
+      outputSchema: {
+        from: z.string(),
+        to: z.string(),
+        entries: z.array(z.object({
+          date: z.string(),
+          text: z.string(),
+          updatedAt: z.string(),
+        })),
+      },
+      securitySchemes: OAUTH_SECURITY,
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
+    },
+    async ({ from, to }) => readTool(context, (state) => {
+      assertJournalAccess(state, "read");
+      if (from > to) throw new Error("Начальная дата должна быть раньше конечной");
+      const rangeDays = Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000);
+      if (!Number.isFinite(rangeDays) || rangeDays < 0 || rangeDays > 366) {
+        throw new Error("Период дневника должен быть не больше 366 дней");
+      }
+      return getJournalPeriod(state, from, to);
     }),
   );
 
@@ -179,10 +213,13 @@ export function createParsitasksServer(context) {
       securitySchemes: OAUTH_SECURITY,
       annotations: { readOnlyHint: false, openWorldHint: false, destructiveHint: false },
     },
-    async (input) => writeTool(context, (state) => appendJournalEntryCommand(
-      state,
-      { ...input, date: input.date || todayForState(state, context) },
-    )),
+    async (input) => writeTool(context, (state) => {
+      assertJournalAccess(state, "write");
+      return appendJournalEntryCommand(
+        state,
+        { ...input, date: input.date || todayForState(state, context) },
+      );
+    }),
   );
 
   server.registerTool(
@@ -208,6 +245,9 @@ export function createParsitasksServer(context) {
     async ({ query, limit }) => safeTool(async () => {
       const snapshot = await context.store.read();
       const result = searchKnowledge(snapshot.state, query, { baseUrl: context.baseUrl, limit });
+      if (snapshot.state?.profile?.journalAccess?.read === false) {
+        result.results = result.results.filter((item) => item.type !== "journal");
+      }
       return toolResult(result, JSON.stringify(result));
     }),
   );
@@ -230,6 +270,7 @@ export function createParsitasksServer(context) {
     },
     async ({ id }) => safeTool(async () => {
       const snapshot = await context.store.read();
+      if (String(id).startsWith("journal:")) assertJournalAccess(snapshot.state, "read");
       const result = fetchKnowledge(snapshot.state, id, { baseUrl: context.baseUrl });
       if (!result) throw new Error("Объект Parsitasks не найден");
       return toolResult(result, result.text);
@@ -635,6 +676,15 @@ function taskCustomRepeat() {
 
 function todayForState(state, context) {
   return toDateKey(new Date(), stateTimeZone(state, context.timeZone));
+}
+
+function assertJournalAccess(state, permission) {
+  const access = state?.profile?.journalAccess;
+  if (access?.[permission] === false) {
+    throw new Error(permission === "read"
+      ? "Чтение дневника запрещено в настройках Parsitasks"
+      : "Запись в дневник запрещена в настройках Parsitasks");
+  }
 }
 
 function protectedResourceMetadata(url, env) {

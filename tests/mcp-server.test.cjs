@@ -15,6 +15,7 @@ module.exports = [
       assert.deepEqual(toolNames, [
         "get_today_overview",
         "get_journal_entry",
+        "get_journal_period",
         "append_journal_entry",
         "search",
         "fetch",
@@ -51,7 +52,7 @@ module.exports = [
       assert.match(source, /destructiveHint:\s*true/);
       assert.deepEqual(
         [...promptsSource.matchAll(/server\.registerPrompt\(\s*"([^"]+)"/g)].map((match) => match[1]),
-        ["plan_week", "review_backlog", "monthly_review"],
+        ["plan_week", "review_backlog", "monthly_review", "journal_weekly_reflection"],
       );
     },
   },

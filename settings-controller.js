@@ -21,6 +21,8 @@
       ctx.els.densityPreference?.addEventListener("change", () => ctx.updateSetting("densityPreference", ctx.els.densityPreference.value));
       ctx.els.timeFormat?.addEventListener("change", () => ctx.updateSetting("timeFormat", ctx.els.timeFormat.value));
       ctx.els.timeZoneSetting?.addEventListener("change", () => ctx.updateTimeZone(ctx.els.timeZoneSetting.value));
+      ctx.els.mcpJournalRead?.addEventListener("change", () => ctx.updateJournalPermission("read", ctx.els.mcpJournalRead.value));
+      ctx.els.mcpJournalWrite?.addEventListener("change", () => ctx.updateJournalPermission("write", ctx.els.mcpJournalWrite.value));
     }
 
     function syncControls(settings = ctx.getSettings()) {
@@ -31,6 +33,8 @@
       setValue(ctx.els.densityPreference, settings.densityPreference);
       setValue(ctx.els.timeFormat, settings.timeFormat);
       setValue(ctx.els.timeZoneSetting, settings.timeZone);
+      setValue(ctx.els.mcpJournalRead, settings.journalAccess?.read === false ? "off" : "on");
+      setValue(ctx.els.mcpJournalWrite, settings.journalAccess?.write === false ? "off" : "on");
       settingsSync.syncControls(settings);
       ctx.renderBackupStatus?.();
     }
