@@ -14,6 +14,8 @@ module.exports = [
 
       assert.deepEqual(toolNames, [
         "get_today_overview",
+        "get_journal_entry",
+        "append_journal_entry",
         "search",
         "fetch",
         "create_task",

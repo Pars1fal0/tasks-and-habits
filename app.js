@@ -1,9 +1,9 @@
-﻿const SCHEMA_VERSION = 13;
+﻿const SCHEMA_VERSION = 14;
 const VALID_PRIORITIES = ["high", "medium", "low"];
 const VALID_HABIT_REPEATS = ["daily", "every2days", "every3days", "weekdays", "weekends", "weekly", "custom"];
 const VALID_REMINDER_OFFSETS = ["none", "0", "5", "15", "30", "60", "1440"];
 const VALID_BACKUP_SCHEDULES = ["0", "5", "15", "30", "60"];
-const VALID_VIEWS = ["tasks", "timeline", "habits", "goals", "overview", "archive", "settings"];
+const VALID_VIEWS = ["tasks", "timeline", "habits", "goals", "overview", "journal", "archive", "settings"];
 
 const appUtils = window.RhythmAppUtils.createAppUtils({
   getFirstDayOfWeek: () => firstDayOfWeek,
@@ -62,6 +62,7 @@ const stateNormalizer = window.RhythmStateNormalizer.createStateNormalizer({
   normalizeHabitTitleHistory: window.RhythmHabitTitleHistory.normalizeHabitTitleHistory,
   normalizeReminderOffset,
   normalizeMcpActivity: window.RhythmMcpActivity.normalizeActivity,
+  normalizeJournalEntries: window.RhythmJournalModel.normalizeJournalEntries,
   normalizeProfile: profileSettings.normalizeProfile,
   pruneTombstones: window.RhythmTombstoneRetention.pruneTombstones,
   normalizeSyncMeta: window.RhythmSyncMetadata.normalizeSyncMeta,
@@ -230,6 +231,10 @@ const els = {
   heatmapGrid: document.querySelector("#heatmapGrid"),
   importButton: document.querySelector("#importButton"),
   importFile: document.querySelector("#importFile"),
+  journalCount: document.querySelector("#journalCount"),
+  journalDate: document.querySelector("#journalDate"),
+  journalStatus: document.querySelector("#journalStatus"),
+  journalText: document.querySelector("#journalText"),
   monthGrid: document.querySelector("#monthGrid"),
   monthLabel: document.querySelector("#monthLabel"),
   monthWeekdays: document.querySelector("#monthWeekdays"),
@@ -356,6 +361,7 @@ const els = {
     archive: document.querySelector("#archiveView"),
     goals: document.querySelector("#goalsView"),
     habits: document.querySelector("#habitsView"),
+    journal: document.querySelector("#journalView"),
     overview: document.querySelector("#overviewView"),
     settings: document.querySelector("#settingsView"),
     tasks: document.querySelector("#tasksView"),
@@ -665,6 +671,30 @@ const archiveView = window.RhythmArchiveView.createArchiveView({
   saveState,
   showToast,
   toDateKey,
+});
+
+const journalView = window.RhythmJournalView.createJournalView({
+  els,
+  formatLongDate,
+  formatTime: (timestamp) => new Intl.DateTimeFormat("ru-RU", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(timestamp)),
+  getActiveDate: () => activeDate,
+  getEntry: (dateKey) => window.RhythmJournalModel.journalEntryForDate(state.journalEntries, dateKey),
+  maxLength: window.RhythmJournalModel.MAX_JOURNAL_LENGTH,
+  saveEntry: (dateKey, text) => {
+    const result = window.RhythmJournalModel.upsertJournalEntry(
+      state.journalEntries,
+      { date: dateKey, text },
+      { createId },
+    );
+    if (!result.changed) return result;
+    state.journalEntries = result.entries;
+    if (result.entry) delete state.tombstones?.journalEntries?.[result.entry.id];
+    saveState();
+    return result;
+  },
 });
 
 const taskFormController = window.RhythmTaskForm.createTaskForm({
@@ -979,6 +1009,7 @@ const viewRenderer = window.RhythmViewRenderer.createViewRenderer({
   renderDailyPulse,
   renderGoals,
   renderHabits,
+  renderJournal: journalView.render,
   renderMcpActivity: mcpActivityController.render,
   renderOverview,
   renderRemoteSyncStatus,
@@ -1152,6 +1183,7 @@ async function init() {
   settingsController.syncControls();
   confirmDialog.bindEvents();
   remoteDataController.bindEvents();
+  journalView.bindEvents();
   appEvents.bind();
   syncNavigationRoute({ replace: true });
   resetTaskForm({ open: false });

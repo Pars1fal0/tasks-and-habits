@@ -10,6 +10,7 @@
         tasks: [],
         habits: [],
         goals: [],
+        journalEntries: [],
         categories: [],
         taskOrder: {},
         mcpActivity: config.normalizeMcpActivity?.(raw?.mcpActivity) || [],
@@ -202,6 +203,10 @@
           })
         : [];
 
+      normalized.journalEntries = config.normalizeJournalEntries?.(raw.journalEntries, {
+        createId: config.createId,
+      }) || [];
+
       const taskIds = new Set(normalized.tasks.map((task) => task.id));
       normalized.taskOrder = Object.fromEntries(
         Object.entries(config.normalizeTaskOrder(raw.taskOrder))
@@ -244,7 +249,7 @@
   }
 
   function normalizeTombstones(value) {
-    const result = { tasks: {}, habits: {}, goals: {}, categories: {} };
+    const result = { tasks: {}, habits: {}, goals: {}, journalEntries: {}, categories: {} };
     Object.keys(result).forEach((type) => {
       Object.entries(value?.[type] || {}).forEach(([id, deletedAt]) => {
         if (id && isValidTimestamp(deletedAt)) result[type][id] = deletedAt;

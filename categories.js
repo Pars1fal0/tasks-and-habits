@@ -155,7 +155,7 @@
       if (!confirmed) return;
 
       const undo = ctx.createUndoSnapshot();
-      state.tombstones ||= { tasks: {}, habits: {}, goals: {}, categories: {} };
+      state.tombstones ||= { tasks: {}, habits: {}, goals: {}, categories: {}, journalEntries: {} };
       state.tombstones.categories ||= {};
       state.tombstones.categories[categoryId] = new Date().toISOString();
       const hasTasks = state.tasks.some((task) => task.categoryId === categoryId);

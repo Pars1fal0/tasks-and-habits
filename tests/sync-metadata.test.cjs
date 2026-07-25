@@ -51,12 +51,14 @@ module.exports = [
         tasks: [{ id: "task", title: "Old", priority: "low" }],
         habits: [],
         goals: [{ id: "goal", title: "Goal", dueDate: "2026-08-01" }],
+        journalEntries: [{ id: "journal", date: "2026-07-13", text: "Old" }],
         categories: [{ id: "category", name: "Work", color: "#111111" }],
       };
       const next = {
         tasks: [{ id: "task", title: "New", priority: "low" }],
         habits: [],
         goals: [{ id: "goal", title: "Goal", dueDate: "2026-08-15" }],
+        journalEntries: [{ id: "journal", date: "2026-07-13", text: "New" }],
         categories: [{ id: "category", name: "Work", color: "#222222" }],
       };
 
@@ -65,6 +67,7 @@ module.exports = [
       assert.equal(next.syncMeta.entityFields.tasks.task.title, "2026-07-13T14:00:00.000Z");
       assert.equal(next.syncMeta.entityFields.tasks.task.priority, undefined);
       assert.equal(next.syncMeta.entityFields.goals.goal.dueDate, "2026-07-13T14:00:00.000Z");
+      assert.equal(next.syncMeta.entityFields.journalEntries.journal.text, "2026-07-13T14:00:00.000Z");
       assert.equal(next.syncMeta.entityFields.categories.category.color, "2026-07-13T14:00:00.000Z");
     },
   },

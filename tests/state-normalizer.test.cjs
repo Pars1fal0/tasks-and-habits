@@ -52,13 +52,21 @@ module.exports = [
             status: "done",
           },
         ],
+        journalEntries: [
+          {
+            id: "journal-1",
+            date: "2026-06-26",
+            text: "Первый абзац\r\n\r\nВторой абзац",
+            updatedAt: "2026-06-26T20:00:00.000Z",
+          },
+        ],
         taskOrder: { "2026-06-26": [123] },
         tombstones: {
           tasks: { "task-deleted": "2026-06-27T10:00:00.000Z", invalid: "yesterday" },
         },
       });
 
-      assert.equal(normalized.schemaVersion, 13);
+      assert.equal(normalized.schemaVersion, 14);
       assert.equal(normalized.categories[0].color, "#00a78e");
       assert.equal(normalized.categories[1].name, "Работа");
       assert.equal(normalized.tasks[0].title, "Задача");
@@ -81,6 +89,7 @@ module.exports = [
       assert.equal(normalized.goals[0].why, "важно для роста");
       assert.equal(normalized.goals[0].dueDate, "2026-06-26");
       assert.equal(normalized.goals[0].taskIds, undefined);
+      assert.equal(normalized.journalEntries[0].text, "Первый абзац\n\nВторой абзац");
       assert.deepEqual(
         normalized.goals[0].steps.map((step) => ({ done: step.done, title: step.title })),
         [

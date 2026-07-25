@@ -18,7 +18,7 @@ module.exports = [
           tasks: [{ title: "Проверить сборку" }, { title: "Опубликовать" }],
         }),
         {
-          counts: { goals: 1, habits: 1, tasks: 2 },
+          counts: { goals: 1, habits: 1, journalEntries: 0, tasks: 2 },
           examples: ["Проверить сборку", "Опубликовать", "Читать"],
         },
       );

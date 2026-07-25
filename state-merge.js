@@ -23,6 +23,18 @@
       mergeEntities(localState.goals, remoteState.goals, (local, remote) => mergeGoal(local, remote, localMeta, remoteMeta)),
       tombstones.goals,
     );
+    const journalEntries = withoutDeleted(
+      mergeEntities(localState.journalEntries, remoteState.journalEntries, (local, remote) =>
+        mergeEntityFields(
+          local,
+          remote,
+          chooseNewest(local, remote),
+          ENTITY_FIELDS.journalEntries,
+          localMeta.entityFields.journalEntries?.[local.id],
+          remoteMeta.entityFields.journalEntries?.[remote.id],
+        )),
+      tombstones.journalEntries,
+    );
     const categories = withoutDeleted(
       mergeEntities(localState.categories, remoteState.categories, (local, remote) =>
         mergeEntityFields(
@@ -44,6 +56,7 @@
       tasks,
       habits: applyEntityOrder(habits, localState.habits, remoteState.habits, localMeta.habitOrderUpdatedAt, remoteMeta.habitOrderUpdatedAt),
       goals,
+      journalEntries: deduplicateJournalDates(journalEntries),
       mcpActivity: mcpActivity.mergeActivity(localState.mcpActivity, remoteState.mcpActivity),
       taskOrder: mergeTaskOrder(localState.taskOrder, remoteState.taskOrder, localMeta, remoteMeta, new Set(tasks.map((task) => task.id))),
       tombstones,
@@ -67,6 +80,15 @@
       byId.set(item.id, existing ? mergeEntity(existing, clone(item)) : clone(item));
     });
     return [...byId.values()];
+  }
+
+  function deduplicateJournalDates(entries) {
+    const byDate = new Map();
+    entries.forEach((entry) => {
+      const current = byDate.get(entry.date);
+      if (!current || timestampOf(entry) >= timestampOf(current)) byDate.set(entry.date, entry);
+    });
+    return [...byDate.values()].sort((left, right) => String(left.date).localeCompare(String(right.date)));
   }
 
   function mergeTask(local, remote, localMeta, remoteMeta) {
@@ -229,7 +251,7 @@
   }
 
   function mergeTombstones(local = {}, remote = {}) {
-    const result = { tasks: {}, habits: {}, goals: {}, categories: {} };
+    const result = { tasks: {}, habits: {}, goals: {}, journalEntries: {}, categories: {} };
     Object.keys(result).forEach((type) => {
       const ids = new Set([...Object.keys(local?.[type] || {}), ...Object.keys(remote?.[type] || {})]);
       ids.forEach((id) => {

@@ -717,6 +717,7 @@ function createWindow() {
           hasTaskForm: Boolean(document.querySelector("#taskForm")),
           hasHabitList: Boolean(document.querySelector("#habitList")),
           hasGoals: Boolean(document.querySelector("#goalsView")) && Boolean(document.querySelector("#goalForm")),
+          hasJournal: Boolean(document.querySelector("#journalView")) && Boolean(document.querySelector("#journalText")),
           hasArchive: Boolean(document.querySelector("#archiveView")),
           hasHeatmap:
             document.querySelectorAll(".heatmap-cell").length === 365 &&
@@ -750,6 +751,8 @@ function createWindow() {
               window.RhythmHabitsView &&
               window.RhythmHeatmapView &&
               window.RhythmImportExport &&
+              window.RhythmJournalModel &&
+              window.RhythmJournalView &&
               window.RhythmNotifications &&
               window.RhythmRecurrence &&
               window.RhythmRemoteSync &&

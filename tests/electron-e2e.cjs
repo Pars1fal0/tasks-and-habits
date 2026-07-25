@@ -38,6 +38,18 @@ const { _electron: electron } = require("playwright-core");
     await page.waitForSelector('body[data-view="overview"]');
     assert.equal(await page.locator("#activeDate").inputValue(), "2026-07-20");
 
+    await page.locator('.nav-tab[data-view="journal"]:visible').click();
+    assert.equal(await page.evaluate(() => window.location.hash), "#journal");
+    await page.locator("#journalText").fill("Сегодня проверил дневник дня.\n\nЗапись сохранилась.");
+    await page.waitForTimeout(650);
+    assert.equal(
+      await page.evaluate(() => JSON.parse(localStorage.getItem("rhythm-day-state-v1")).journalEntries[0].date),
+      "2026-07-20",
+    );
+    await page.reload();
+    await page.waitForSelector('body[data-view="journal"]');
+    assert.match(await page.locator("#journalText").inputValue(), /Запись сохранилась/);
+
     await page.locator('.nav-tab[data-view="settings"]:visible').click();
     assert.equal(await page.evaluate(() => window.location.hash), "#settings");
     assert.equal(await page.locator(".settings-accordion").first().getAttribute("open"), null);
@@ -160,7 +172,7 @@ const { _electron: electron } = require("playwright-core");
     await page.evaluate(() => window.__restoreStorageSetItem?.());
     assert.deepEqual(pageErrors, []);
 
-    console.log("e2e ok - archive, calendar periods, sync states, mobile dialogs, timeline scale, and quota recovery");
+    console.log("e2e ok - journal, archive, calendar periods, sync states, mobile dialogs, timeline scale, and quota recovery");
   } finally {
     await electronApp.close();
   }

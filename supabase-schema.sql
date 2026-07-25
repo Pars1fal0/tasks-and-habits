@@ -117,7 +117,8 @@ begin
       jsonb_build_object(
         'tasks', jsonb_array_length(coalesce(old.state -> 'tasks', '[]'::jsonb)),
         'habits', jsonb_array_length(coalesce(old.state -> 'habits', '[]'::jsonb)),
-        'goals', jsonb_array_length(coalesce(old.state -> 'goals', '[]'::jsonb))
+        'goals', jsonb_array_length(coalesce(old.state -> 'goals', '[]'::jsonb)),
+        'journalEntries', jsonb_array_length(coalesce(old.state -> 'journalEntries', '[]'::jsonb))
       ),
       now()
     );

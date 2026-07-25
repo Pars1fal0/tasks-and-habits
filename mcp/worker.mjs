@@ -11,6 +11,7 @@ import {
   toDateKey,
 } from "./task-service.mjs";
 import { normalizeMcpActivity, recordMcpActivity } from "./activity-service.mjs";
+import { appendJournalEntryCommand, getJournalEntry } from "./journal-service.mjs";
 import { registerManagementTools } from "./management-tools.mjs";
 import { registerParsitasksPrompts } from "./prompts.mjs";
 import {
@@ -91,16 +92,18 @@ async function handleMcp(request, env, ctx) {
 
 export function createParsitasksServer(context) {
   const server = new McpServer(
-    { name: "parsitasks", version: "0.4.0" },
+    { name: "parsitasks", version: "0.5.0" },
     {
       instructions: [
-        "Parsitasks stores the user's tasks, habits, goals, and calendar.",
+        "Parsitasks stores the user's tasks, habits, goals, calendar, and private daily journal.",
         "Read current data before proposing broad changes.",
         "Never invent task IDs. Use IDs returned by tools.",
         "Do not claim a write succeeded unless the write tool returned success.",
         "For recurring tasks always ask which scope to use: occurrence, following, or series.",
         "Never set confirm=true for deletion until the user explicitly confirms the exact scope.",
         "Habit edits are dated. Preserve history by using fromDate instead of rewriting past days.",
+        "Journal entries are private user-authored memories. Never invent events or imply that planned tasks actually happened.",
+        "Append journal text only when the user asks to record it. Read the existing entry before summarizing it.",
         "Use calendar and backlog tools before suggesting broad rescheduling.",
         "Use a unique requestId for every intended write and reuse it only for retries.",
       ].join(" "),
@@ -134,10 +137,59 @@ export function createParsitasksServer(context) {
   );
 
   server.registerTool(
+    "get_journal_entry",
+    {
+      title: "Прочитать дневник за день",
+      description: "Возвращает личную запись пользователя за указанную дату.",
+      inputSchema: {
+        date: z.string().optional().describe("Дата YYYY-MM-DD. Если не указана, используется сегодняшний день."),
+      },
+      outputSchema: {
+        date: z.string(),
+        exists: z.boolean(),
+        text: z.string(),
+        updatedAt: z.string(),
+      },
+      securitySchemes: OAUTH_SECURITY,
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
+    },
+    async ({ date }) => readTool(context, (state) => {
+      const dateKey = date || todayForState(state, context);
+      return getJournalEntry(state, dateKey);
+    }),
+  );
+
+  server.registerTool(
+    "append_journal_entry",
+    {
+      title: "Дополнить дневник",
+      description: "Добавляет новый абзац в запись выбранного дня, не заменяя существующий текст.",
+      inputSchema: {
+        requestId: z.string().min(8).max(100).describe("Уникальный UUID операции; используй тот же при retry."),
+        date: z.string().optional().describe("Дата YYYY-MM-DD. Если не указана, используется сегодняшний день."),
+        text: z.string().min(1).max(5000).describe("Только событие или мысль, которую пользователь попросил записать."),
+      },
+      outputSchema: {
+        actionId: z.string().optional(),
+        changed: z.boolean(),
+        entry: z.record(z.string(), z.unknown()).nullable(),
+        saved: z.boolean(),
+        summary: z.string(),
+      },
+      securitySchemes: OAUTH_SECURITY,
+      annotations: { readOnlyHint: false, openWorldHint: false, destructiveHint: false },
+    },
+    async (input) => writeTool(context, (state) => appendJournalEntryCommand(
+      state,
+      { ...input, date: input.date || todayForState(state, context) },
+    )),
+  );
+
+  server.registerTool(
     "search",
     {
       title: "Поиск в Parsitasks",
-      description: "Ищет задачи, привычки и цели пользователя по тексту.",
+      description: "Ищет задачи, привычки, цели и записи дневника пользователя по тексту.",
       inputSchema: {
         query: z.string().max(200).describe("Поисковая строка"),
         limit: z.number().int().min(1).max(50).optional(),
@@ -164,8 +216,8 @@ export function createParsitasksServer(context) {
     "fetch",
     {
       title: "Получить объект Parsitasks",
-      description: "Возвращает подробности задачи, привычки или цели по ID из результата поиска.",
-      inputSchema: { id: z.string().describe("ID вида task:..., habit:... или goal:...") },
+      description: "Возвращает подробности задачи, привычки, цели или записи дневника по ID из результата поиска.",
+      inputSchema: { id: z.string().describe("ID вида task:..., habit:..., goal:... или journal:...") },
       outputSchema: {
         id: z.string(),
         title: z.string(),

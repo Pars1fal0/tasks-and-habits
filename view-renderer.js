@@ -21,6 +21,9 @@
           ctx.renderWeekdayLabels();
           ctx.renderOverview();
           break;
+        case "journal":
+          ctx.renderJournal();
+          break;
         case "archive":
           ctx.renderCategories();
           ctx.renderArchive();

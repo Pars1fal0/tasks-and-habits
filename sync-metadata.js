@@ -7,6 +7,7 @@
     ],
     habits: ["startDate", "archived", "archivedAt", "archivedFromDate"],
     goals: ["title", "dueDate", "why"],
+    journalEntries: ["date", "text"],
     categories: ["name", "color"],
   };
 
@@ -116,6 +117,7 @@
       tasks: new Set(idsOf(state.tasks)),
       habits: new Set(idsOf(state.habits)),
       goals: new Set(idsOf(state.goals)),
+      journalEntries: new Set(idsOf(state.journalEntries)),
       categories: new Set(idsOf(state.categories)),
     };
     Object.keys(meta.entityFields).forEach((type) => {

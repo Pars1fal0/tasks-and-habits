@@ -3,6 +3,7 @@
     archive: "archive",
     goals: "goals",
     habits: "habits",
+    journal: "journal",
     overview: "calendar",
     settings: "settings",
     tasks: "tasks",

@@ -422,14 +422,15 @@ function prepareState(state) {
   next.tasks = Array.isArray(next.tasks) ? next.tasks : [];
   next.habits = Array.isArray(next.habits) ? next.habits : [];
   next.goals = Array.isArray(next.goals) ? next.goals : [];
+  next.journalEntries = Array.isArray(next.journalEntries) ? next.journalEntries : [];
   next.categories = Array.isArray(next.categories) ? next.categories : [];
   next.taskOrder = next.taskOrder && typeof next.taskOrder === "object" ? next.taskOrder : {};
   next.tombstones = next.tombstones && typeof next.tombstones === "object"
     ? next.tombstones
-    : { tasks: {}, habits: {}, goals: {}, categories: {} };
+    : { tasks: {}, habits: {}, goals: {}, journalEntries: {}, categories: {} };
   next.tombstones.tasks ||= {};
   next.syncMeta = next.syncMeta && typeof next.syncMeta === "object" ? next.syncMeta : {};
-  next.syncMeta.entityFields ||= { tasks: {}, habits: {}, goals: {}, categories: {} };
+  next.syncMeta.entityFields ||= { tasks: {}, habits: {}, goals: {}, journalEntries: {}, categories: {} };
   next.syncMeta.taskFields ||= {};
   next.syncMeta.habitLogs ||= {};
   next.syncMeta.taskOrder ||= {};

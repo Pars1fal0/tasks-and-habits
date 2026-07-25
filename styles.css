@@ -87,6 +87,16 @@
   display: none !important;
 }
 
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
+}
+
 html {
   min-width: 320px;
   background: var(--bg);
@@ -1742,6 +1752,47 @@ body.has-floating-task-form::before {
 .archive-list {
   display: grid;
   gap: 10px;
+}
+
+.journal-panel {
+  display: grid;
+  min-height: min(62vh, 680px);
+  padding: 0;
+  overflow: hidden;
+}
+
+.journal-panel textarea {
+  width: 100%;
+  min-height: min(58vh, 630px);
+  resize: vertical;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: clamp(20px, 4vw, 42px);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  line-height: 1.75;
+}
+
+.journal-panel textarea:focus {
+  outline: 2px solid var(--teal);
+  outline-offset: -2px;
+}
+
+.journal-editor-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  border-top: 1px solid var(--line);
+  padding: var(--space-3) var(--space-4);
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.journal-save-status {
+  color: var(--muted);
+  font-size: 0.82rem;
 }
 
 .task-item,
@@ -4478,6 +4529,7 @@ body.has-floating-task-form::before {
   }
 
   .nav-tabs > .nav-tab[data-view="goals"],
+  .nav-tabs > .nav-tab[data-view="journal"],
   .nav-tabs > .nav-tab[data-view="archive"],
   .nav-tabs > .nav-tab[data-view="settings"] {
     display: none;
@@ -4514,6 +4566,16 @@ body.has-floating-task-form::before {
 
   .nav-more-menu .nav-tab span {
     font-size: 12px;
+  }
+
+  .journal-panel {
+    min-height: calc(100dvh - 260px);
+  }
+
+  .journal-panel textarea {
+    min-height: calc(100dvh - 310px);
+    padding: var(--space-4);
+    font-size: 1rem;
   }
 
   .nav-tab.is-active::before,

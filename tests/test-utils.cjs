@@ -7,6 +7,7 @@ const syncMetadata = require("../sync-metadata.js");
 const habitTitleHistory = require("../habit-title-history.js");
 const habitConfigHistory = require("../habit-config-history.js");
 const mcpActivity = require("../mcp-activity.js");
+const journalModel = require("../journal-model.js");
 
 function normalizeDateKey(value, fallback = "") {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ""));
@@ -45,7 +46,7 @@ function createMemoryStorage() {
 
 function createStateNormalizer() {
   return stateNormalizerApi.createStateNormalizer({
-    schemaVersion: 13,
+    schemaVersion: 14,
     validPriorities: ["high", "medium", "low"],
     cleanText,
     cleanTimeValue: (value) => {
@@ -84,6 +85,7 @@ function createStateNormalizer() {
     },
     normalizeSyncMeta: syncMetadata.normalizeSyncMeta,
     normalizeMcpActivity: mcpActivity.normalizeActivity,
+    normalizeJournalEntries: journalModel.normalizeJournalEntries,
     pruneSyncMeta: syncMetadata.pruneSyncMeta,
     normalizeTaskFlags: (value) => {
       const flags = {};

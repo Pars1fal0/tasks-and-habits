@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.18.0
+
+- Added a dedicated daily journal with one automatically saved multiline entry per selected date.
+- Journal entries are included in local backups, JSON export, cloud synchronization, conflict resolution, and cloud snapshot summaries.
+- Added authenticated MCP tools to read a journal day and append a new paragraph without replacing existing text.
+- Journal writes made by ChatGPT are idempotent, visible in the MCP activity log, and undoable.
+- Added journal search/fetch support plus desktop, mobile, synchronization, and MCP regression coverage.
+
 ## 0.17.2
 
 - Added a compact synchronization diagnostic panel for network, project, account, pending changes, and last exchange state.

@@ -3,6 +3,23 @@ const { mergeStates } = require("../state-merge.js");
 
 module.exports = [
   {
+    name: "keeps the newest journal text edited on another device",
+    fn() {
+      const local = {
+        tasks: [], habits: [], goals: [], categories: [], taskOrder: {},
+        journalEntries: [{ id: "journal", date: "2026-07-25", text: "Локальный текст", updatedAt: "2026-07-25T10:00:00.000Z" }],
+        syncMeta: { entityFields: { journalEntries: { journal: { text: "2026-07-25T10:00:00.000Z" } } } },
+      };
+      const remote = {
+        tasks: [], habits: [], goals: [], categories: [], taskOrder: {},
+        journalEntries: [{ id: "journal", date: "2026-07-25", text: "Удалённый текст", updatedAt: "2026-07-25T11:00:00.000Z" }],
+        syncMeta: { entityFields: { journalEntries: { journal: { text: "2026-07-25T11:00:00.000Z" } } } },
+      };
+
+      assert.equal(mergeStates(local, remote).journalEntries[0].text, "Удалённый текст");
+    },
+  },
+  {
     name: "keeps the newest synchronized user time zone",
     fn() {
       const merged = mergeStates(

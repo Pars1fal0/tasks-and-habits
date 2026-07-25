@@ -570,18 +570,18 @@ function normalizeCustomRepeat(value) {
 
 function prepareState(state) {
   const next = clone(state);
-  ["tasks", "habits", "goals", "categories", "mcpActivity"].forEach((key) => {
+  ["tasks", "habits", "goals", "journalEntries", "categories", "mcpActivity"].forEach((key) => {
     next[key] = Array.isArray(next[key]) ? next[key] : [];
   });
   next.taskOrder = next.taskOrder && typeof next.taskOrder === "object" ? next.taskOrder : {};
   next.tombstones = next.tombstones && typeof next.tombstones === "object"
     ? next.tombstones
-    : { tasks: {}, habits: {}, goals: {}, categories: {} };
-  ["tasks", "habits", "goals", "categories"].forEach((type) => {
+    : { tasks: {}, habits: {}, goals: {}, journalEntries: {}, categories: {} };
+  ["tasks", "habits", "goals", "journalEntries", "categories"].forEach((type) => {
     next.tombstones[type] ||= {};
   });
   next.syncMeta = next.syncMeta && typeof next.syncMeta === "object" ? next.syncMeta : {};
-  next.syncMeta.entityFields ||= { tasks: {}, habits: {}, goals: {}, categories: {} };
+  next.syncMeta.entityFields ||= { tasks: {}, habits: {}, goals: {}, journalEntries: {}, categories: {} };
   next.syncMeta.taskFields ||= {};
   next.syncMeta.habitLogs ||= {};
   next.syncMeta.taskOrder ||= {};

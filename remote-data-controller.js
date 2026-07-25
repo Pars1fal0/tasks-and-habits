@@ -150,7 +150,7 @@
       const summary = summarizeSnapshotState(snapshot?.state);
       detail.textContent = [
         snapshot?.created_at ? ctx.formatDate(snapshot.created_at) : "",
-        ...snapshotSummaryParts(snapshot?.summary || summary.counts),
+        ...snapshotSummaryParts({ ...summary.counts, ...(snapshot?.summary || {}) }),
       ].filter(Boolean).join(" · ");
       container.appendChild(detail);
 
@@ -201,6 +201,7 @@
       Number.isFinite(Number(summary.tasks)) ? `${Number(summary.tasks)} задач` : "",
       Number.isFinite(Number(summary.habits)) ? `${Number(summary.habits)} привычек` : "",
       Number.isFinite(Number(summary.goals)) ? `${Number(summary.goals)} целей` : "",
+      Number.isFinite(Number(summary.journalEntries)) ? `${Number(summary.journalEntries)} записей дневника` : "",
     ].filter(Boolean);
   }
 
@@ -220,6 +221,7 @@
         if (title && examples.length < 3) examples.push(title);
       });
     });
+    counts.journalEntries = Array.isArray(state?.journalEntries) ? state.journalEntries.length : 0;
     return { counts, examples };
   }
 

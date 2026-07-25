@@ -3,6 +3,7 @@
     archive: "Архив",
     goals: "Цели",
     habits: "Привычки",
+    journal: "Дневник",
     overview: "Календарь",
     settings: "Настройки",
     tasks: "Задачи на день",
@@ -27,7 +28,7 @@
         if (isActive) button.setAttribute("aria-current", "page");
       });
 
-      const isMoreView = ["goals", "archive", "settings"].includes(activeView);
+      const isMoreView = ["goals", "journal", "archive", "settings"].includes(activeView);
       ctx.els.navMoreSummary?.classList.toggle("is-active", isMoreView);
       if (isMoreView) ctx.els.navMoreSummary?.setAttribute("aria-current", "page");
       else ctx.els.navMoreSummary?.removeAttribute("aria-current");

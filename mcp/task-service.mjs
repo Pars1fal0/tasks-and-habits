@@ -8,16 +8,17 @@ const CATEGORY_COLORS = ["#19b394", "#4f8cff", "#f59e0b", "#e96b75", "#8b7cf6", 
 
 export function createEmptyState() {
   return {
-    schemaVersion: 13,
+    schemaVersion: 14,
     defaultsSeeded: false,
     profile: { timeZone: "Europe/Moscow" },
     tasks: [],
     habits: [],
     goals: [],
+    journalEntries: [],
     categories: [],
     taskOrder: {},
     mcpActivity: [],
-    tombstones: { tasks: {}, habits: {}, goals: {}, categories: {} },
+    tombstones: { tasks: {}, habits: {}, goals: {}, journalEntries: {}, categories: {} },
     syncMeta: emptySyncMeta(),
   };
 }
@@ -89,13 +90,24 @@ export function searchKnowledge(state, query, options = {}) {
     }
   }
 
+  for (const entry of Array.isArray(state?.journalEntries) ? state.journalEntries : []) {
+    if (entry?.text && matchesTokens(`${entry.date} ${entry.text}`, tokens)) {
+      results.push({
+        id: `journal:${entry.id}`,
+        title: `Дневник за ${entry.date}`,
+        url: `${baseUrl}/#journal`,
+        type: "journal",
+      });
+    }
+  }
+
   return { results: results.slice(0, limit) };
 }
 
 export function fetchKnowledge(state, compoundId, options = {}) {
   const [type, id] = String(compoundId || "").split(":");
   const baseUrl = cleanText(options.baseUrl).replace(/\/+$/, "");
-  if (!id || !["task", "habit", "goal"].includes(type)) return null;
+  if (!id || !["task", "habit", "goal", "journal"].includes(type)) return null;
 
   if (type === "task") {
     const task = (state.tasks || []).find((item) => item.id === id);
@@ -131,6 +143,18 @@ export function fetchKnowledge(state, compoundId, options = {}) {
       }),
       url: `${baseUrl}/#habits`,
       metadata: { type: "habit" },
+    };
+  }
+
+  if (type === "journal") {
+    const entry = (state.journalEntries || []).find((item) => item.id === id);
+    if (!entry) return null;
+    return {
+      id: compoundId,
+      title: `Дневник за ${entry.date}`,
+      text: entry.text || "",
+      url: `${baseUrl}/#journal`,
+      metadata: { type: "journal", date: entry.date },
     };
   }
 
@@ -405,18 +429,22 @@ function normalizeReminder(value) {
 
 function ensureStateShape(state) {
   if (!state || typeof state !== "object" || Array.isArray(state)) throw new Error("Состояние приложения повреждено");
-  state.schemaVersion = Number(state.schemaVersion) || 13;
+  state.schemaVersion = Number(state.schemaVersion) || 14;
   state.profile = state.profile && typeof state.profile === "object" ? state.profile : {};
   state.profile.timeZone = normalizeTimeZone(state.profile.timeZone);
   state.tasks = Array.isArray(state.tasks) ? state.tasks : [];
   state.habits = Array.isArray(state.habits) ? state.habits : [];
   state.goals = Array.isArray(state.goals) ? state.goals : [];
+  state.journalEntries = Array.isArray(state.journalEntries) ? state.journalEntries : [];
   state.categories = Array.isArray(state.categories) ? state.categories : [];
   state.taskOrder = state.taskOrder && typeof state.taskOrder === "object" ? state.taskOrder : {};
   state.mcpActivity = Array.isArray(state.mcpActivity) ? state.mcpActivity : [];
   state.tombstones = state.tombstones && typeof state.tombstones === "object"
     ? state.tombstones
-    : { tasks: {}, habits: {}, goals: {}, categories: {} };
+    : { tasks: {}, habits: {}, goals: {}, journalEntries: {}, categories: {} };
+  ["tasks", "habits", "goals", "journalEntries", "categories"].forEach((type) => {
+    state.tombstones[type] ||= {};
+  });
   state.syncMeta = normalizeSyncMeta(state.syncMeta);
 }
 
@@ -435,7 +463,7 @@ function normalizeSyncMeta(value) {
   return {
     entityFields: source.entityFields && typeof source.entityFields === "object"
       ? source.entityFields
-      : { tasks: {}, habits: {}, goals: {}, categories: {} },
+      : { tasks: {}, habits: {}, goals: {}, journalEntries: {}, categories: {} },
     taskFields: source.taskFields && typeof source.taskFields === "object" ? source.taskFields : {},
     habitLogs: source.habitLogs && typeof source.habitLogs === "object" ? source.habitLogs : {},
     taskOrder: source.taskOrder && typeof source.taskOrder === "object" ? source.taskOrder : {},

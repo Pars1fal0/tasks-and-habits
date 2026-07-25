@@ -1,6 +1,6 @@
 (function (global) {
   const MAX_ACTIVITY = 100;
-  const ENTITY_TYPES = ["tasks", "habits", "goals", "categories"];
+  const ENTITY_TYPES = ["tasks", "habits", "goals", "journalEntries", "categories"];
 
   function normalizeActivity(value) {
     if (!Array.isArray(value)) return [];
