@@ -60,6 +60,28 @@ module.exports = [
     },
   },
   {
+    name: "MCP recurring task edits are idempotent when a request is retried",
+    async fn() {
+      const { taskService, writeService } = await loadServices();
+      const state = taskService.createEmptyState();
+      state.tasks.push(recurringTask());
+      const input = {
+        requestId: "update-occurrence-retry",
+        taskId: "daily-sql",
+        occurrenceDate: "2026-07-20",
+        scope: "occurrence",
+        title: "SQL practice",
+      };
+      const first = writeService.updateTaskCommand(state, input, { now: "2026-07-19T12:00:00.000Z" });
+      const retry = writeService.updateTaskCommand(first.state, input, { now: "2026-07-19T12:01:00.000Z" });
+
+      assert.equal(retry.changed, false);
+      assert.equal(retry.activity.id, first.activity.id);
+      assert.equal(retry.state.tasks.length, 2);
+      assert.equal(retry.state.tasks.filter((task) => task.id === "mcp-update-occurrence-retry").length, 1);
+    },
+  },
+  {
     name: "MCP requires explicit confirmation and scope before deleting a recurring task",
     async fn() {
       const { taskService, writeService } = await loadServices();
@@ -106,6 +128,26 @@ module.exports = [
         undone.state.syncMeta.taskFields["daily-sql"].excludedDates["2026-07-20"],
         "2026-07-19T12:05:00.000Z",
       );
+    },
+  },
+  {
+    name: "MCP deletion retries remain successful after the task is already gone",
+    async fn() {
+      const { taskService, writeService } = await loadServices();
+      const state = taskService.createEmptyState();
+      state.tasks.push({ ...recurringTask(), repeat: "none" });
+      const input = {
+        requestId: "delete-task-retry-1",
+        taskId: "daily-sql",
+        scope: "series",
+        confirm: true,
+      };
+      const first = writeService.deleteTaskCommand(state, input, { now: "2026-07-19T12:00:00.000Z" });
+      const retry = writeService.deleteTaskCommand(first.state, input, { now: "2026-07-19T12:01:00.000Z" });
+
+      assert.equal(retry.changed, false);
+      assert.equal(retry.activity.id, first.activity.id);
+      assert.equal(retry.state.tasks.length, 0);
     },
   },
   {
@@ -160,6 +202,33 @@ module.exports = [
       assert.equal(updated.goal.steps[0].done, true);
       assert.equal(updated.goal.status, "active");
       assert.equal(updated.state.mcpActivity.length, 2);
+    },
+  },
+  {
+    name: "MCP checkpoint add retries do not create duplicate checkpoints",
+    async fn() {
+      const { taskService, writeService } = await loadServices();
+      const state = taskService.createEmptyState();
+      const created = writeService.createGoalCommand(state, {
+        requestId: "goal-checkpoint-base",
+        title: "Launch",
+      }, { now: "2026-07-19T12:00:00.000Z" });
+      const input = {
+        requestId: "goal-checkpoint-add",
+        goalId: created.goal.id,
+        action: "add",
+        title: "Deploy",
+      };
+      const first = writeService.updateGoalCheckpointCommand(created.state, input, {
+        now: "2026-07-19T13:00:00.000Z",
+      });
+      const retry = writeService.updateGoalCheckpointCommand(first.state, input, {
+        now: "2026-07-19T13:01:00.000Z",
+      });
+
+      assert.equal(retry.changed, false);
+      assert.equal(retry.activity.id, first.activity.id);
+      assert.equal(retry.goal.steps.length, 1);
     },
   },
   {

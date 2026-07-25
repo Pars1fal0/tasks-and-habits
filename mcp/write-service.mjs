@@ -7,11 +7,26 @@ const SCOPES = new Set(["occurrence", "following", "series"]);
 export function updateTaskCommand(state, input, options = {}) {
   const before = clone(state);
   const nextState = prepareState(state);
+  const requestId = normalizeRequestId(input.requestId);
+  const previousActivity = findActivity(nextState, requestId);
+  if (previousActivity) {
+    const taskId = stripPrefix(input.taskId, "task");
+    const task = nextState.tasks.find((item) => item.id === taskId)
+      || nextState.tasks.find((item) => item.id === `mcp-${requestId}`)
+      || { id: taskId, title: "Task", date: input.occurrenceDate || input.date || "" };
+    return {
+      changed: false,
+      state: nextState,
+      task,
+      scope: SCOPES.has(input.scope) ? input.scope : "series",
+      activity: previousActivity,
+      summary: previousActivity.summary,
+    };
+  }
   const task = findTask(nextState, input.taskId);
   const occurrenceDate = normalizeDate(input.occurrenceDate || task.date);
   const scope = resolveScope(task, input.scope);
   const now = options.now || new Date().toISOString();
-  const requestId = normalizeRequestId(input.requestId);
   let target = task;
 
   if (task.repeat !== "none" && scope === "occurrence") {
@@ -49,11 +64,22 @@ export function deleteTaskCommand(state, input, options = {}) {
   if (input.confirm !== true) throw new Error("Для удаления нужно явно передать confirm: true");
   const before = clone(state);
   const nextState = prepareState(state);
+  const requestId = normalizeRequestId(input.requestId);
+  const previousActivity = findActivity(nextState, requestId);
+  if (previousActivity) {
+    return {
+      changed: false,
+      state: nextState,
+      taskId: stripPrefix(input.taskId, "task"),
+      scope: SCOPES.has(input.scope) ? input.scope : "series",
+      activity: previousActivity,
+      summary: previousActivity.summary,
+    };
+  }
   const task = findTask(nextState, input.taskId);
   const occurrenceDate = normalizeDate(input.occurrenceDate || task.date);
   const scope = resolveScope(task, input.scope);
   const now = options.now || new Date().toISOString();
-  const requestId = normalizeRequestId(input.requestId);
 
   if (task.repeat !== "none" && scope === "occurrence") {
     assertOccurrence(task, occurrenceDate);
@@ -90,11 +116,25 @@ export function deleteTaskCommand(state, input, options = {}) {
 export function setHabitValueCommand(state, input, options = {}) {
   const before = clone(state);
   const nextState = prepareState(state);
+  const requestId = normalizeRequestId(input.requestId);
+  const previousActivity = findActivity(nextState, requestId);
+  if (previousActivity) {
+    const habitId = stripPrefix(input.habitId, "habit");
+    const habit = nextState.habits.find((item) => item.id === habitId)
+      || { id: habitId, title: "Habit" };
+    return {
+      changed: false,
+      state: nextState,
+      habit,
+      date: normalizeDate(input.date || options.today),
+      activity: previousActivity,
+      summary: previousActivity.summary,
+    };
+  }
   const habit = nextState.habits.find((item) => item.id === stripPrefix(input.habitId, "habit"));
   if (!habit) throw new Error("Привычка не найдена");
   const date = normalizeDate(input.date || options.today);
   const now = options.now || new Date().toISOString();
-  const requestId = normalizeRequestId(input.requestId);
   const config = effectiveEntry(habit.configHistory, date) || habit;
   habit.logs ||= {};
   if ((config.type || habit.type) === "number") {
@@ -124,7 +164,18 @@ export function createGoalCommand(state, input, options = {}) {
   const nextState = prepareState(state);
   const requestId = normalizeRequestId(input.requestId);
   const id = `mcp-goal-${requestId}`;
+  const previousActivity = findActivity(nextState, requestId);
   const existing = nextState.goals.find((goal) => goal.id === id);
+  if (previousActivity) {
+    return {
+      changed: false,
+      state: nextState,
+      goal: existing || { id, title: clean(input.title).slice(0, 200), steps: [] },
+      created: false,
+      activity: previousActivity,
+      summary: previousActivity.summary,
+    };
+  }
   if (existing) return { changed: false, state: nextState, goal: existing, created: false };
   const now = options.now || new Date().toISOString();
   const title = clean(input.title).slice(0, 200);
@@ -161,10 +212,26 @@ export function updateGoalCheckpointCommand(state, input, options = {}) {
   }
   const before = clone(state);
   const nextState = prepareState(state);
+  const requestId = normalizeRequestId(input.requestId);
+  const previousActivity = findActivity(nextState, requestId);
+  if (previousActivity) {
+    const goalId = stripPrefix(input.goalId, "goal");
+    const goal = nextState.goals.find((item) => item.id === goalId)
+      || { id: goalId, title: "Goal", steps: [] };
+    const checkpoint = goal.steps?.find((item) => item.id === input.checkpointId)
+      || goal.steps?.find((item) => item.id === `mcp-step-${requestId}`);
+    return {
+      changed: false,
+      state: nextState,
+      goal,
+      checkpoint,
+      activity: previousActivity,
+      summary: previousActivity.summary,
+    };
+  }
   const goal = nextState.goals.find((item) => item.id === stripPrefix(input.goalId, "goal"));
   if (!goal) throw new Error("Цель не найдена");
   const now = options.now || new Date().toISOString();
-  const requestId = normalizeRequestId(input.requestId);
   goal.steps = Array.isArray(goal.steps) ? goal.steps : [];
   let step = goal.steps.find((item) => item.id === input.checkpointId);
 
@@ -372,6 +439,10 @@ function findTask(state, id) {
   const task = state.tasks.find((item) => item.id === stripPrefix(id, "task"));
   if (!task) throw new Error("Задача не найдена");
   return task;
+}
+
+function findActivity(state, requestId) {
+  return state.mcpActivity.find((activity) => activity?.requestId === requestId);
 }
 
 function addTaskToOrder(state, date, taskId, now) {

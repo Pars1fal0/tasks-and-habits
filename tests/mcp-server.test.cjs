@@ -7,7 +7,9 @@ module.exports = [
     name: "MCP worker advertises protected read and write tools",
     fn() {
       const source = fs.readFileSync(path.resolve(__dirname, "../mcp/worker.mjs"), "utf8");
-      const toolNames = [...source.matchAll(/server\.registerTool\(\s*"([^"]+)"/g)].map((match) => match[1]);
+      const managementSource = fs.readFileSync(path.resolve(__dirname, "../mcp/management-tools.mjs"), "utf8");
+      const toolNames = [...`${source}\n${managementSource}`.matchAll(/server\.registerTool\(\s*"([^"]+)"/g)]
+        .map((match) => match[1]);
 
       assert.deepEqual(toolNames, [
         "get_today_overview",
@@ -23,6 +25,19 @@ module.exports = [
         "get_day_brief",
         "list_mcp_activity",
         "undo_mcp_action",
+        "get_calendar_range",
+        "get_backlog",
+        "get_productivity_stats",
+        "list_categories",
+        "create_habit",
+        "update_habit",
+        "set_habit_active",
+        "update_goal",
+        "delete_goal",
+        "duplicate_task",
+        "acknowledge_overdue",
+        "upsert_category",
+        "delete_category",
       ]);
       assert.match(source, /securitySchemes:\s*OAUTH_SECURITY/g);
       assert.match(source, /annotations:\s*\{\s*readOnlyHint:\s*true,\s*openWorldHint:\s*false,\s*destructiveHint:\s*false\s*\}/);

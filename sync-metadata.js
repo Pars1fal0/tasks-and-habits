@@ -6,7 +6,7 @@
       "repeat", "repeatUntil", "sourceTaskId", "movedFromDate", "customRepeat", "reminderOffset",
     ],
     habits: ["startDate", "archived", "archivedAt", "archivedFromDate"],
-    goals: ["title", "dueDate"],
+    goals: ["title", "dueDate", "why"],
     categories: ["name", "color"],
   };
 

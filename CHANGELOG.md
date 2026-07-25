@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.16.0
+
+- Expanded the authenticated ChatGPT MCP integration from 13 to 26 tools.
+- Added calendar-range, backlog, productivity-statistics, and category-list read tools.
+- Added habit creation, dated habit editing, pause/restore, goal editing/deletion, task duplication, overdue acknowledgement, and category management.
+- Preserved task priority, recurring scope, habit history, synchronization metadata, and cross-device-safe undo for the new commands.
+- Made all MCP writes idempotent by request ID, including retries after undo or deletion.
+- Added regression coverage for calendar analytics, habit history, goal/category restoration, recurring duplication, and duplicate request delivery.
+
 ## 0.15.0
 
 - Added safe MCP editing and rescheduling with explicit recurring scopes for one occurrence, following occurrences, or a whole series.

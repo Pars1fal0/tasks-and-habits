@@ -50,11 +50,13 @@
 
   function applyPatch(state, value, now) {
     const patch = normalizePatch(value);
-    const restoredTaskIds = new Map();
-    patch.entities.tasks?.restore.forEach((task) => {
-      if (patch.tombstones.tasks?.[task.id] === null && state.tombstones?.tasks?.[task.id]) {
-        restoredTaskIds.set(task.id, `${task.id}-undo-${Date.parse(now).toString(36)}`);
-      }
+    const restoredIds = Object.fromEntries(ENTITY_TYPES.map((type) => [type, new Map()]));
+    ENTITY_TYPES.forEach((type) => {
+      patch.entities[type]?.restore.forEach((entity) => {
+        if (patch.tombstones[type]?.[entity.id] === null && state.tombstones?.[type]?.[entity.id]) {
+          restoredIds[type].set(entity.id, `${entity.id}-undo-${Date.parse(now).toString(36)}`);
+        }
+      });
     });
     ENTITY_TYPES.forEach((type) => {
       const change = patch.entities[type];
@@ -64,7 +66,7 @@
       const current = (state[type] || []).filter((item) => !remove.has(item.id) && !restoreIds.has(item.id));
       const restored = change.restore.map((item) => {
         const entity = clone(item);
-        if (type === "tasks" && restoredTaskIds.has(entity.id)) entity.id = restoredTaskIds.get(entity.id);
+        if (restoredIds[type].has(entity.id)) entity.id = restoredIds[type].get(entity.id);
         return entity;
       });
       state[type] = [...current, ...restored];
@@ -74,16 +76,20 @@
         state.tombstones[type][id] = now;
       });
     });
+    (state.tasks || []).forEach((task) => {
+      if (restoredIds.categories.has(task.categoryId)) task.categoryId = restoredIds.categories.get(task.categoryId);
+      if (restoredIds.tasks.has(task.sourceTaskId)) task.sourceTaskId = restoredIds.tasks.get(task.sourceTaskId);
+    });
     state.taskOrder ||= {};
     Object.entries(patch.taskOrder).forEach(([date, order]) => {
       if (order === null) delete state.taskOrder[date];
-      else state.taskOrder[date] = order.map((id) => restoredTaskIds.get(id) || id);
+      else state.taskOrder[date] = order.map((id) => restoredIds.tasks.get(id) || id);
     });
     state.tombstones ||= {};
     ENTITY_TYPES.forEach((type) => {
       state.tombstones[type] ||= {};
       Object.entries(patch.tombstones[type] || {}).forEach(([id, value]) => {
-        if (value === null && type === "tasks" && restoredTaskIds.has(id)) return;
+        if (value === null && restoredIds[type].has(id)) return;
         if (value === null) delete state.tombstones[type][id];
         else state.tombstones[type][id] = value;
       });

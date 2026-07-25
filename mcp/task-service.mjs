@@ -146,6 +146,20 @@ export function createTaskCommand(state, input, options = {}) {
   const requestId = normalizeRequestId(input.requestId);
   const taskId = `mcp-${requestId}`;
   const existing = nextState.tasks.find((task) => task.id === taskId);
+  const previousActivity = nextState.mcpActivity.find((activity) => activity?.requestId === requestId);
+  if (previousActivity) {
+    return {
+      changed: false,
+      state: nextState,
+      task: existing || {
+        id: taskId,
+        title: cleanText(input.title).slice(0, 200) || "Task",
+        date: input.date || options.today || "",
+      },
+      created: false,
+      activity: previousActivity,
+    };
+  }
   if (existing) return { changed: false, state: nextState, task: existing, created: false };
 
   const now = options.now || new Date().toISOString();

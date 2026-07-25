@@ -10,6 +10,7 @@ import {
   toDateKey,
 } from "./task-service.mjs";
 import { normalizeMcpActivity, recordMcpActivity } from "./activity-service.mjs";
+import { registerManagementTools } from "./management-tools.mjs";
 import {
   createGoalCommand,
   deleteTaskCommand,
@@ -88,7 +89,7 @@ async function handleMcp(request, env, ctx) {
 
 export function createParsitasksServer(context) {
   const server = new McpServer(
-    { name: "parsitasks", version: "0.2.0" },
+    { name: "parsitasks", version: "0.3.0" },
     {
       instructions: [
         "Parsitasks stores the user's tasks, habits, goals, and calendar.",
@@ -97,6 +98,8 @@ export function createParsitasksServer(context) {
         "Do not claim a write succeeded unless the write tool returned success.",
         "For recurring tasks always ask which scope to use: occurrence, following, or series.",
         "Never set confirm=true for deletion until the user explicitly confirms the exact scope.",
+        "Habit edits are dated. Preserve history by using fromDate instead of rewriting past days.",
+        "Use calendar and backlog tools before suggesting broad rescheduling.",
         "Use a unique requestId for every intended write and reuse it only for retries.",
       ].join(" "),
     },
@@ -252,6 +255,20 @@ export function createParsitasksServer(context) {
       const today = toDateKey(new Date(), context.timeZone);
       const taskId = String(input.taskId || "").replace(/^task:/, "");
       const result = await context.store.mutate((state) => {
+        const previousActivity = (state.mcpActivity || [])
+          .find((activity) => activity?.requestId === input.requestId);
+        if (previousActivity) {
+          const task = (state.tasks || []).find((item) => item.id === taskId)
+            || { id: taskId, title: "Task" };
+          return {
+            changed: false,
+            state,
+            task,
+            date: input.date || today,
+            completed: input.completed !== false,
+            activity: previousActivity,
+          };
+        }
         const mutation = completeTaskCommand(state, { ...input, taskId }, { today });
         if (!mutation.changed) return mutation;
         const summary = mutation.completed
@@ -282,6 +299,11 @@ export function createParsitasksServer(context) {
   );
 
   registerExtendedTools(server, context);
+  registerManagementTools(server, context, {
+    readTool,
+    security: OAUTH_SECURITY,
+    writeTool,
+  });
   return server;
 }
 
@@ -500,6 +522,14 @@ async function writeTool(context, mutator) {
       actionId: result.activity?.id,
     };
     return toolResult(payload, result.summary || "Изменение сохранено в Parsitasks");
+  });
+}
+
+async function readTool(context, selector) {
+  return safeTool(async () => {
+    const snapshot = await context.store.read();
+    const result = selector(snapshot.state);
+    return toolResult(result, JSON.stringify(result));
   });
 }
 

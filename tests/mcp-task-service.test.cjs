@@ -34,6 +34,44 @@ module.exports = [
     },
   },
   {
+    name: "MCP does not recreate an undone task when the same request is retried",
+    async fn() {
+      const [service, activityService] = await Promise.all([
+        loadService(),
+        import("../mcp/activity-service.mjs"),
+      ]);
+      const input = {
+        requestId: "request-undone-task",
+        title: "Temporary task",
+        date: "2026-07-20",
+      };
+      const before = service.createEmptyState();
+      const created = service.createTaskCommand(before, input, {
+        now: "2026-07-19T10:00:00.000Z",
+        today: "2026-07-19",
+      });
+      const activity = activityService.recordMcpActivity(before, created.state, {
+        requestId: input.requestId,
+        type: "create_task",
+        title: "Create task",
+        summary: "Task created",
+      }, "2026-07-19T10:00:00.000Z");
+      const undone = activityService.undoMcpActivity(
+        created.state,
+        activity.id,
+        "2026-07-19T10:01:00.000Z",
+      );
+      const retry = service.createTaskCommand(undone.state, input, {
+        now: "2026-07-19T10:02:00.000Z",
+        today: "2026-07-19",
+      });
+
+      assert.equal(retry.changed, false);
+      assert.equal(retry.created, false);
+      assert.equal(retry.state.tasks.length, 0);
+    },
+  },
+  {
     name: "MCP rejects blocks that are not aligned to 15 minutes",
     async fn() {
       const service = await loadService();
