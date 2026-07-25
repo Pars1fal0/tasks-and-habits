@@ -2062,7 +2062,8 @@ body.has-floating-task-form::before {
 }
 
 .global-search-result:hover,
-.global-search-result:focus-visible {
+.global-search-result:focus-visible,
+.global-search-result.is-active {
   background: var(--surface-soft);
   outline: 0;
 }

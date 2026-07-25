@@ -43,7 +43,7 @@
 
     if (existing) {
       const previousAge = Date.parse(now) - Date.parse(existing.updatedAt || "");
-      if (existing.text && (!existing.revisions?.length || previousAge >= 30000)) {
+      if (existing.text && (options.forceRevision || !existing.revisions?.length || previousAge >= 30000)) {
         existing.revisions = normalizeRevisions([
           ...(existing.revisions || []),
           { text: existing.text, savedAt: existing.updatedAt || now },
@@ -97,7 +97,7 @@
     const entry = journalEntryForDate(entries, date);
     const revision = entry?.revisions?.find((item) => item.savedAt === savedAt);
     if (!revision) return { changed: false, entries: normalizeJournalEntries(entries), entry };
-    return upsertJournalEntry(entries, { date, text: revision.text }, options);
+    return upsertJournalEntry(entries, { date, text: revision.text }, { ...options, forceRevision: true });
   }
 
   function searchJournalEntries(entries, query, options = {}) {

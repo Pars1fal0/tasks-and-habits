@@ -56,6 +56,7 @@ export function appendJournalEntryCommand(state, input, options = {}) {
   delete nextState.tombstones.journalEntries[result.entry.id];
   const versions = (((nextState.syncMeta.entityFields.journalEntries ||= {})[result.entry.id] ||= {}));
   versions.text = now;
+  versions.revisions = now;
   versions.date ||= now;
   const summary = `В дневник за ${result.entry.date} добавлен новый абзац`;
   const activity = recordMcpActivity(before, nextState, {

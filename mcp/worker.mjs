@@ -92,7 +92,7 @@ async function handleMcp(request, env, ctx) {
 
 export function createParsitasksServer(context) {
   const server = new McpServer(
-    { name: "parsitasks", version: "0.6.0" },
+    { name: "parsitasks", version: "0.6.1" },
     {
       instructions: [
         "Parsitasks stores the user's tasks, habits, goals, calendar, and private daily journal.",

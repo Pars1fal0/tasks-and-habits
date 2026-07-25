@@ -19,9 +19,10 @@ module.exports = [
       });
       assert.equal(updated.entry.revisions.length, 1);
       const restored = restoreJournalRevision(updated.entries, "2026-07-25", "2026-07-25T10:00:00.000Z", {
-        now: "2026-07-25T12:00:00.000Z",
+        now: "2026-07-25T11:00:05.000Z",
       });
       assert.equal(restored.entry.text, "Первая версия");
+      assert.equal(restored.entry.revisions.some((revision) => revision.text === "Вторая версия"), true);
     },
   },
   {

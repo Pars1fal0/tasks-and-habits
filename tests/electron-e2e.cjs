@@ -57,7 +57,7 @@ const { _electron: electron } = require("playwright-core");
     await page.locator("#globalSearchButton").click();
     await page.locator("#globalSearchInput").fill("дневник");
     assert.equal(await page.locator(".global-search-result").count(), 1);
-    await page.locator(".global-search-result").click();
+    await page.locator("#globalSearchInput").press("Enter");
     assert.equal(await page.evaluate(() => window.location.hash), "#journal");
 
     await page.locator('.nav-tab[data-view="settings"]:visible').click();

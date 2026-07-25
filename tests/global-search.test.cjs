@@ -1,5 +1,5 @@
 const assert = require("node:assert/strict");
-const { searchWorkspace } = require("../global-search.js");
+const { excerptAround, searchWorkspace } = require("../global-search.js");
 
 module.exports = [
   {
@@ -15,6 +15,28 @@ module.exports = [
       const results = searchWorkspace(state, "запустить сайт");
       assert.deepEqual(results.map((item) => item.type), ["task", "goal", "journal"]);
       assert.equal(results.at(-1).view, "journal");
+    },
+  },
+  {
+    name: "does not duplicate a completed task and shows the matching journal fragment",
+    fn() {
+      const state = {
+        tasks: [{
+          id: "done",
+          title: "Закрыть релиз",
+          date: "2026-07-25",
+          completed: { "2026-07-25": true },
+        }],
+        journalEntries: [{
+          id: "journal",
+          date: "2026-07-25",
+          text: `${"Начало записи ".repeat(10)}важный релиз завершён`,
+        }],
+      };
+      const taskResults = searchWorkspace(state, "закрыть релиз");
+      assert.deepEqual(taskResults.map((item) => item.type), ["archive"]);
+      assert.match(excerptAround(state.journalEntries[0].text, "важный"), /важный/);
+      assert.match(excerptAround(state.journalEntries[0].text, "важный"), /^\.\.\./);
     },
   },
 ];

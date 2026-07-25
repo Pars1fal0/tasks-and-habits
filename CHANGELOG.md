@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.19.1
+
+- Removed duplicate completed-task results from workspace search and improved matching journal excerpts.
+- Added reliable keyboard selection in workspace search with arrow keys, Enter, and Escape.
+- Preserved the current journal text when restoring a revision immediately after an edit.
+- Fixed MCP synchronization metadata for journal revision history.
+
 ## 0.19.0
 
 - Expanded the daily journal with month navigation, entry markers, text/date search, rotating reflection prompts, and up to 20 restorable revisions per day.
