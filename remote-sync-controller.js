@@ -136,16 +136,18 @@
       if (!hasCredentials()) {
         renderStatus();
         ctx.showToast("Заполни настройки удаленной БД");
-        return;
+        return { ok: false, reason: "not-configured" };
       }
-      if (inFlight) return;
+      if (inFlight) return { ok: false, reason: "busy" };
       begin();
       try {
         const result = await ctx.remoteSync.checkConnection(getOperationConfig());
         ctx.showToast(result.found ? "Подключение к БД работает" : "Подключение работает, сохранений пока нет");
+        return { ...result, ok: true };
       } catch (error) {
         lastError = ctx.describeError(error);
         ctx.showToast("Подключение к БД не прошло проверку");
+        return { error, ok: false };
       } finally {
         finish();
       }

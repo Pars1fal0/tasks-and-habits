@@ -219,6 +219,32 @@ module.exports = [
     },
   },
   {
+    name: "loads one authenticated cloud snapshot for preview",
+    async fn() {
+      const calls = [];
+      const sync = createRemoteSync({
+        fetch: async (url) => {
+          calls.push(url);
+          return {
+            ok: true,
+            status: 200,
+            text: async () => JSON.stringify([{
+              id: 7,
+              state: { tasks: [{ id: "preview" }] },
+              summary: { tasks: 1 },
+            }]),
+          };
+        },
+      });
+
+      const result = await sync.getSnapshot(authConfig, 7);
+
+      assert.equal(result.snapshot.state.tasks[0].id, "preview");
+      assert.match(calls[0], /select=state,schema_version,summary,created_at/);
+      assert.match(calls[0], /user_id=eq\.user-123/);
+    },
+  },
+  {
     name: "deletes the authenticated Parsitasks account through the protected RPC",
     async fn() {
       const calls = [];

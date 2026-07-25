@@ -1,13 +1,18 @@
 (function (global) {
   function createRemoteDataController(ctx) {
     let busy = false;
+    let previewRequestId = 0;
 
     function bindEvents() {
       ctx.els.remoteSnapshotsLoadButton?.addEventListener("click", loadSnapshots);
       ctx.els.remoteSnapshotRestoreButton?.addEventListener("click", restoreSelectedSnapshot);
       ctx.els.remoteAccountDeleteButton?.addEventListener("click", deleteAccount);
-      ctx.els.remoteSnapshotSelect?.addEventListener("change", syncControls);
+      ctx.els.remoteSnapshotSelect?.addEventListener("change", () => {
+        syncControls();
+        previewSelectedSnapshot();
+      });
       syncControls();
+      renderSnapshotPreview();
     }
 
     async function loadSnapshots() {
@@ -43,6 +48,7 @@
         const result = await ctx.remoteSync.restoreSnapshot(ctx.getConfig(), snapshotId);
         ctx.replaceState(result.snapshot.state);
         ctx.saveState({ skipBackup: true, skipRemote: true });
+        await ctx.afterSnapshotRestored?.(result);
         ctx.render();
         ctx.showToast("Облачная версия восстановлена", { undo });
         const versions = await ctx.remoteSync.listSnapshots(ctx.getConfig(), 30);
@@ -53,6 +59,21 @@
         ctx.showToast("Не удалось восстановить облачную версию");
       } finally {
         setBusy(false);
+      }
+    }
+
+    async function previewSelectedSnapshot() {
+      const snapshotId = ctx.els.remoteSnapshotSelect?.value;
+      const requestId = ++previewRequestId;
+      if (!snapshotId || !ctx.isReady()) return renderSnapshotPreview();
+      renderSnapshotPreview({ loading: true });
+      try {
+        const result = await ctx.remoteSync.getSnapshot(ctx.getConfig(), snapshotId);
+        if (requestId !== previewRequestId) return;
+        renderSnapshotPreview({ snapshot: result.snapshot });
+      } catch (error) {
+        if (requestId !== previewRequestId) return;
+        renderSnapshotPreview({ error: schemaHint(error) });
       }
     }
 
@@ -86,6 +107,7 @@
     }
 
     function renderSnapshots(snapshots) {
+      previewRequestId += 1;
       const select = ctx.els.remoteSnapshotSelect;
       if (!select) return;
       select.replaceChildren();
@@ -100,6 +122,43 @@
         select.appendChild(option);
       });
       ctx.els.remoteSnapshotRestoreButton.disabled = !snapshots.length;
+      renderSnapshotPreview();
+    }
+
+    function renderSnapshotPreview({ error = "", loading = false, snapshot = null } = {}) {
+      const container = ctx.els.remoteSnapshotPreview;
+      if (!container) return;
+      container.replaceChildren();
+      container.classList.remove("is-error");
+      container.hidden = !error && !loading && !snapshot;
+      if (container.hidden) return;
+
+      const title = document.createElement("strong");
+      title.textContent = loading ? "Загружаю содержимое версии..." : error ? "Предпросмотр недоступен" : "Что находится в этой версии";
+      container.appendChild(title);
+      if (loading) return;
+
+      const detail = document.createElement("small");
+      if (error) {
+        detail.textContent = error;
+        container.classList.add("is-error");
+        container.appendChild(detail);
+        return;
+      }
+
+      container.classList.remove("is-error");
+      const summary = summarizeSnapshotState(snapshot?.state);
+      detail.textContent = [
+        snapshot?.created_at ? ctx.formatDate(snapshot.created_at) : "",
+        ...snapshotSummaryParts(snapshot?.summary || summary.counts),
+      ].filter(Boolean).join(" · ");
+      container.appendChild(detail);
+
+      if (summary.examples.length) {
+        const examples = document.createElement("p");
+        examples.textContent = `Примеры: ${summary.examples.join(", ")}`;
+        container.appendChild(examples);
+      }
     }
 
     function formatSnapshotLabel(snapshot) {
@@ -134,7 +193,7 @@
         : `Ошибка облачных данных: ${text || "неизвестная ошибка"}`;
     }
 
-    return { bindEvents, deleteAccount, loadSnapshots, restoreSelectedSnapshot, syncControls };
+    return { bindEvents, deleteAccount, loadSnapshots, previewSelectedSnapshot, restoreSelectedSnapshot, syncControls };
   }
 
   function snapshotSummaryParts(summary = {}) {
@@ -145,7 +204,26 @@
     ].filter(Boolean);
   }
 
-  const api = { createRemoteDataController, snapshotSummaryParts };
+  function summarizeSnapshotState(state = {}) {
+    const groups = [
+      ["tasks", "title"],
+      ["habits", "title"],
+      ["goals", "title"],
+    ];
+    const counts = {};
+    const examples = [];
+    groups.forEach(([key, titleKey]) => {
+      const items = Array.isArray(state?.[key]) ? state[key] : [];
+      counts[key] = items.length;
+      items.forEach((item) => {
+        const title = String(item?.[titleKey] || "").trim();
+        if (title && examples.length < 3) examples.push(title);
+      });
+    });
+    return { counts, examples };
+  }
+
+  const api = { createRemoteDataController, snapshotSummaryParts, summarizeSnapshotState };
   global.RhythmRemoteDataController = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

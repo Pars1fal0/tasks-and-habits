@@ -125,20 +125,26 @@
       return { ok: true, snapshots: Array.isArray(data) ? data : [] };
     }
 
-    async function restoreSnapshot(config, snapshotId) {
+    async function getSnapshot(config, snapshotId) {
       ensureFetch();
       const normalized = normalizeConfig(config);
       ensureConfigured(normalized);
       const id = String(snapshotId || "").trim();
       if (!/^\d+$/.test(id)) throw new Error("Snapshot is not selected");
-      const query = `select=state,schema_version,created_at&id=eq.${encodeURIComponent(id)}&user_id=eq.${encodeURIComponent(normalized.userId)}&limit=1`;
+      const query = `select=state,schema_version,summary,created_at&id=eq.${encodeURIComponent(id)}&user_id=eq.${encodeURIComponent(normalized.userId)}&limit=1`;
       const response = await fetchFn(`${normalized.supabaseUrl}/rest/v1/rhythm_state_snapshots?${query}`, {
         headers: supabaseHeaders(normalized),
       });
       const data = await readResponse(response);
-      if (!response.ok) throw createRemoteError("snapshot-restore-failed", response, data);
+      if (!response.ok) throw createRemoteError("snapshot-read-failed", response, data);
       const snapshot = Array.isArray(data) ? data[0] : null;
       if (!snapshot?.state) throw new Error("Snapshot is not available");
+      return { ok: true, snapshot };
+    }
+
+    async function restoreSnapshot(config, snapshotId) {
+      const normalized = normalizeConfig(config);
+      const { snapshot } = await getSnapshot(normalized, snapshotId);
       const current = await pullState(normalized);
       const saved = await pushState(normalized, {
         state: snapshot.state,
@@ -206,6 +212,7 @@
     return {
       checkConnection,
       deleteAccount,
+      getSnapshot,
       isConfigured,
       listSnapshots,
       normalizeConfig,

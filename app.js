@@ -279,8 +279,10 @@ const els = {
   remoteSyncPushButton: document.querySelector("#remoteSyncPushButton"),
   remoteSnapshotRestoreButton: document.querySelector("#remoteSnapshotRestoreButton"),
   remoteSnapshotSelect: document.querySelector("#remoteSnapshotSelect"),
+  remoteSnapshotPreview: document.querySelector("#remoteSnapshotPreview"),
   remoteSnapshotsLoadButton: document.querySelector("#remoteSnapshotsLoadButton"),
   remoteSnapshotsStatus: document.querySelector("#remoteSnapshotsStatus"),
+  syncDiagnostics: document.querySelector("#syncDiagnostics"),
   syncProjectStep: document.querySelector("#syncProjectStep"),
   syncTechnicalSettings: document.querySelector("#syncTechnicalSettings"),
   remoteSyncStatus: document.querySelector("#remoteSyncStatus"),
@@ -400,6 +402,7 @@ const remoteAuth = window.RhythmRemoteAuth.createRemoteAuth({
   getConfig: () => ({ anonKey: remoteSyncAnonKey, supabaseUrl: remoteSyncUrl }),
 });
 const syncHistory = window.RhythmSyncHistory.createSyncHistory();
+let syncDiagnosticsController = null;
 const taskScheduleController = window.RhythmTaskSchedule.createTaskSchedule({
   cleanTimeValue,
   els,
@@ -885,6 +888,14 @@ const remoteDataController = window.RhythmRemoteDataController.createRemoteDataC
     remoteAuthController.render();
     renderRemoteSyncStatus();
   },
+  afterSnapshotRestored: (result) => {
+    const restoredAt = result?.saved?.row?.updated_at || result?.saved?.clientUpdatedAt || new Date().toISOString();
+    remoteSyncLastPulledAt = restoredAt;
+    remoteSyncLastPushedAt = restoredAt;
+    remoteSyncPending = false;
+    saveUiState();
+    renderRemoteSyncStatus();
+  },
   confirmAction,
   createImportSafetyBackup,
   createUndoSnapshot,
@@ -905,6 +916,26 @@ const remoteDataController = window.RhythmRemoteDataController.createRemoteDataC
   replaceState,
   saveState,
   showToast,
+});
+syncDiagnosticsController = window.RhythmSyncDiagnostics.createSyncDiagnostics({
+  container: els.syncDiagnostics,
+  describeError: describeRemoteSyncError,
+  formatDate: formatBackupDate,
+  getSnapshot: () => {
+    const workflowStatus = remoteSyncWorkflow.getStatus();
+    return {
+      accountLabel: remoteAuth.getSession()?.user?.email || "",
+      authenticated: Boolean(remoteAuth.getSession()?.access_token),
+      enabled: remoteSyncEnabled === "on",
+      inFlight: workflowStatus.inFlight,
+      lastError: workflowStatus.lastError,
+      lastPulledAt: remoteSyncLastPulledAt,
+      lastPushedAt: remoteSyncLastPushedAt,
+      online: navigator.onLine !== false,
+      pending: workflowStatus.pending,
+      projectConfigured: Boolean(remoteSyncUrl && remoteSyncAnonKey),
+    };
+  },
 });
 const deviceSyncController = window.RhythmDeviceSyncController.createDeviceSyncController({
   ensureFreshSession: () => remoteAuth.ensureFreshSession().catch(() => null),
@@ -2461,6 +2492,7 @@ function isRemoteSyncReady() {
 
 function renderRemoteSyncStatus() {
   remoteSyncWorkflow.renderStatus();
+  syncDiagnosticsController?.render();
 }
 
 function scheduleRemotePush() {
@@ -2472,7 +2504,9 @@ async function pushRemoteState(options = {}) {
 }
 
 async function checkRemoteConnection(options = {}) {
-  return remoteSyncWorkflow.check(options);
+  const result = await remoteSyncWorkflow.check(options);
+  syncDiagnosticsController?.setConnectionResult(result);
+  return result;
 }
 
 async function pullRemoteState(options = {}) {

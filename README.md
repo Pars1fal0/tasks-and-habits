@@ -84,6 +84,7 @@
 - `mcp/activity-service.mjs` — журнал обратимых MCP-изменений.
 - `profile-settings.js` — проверка и хранение синхронизируемого часового пояса.
 - `remote-data-controller.js` — облачные версии, восстановление и удаление аккаунта.
+- `sync-diagnostics.js` — понятная пользователю диагностика сети, аккаунта и очереди синхронизации.
 - `mcp-activity.js` и `mcp-activity-controller.js` — синхронизация, отображение и отмена действий ChatGPT в интерфейсе.
 - `mcp/supabase-state.mjs` — авторизация, RLS-доступ и optimistic concurrency для MCP-записей.
 - `oauth-consent.html` — экран входа и подтверждения доступа ChatGPT к аккаунту Parsitasks.

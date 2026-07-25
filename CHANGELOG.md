@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.17.2
+
+- Added a compact synchronization diagnostic panel for network, project, account, pending changes, and last exchange state.
+- Connection checks now leave a visible, timestamped result instead of relying only on a temporary toast.
+- Cloud versions now show their contents and representative item names before restoration.
+- Restoring a cloud version now updates synchronization metadata immediately, preventing a misleading follow-up merge.
+- Added regression coverage for diagnostic rendering and authenticated snapshot previews.
+
 ## 0.17.1
 
 - Hosted deployments now load their Supabase project settings automatically, while local and Electron builds remain manually configurable.

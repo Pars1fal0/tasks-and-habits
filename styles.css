@@ -3521,6 +3521,93 @@ body.has-floating-task-form::before {
   margin-top: var(--space-3);
 }
 
+.sync-diagnostics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin-top: var(--space-3);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--line);
+}
+
+.sync-diagnostic-row {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-3);
+  background: var(--surface-soft);
+}
+
+.sync-diagnostic-row > span:last-child {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.sync-diagnostic-row strong,
+.sync-diagnostic-row small {
+  overflow-wrap: anywhere;
+}
+
+.sync-diagnostic-row strong {
+  color: var(--text-strong);
+  font-size: 0.78rem;
+}
+
+.sync-diagnostic-row small {
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.sync-diagnostic-marker {
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--muted-2);
+}
+
+.sync-diagnostic-row.is-ok .sync-diagnostic-marker {
+  background: var(--success);
+}
+
+.sync-diagnostic-row.is-warning .sync-diagnostic-marker {
+  background: var(--amber);
+}
+
+.sync-diagnostic-row.is-error .sync-diagnostic-marker {
+  background: var(--danger);
+}
+
+.remote-snapshot-preview {
+  display: grid;
+  gap: var(--space-1);
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+}
+
+.remote-snapshot-preview strong {
+  color: var(--text-strong);
+}
+
+.remote-snapshot-preview small,
+.remote-snapshot-preview p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.remote-snapshot-preview.is-error {
+  border-color: var(--danger);
+}
+
 .sync-history-row {
   display: flex;
   align-items: baseline;
@@ -3597,6 +3684,10 @@ body.has-floating-task-form::before {
 }
 
 @media (max-width: 640px) {
+  .sync-diagnostics {
+    grid-template-columns: 1fr;
+  }
+
   .sync-account-fields {
     grid-template-columns: 1fr;
   }

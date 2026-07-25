@@ -998,6 +998,7 @@
                 <p class="settings-status" id="remoteAuthStatus" aria-live="polite">Вход не выполнен</p>
               </div>
               <p class="settings-status" id="remoteSyncStatus" aria-live="polite" aria-atomic="true">Облачная синхронизация не настроена</p>
+              <div class="sync-diagnostics" id="syncDiagnostics" aria-label="Диагностика синхронизации"></div>
               <div class="sync-history" id="remoteSyncHistory" aria-label="Последние события синхронизации"></div>
               <div class="settings-actions">
                 <button class="ghost-button compact-button" id="remoteSyncPushButton" type="button">Сохранить в облако</button>
@@ -1013,6 +1014,7 @@
                   <option value="">Загрузи список версий</option>
                 </select>
               </div>
+              <div class="remote-snapshot-preview" id="remoteSnapshotPreview" aria-live="polite" hidden></div>
               <div class="settings-actions">
                 <button class="ghost-button compact-button" id="remoteSnapshotsLoadButton" type="button">Показать версии</button>
                 <button class="ghost-button compact-button" id="remoteSnapshotRestoreButton" type="button" disabled>Восстановить версию</button>
@@ -1147,9 +1149,10 @@
     <script src="remote-auth-controller.js?v=1" defer></script>
     <script src="remote-sync.js?v=2" defer></script>
     <script src="remote-sync-controller.js?v=4" defer></script>
-    <script src="remote-data-controller.js?v=1" defer></script>
+    <script src="remote-data-controller.js?v=2" defer></script>
     <script src="device-sync-controller.js?v=1" defer></script>
     <script src="sync-history.js?v=1" defer></script>
+    <script src="sync-diagnostics.js?v=1" defer></script>
     <script src="settings-state.js?v=2" defer></script>
     <script src="profile-settings.js?v=1" defer></script>
     <script src="hosted-config.js?v=1" defer></script>
@@ -1201,6 +1204,6 @@
     <script src="view-renderer.js?v=1" defer></script>
     <script src="app-shell-controller.js?v=1" defer></script>
     <script src="toast.js?v=1" defer></script>
-    <script src="app.js?v=37" defer></script>
+    <script src="app.js?v=38" defer></script>
   </body>
 </html>
