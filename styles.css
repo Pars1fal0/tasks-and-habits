@@ -3837,7 +3837,13 @@ body.has-floating-task-form::before {
 }
 
 .week-task-chip.is-done {
-  opacity: 0.58;
+  border-color: var(--line);
+  background: var(--surface);
+}
+
+.week-task-chip.is-done span,
+.week-task-chip.is-done small {
+  color: var(--text-soft);
 }
 
 .week-task-chip.is-done span {
@@ -4194,6 +4200,18 @@ body.has-floating-task-form::before {
   justify-content: flex-end;
   gap: 10px;
   margin-top: 4px;
+}
+
+.confirm-verification {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  color: var(--text-soft);
+  font-size: 14px;
+}
+
+.confirm-verification[hidden] {
+  display: none;
 }
 
 #confirmAccept[data-tone="danger"] {

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.17.1
+
+- Hosted deployments now load their Supabase project settings automatically, while local and Electron builds remain manually configurable.
+- Cloud recovery now lists all 30 retained versions with task, habit, and goal counts and offers immediate Undo after restoration.
+- Account deletion now requires typing the signed-in email and cloud-only controls stay disabled while signed out.
+- Browser notification limits are stated explicitly instead of implying closed-tab background delivery.
+- Browser and MCP task repeats now use the same normalization implementation.
+- The Windows voice assistant now recognizes partial dictation and send phrases without waiting indefinitely for Vosk to finalize an utterance.
+- Accessibility E2E now runs against populated tasks, overlapping timeline blocks, habits, goals, and archive data.
+
 ## 0.17.0
 
 - Added automatic Supabase state snapshots with retention of the latest 30 versions and a recovery interface in Settings.

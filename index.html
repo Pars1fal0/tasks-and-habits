@@ -947,7 +947,7 @@
                 </div>
               </summary>
               <ol class="sync-wizard-steps" aria-label="Шаги подключения">
-                <li><span>1</span><strong>Проект</strong><small>Вставь адрес и публичный ключ Supabase.</small></li>
+                <li><span>1</span><strong>Проект</strong><small id="syncProjectStep">Вставь адрес и публичный ключ Supabase.</small></li>
                 <li><span>2</span><strong>Аккаунт</strong><small>Войди или зарегистрируйся по email.</small></li>
                 <li><span>3</span><strong>Устройства</strong><small>Войди в тот же аккаунт на остальных устройствах.</small></li>
               </ol>
@@ -962,7 +962,7 @@
                 </select>
               </label>
               <p class="settings-status">На втором устройстве укажи тот же проект Supabase, войди в этот же аккаунт и включи синхронизацию. Открытое приложение проверяет изменения каждые 30 секунд и при возврате в окно.</p>
-              <details class="sync-technical">
+              <details class="sync-technical" id="syncTechnicalSettings">
                 <summary>Параметры проекта Supabase</summary>
                 <label class="settings-row">
                   <span>
@@ -1052,6 +1052,7 @@
                   <option value="off">На паузе</option>
                 </select>
               </label>
+              <p class="settings-status">В браузере напоминания приходят, пока вкладка открыта. Desktop-версия продолжает напоминать в фоне после закрытия окна.</p>
               <button class="ghost-button compact-button icon-text-button" id="settingsNotifyButton" type="button">
                 <svg class="ui-icon"><use href="#icon-bell"></use></svg>
                 Проверить уведомления
@@ -1071,6 +1072,10 @@
         <span class="metric-label">Подтверждение</span>
         <h2 id="confirmTitle">Подтвердить действие?</h2>
         <p id="confirmMessage"></p>
+        <label class="confirm-verification" id="confirmVerification" hidden>
+          <span id="confirmVerificationLabel">Введи текст для подтверждения</span>
+          <input id="confirmVerificationInput" type="text" autocomplete="off">
+        </label>
         <div class="confirm-actions">
           <button class="ghost-button" id="confirmCancel" type="button">Отмена</button>
           <button class="ghost-button" id="confirmSecondary" type="button" hidden>Только этот день</button>
@@ -1147,6 +1152,7 @@
     <script src="sync-history.js?v=1" defer></script>
     <script src="settings-state.js?v=2" defer></script>
     <script src="profile-settings.js?v=1" defer></script>
+    <script src="hosted-config.js?v=1" defer></script>
     <script src="data-normalizers.js?v=1" defer></script>
     <script src="sync-metadata.js?v=1" defer></script>
     <script src="tombstone-retention.js?v=1" defer></script>

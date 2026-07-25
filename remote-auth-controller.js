@@ -129,6 +129,7 @@
         ctx.els.remoteAuthSignOutButton.hidden = !session || recoveryMode;
         ctx.els.remoteAuthSignOutButton.disabled = busy;
       }
+      ctx.syncCloudControls?.();
     }
 
     render();

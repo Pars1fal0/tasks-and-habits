@@ -50,8 +50,26 @@ const { _electron: electron } = require("playwright-core");
       await page.evaluate(() => JSON.parse(localStorage.getItem("rhythm-day-state-v1")).profile.timeZone),
       "Asia/Yekaterinburg",
     );
+    await page.evaluate(() => {
+      window.__verificationResult = null;
+      window.confirmAction({
+        confirmLabel: "Delete",
+        title: "Verification test",
+        verificationLabel: "Enter email",
+        verificationText: "owner@example.com",
+      }).then((value) => {
+        window.__verificationResult = value;
+      });
+    });
+    assert.equal(await page.locator("#confirmVerification").isVisible(), true);
+    assert.equal(await page.locator("#confirmAccept").isDisabled(), true);
+    await page.locator("#confirmVerificationInput").fill("OWNER@example.com");
+    assert.equal(await page.locator("#confirmAccept").isDisabled(), false);
+    await page.locator("#confirmAccept").click();
+    assert.equal(await page.evaluate(() => window.__verificationResult), true);
 
     await page.setViewportSize({ height: 780, width: 390 });
+    await page.waitForFunction(() => !document.querySelector(".task-filter-disclosure")?.hasAttribute("open"));
     assert.equal(await page.locator(".task-filter-disclosure").getAttribute("open"), null);
     assert.equal(await page.locator(".quick-task-disclosure").getAttribute("open"), null);
     assert.equal(await page.locator(".timeline-unscheduled-panel").getAttribute("open"), null);

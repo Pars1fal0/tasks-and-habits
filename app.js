@@ -173,6 +173,9 @@ const els = {
   confirmModal: document.querySelector("#confirmModal"),
   confirmSecondary: document.querySelector("#confirmSecondary"),
   confirmTitle: document.querySelector("#confirmTitle"),
+  confirmVerification: document.querySelector("#confirmVerification"),
+  confirmVerificationInput: document.querySelector("#confirmVerificationInput"),
+  confirmVerificationLabel: document.querySelector("#confirmVerificationLabel"),
   desktopStatus: document.querySelector("#desktopStatus"),
   densityPreference: document.querySelector("#densityPreference"),
   exportButton: document.querySelector("#exportButton"),
@@ -278,6 +281,8 @@ const els = {
   remoteSnapshotSelect: document.querySelector("#remoteSnapshotSelect"),
   remoteSnapshotsLoadButton: document.querySelector("#remoteSnapshotsLoadButton"),
   remoteSnapshotsStatus: document.querySelector("#remoteSnapshotsStatus"),
+  syncProjectStep: document.querySelector("#syncProjectStep"),
+  syncTechnicalSettings: document.querySelector("#syncTechnicalSettings"),
   remoteSyncStatus: document.querySelector("#remoteSyncStatus"),
   remoteSyncUrl: document.querySelector("#remoteSyncUrl"),
   resetHabitForm: document.querySelector("#resetHabitForm"),
@@ -863,6 +868,7 @@ const remoteAuthController = window.RhythmRemoteAuthController.createRemoteAuthC
   isProjectConfigured: () => Boolean(remoteSyncUrl && remoteSyncAnonKey),
   renderSyncStatus: () => remoteSyncWorkflow.renderStatus(),
   showToast,
+  syncCloudControls: () => queueMicrotask(() => remoteDataController.syncControls()),
   syncLatest: async (options) => {
     const result = await remoteSyncWorkflow.syncLatest(options);
     await remoteSyncWorkflow.resumePending();
@@ -881,6 +887,7 @@ const remoteDataController = window.RhythmRemoteDataController.createRemoteDataC
   },
   confirmAction,
   createImportSafetyBackup,
+  createUndoSnapshot,
   els,
   formatDate: formatBackupDate,
   getConfig: () => remoteSync.normalizeConfig({
@@ -891,6 +898,7 @@ const remoteDataController = window.RhythmRemoteDataController.createRemoteDataC
     userId: remoteAuth.getSession()?.user?.id || "",
   }),
   getState: () => state,
+  getUserEmail: () => remoteAuth.getSession()?.user?.email || "",
   isReady: () => Boolean(remoteAuth.getSession()?.access_token && remoteSyncUrl && remoteSyncAnonKey),
   remoteSync,
   render,
@@ -1097,7 +1105,7 @@ const appEvents = window.RhythmAppEvents.createAppEvents({
 seedIfEmpty();
 init();
 
-function init() {
+async function init() {
   els.activeDate.value = activeDate;
   els.taskSearch.value = taskSearchQuery;
   els.archiveSearch.value = archiveSearchQuery;
@@ -1128,12 +1136,28 @@ function init() {
   if (initialStateLoad.status === "recovered") showToast("Поврежденные локальные данные восстановлены из backup");
   if (initialStateLoad.status === "recovered-memory") showToast("Backup восстановлен только в памяти. Экспортируй данные");
   if (initialStateLoad.status === "corrupt") showToast("Локальные данные повреждены. Загрузи backup или данные из облака");
+  await initializeHostedConfig();
   deviceSyncController.start().then(() => remoteSyncWorkflow.resumePending());
   syncDesktopReminders();
   setInterval(checkDueNotifications, 30000);
   setInterval(syncDesktopReminders, 60000);
   setInterval(handleDateRollover, 30000);
   scheduleAutoBackup();
+}
+
+async function initializeHostedConfig() {
+  const result = await window.RhythmHostedConfig.loadHostedConfig();
+  if (!result.managed) return;
+  remoteSyncUrl = result.supabaseUrl;
+  remoteSyncAnonKey = result.anonKey;
+  saveUiState();
+  if (els.remoteSyncUrl) els.remoteSyncUrl.value = remoteSyncUrl;
+  if (els.remoteSyncAnonKey) els.remoteSyncAnonKey.value = remoteSyncAnonKey;
+  if (els.syncTechnicalSettings) els.syncTechnicalSettings.hidden = true;
+  if (els.syncProjectStep) els.syncProjectStep.textContent = "Настроен автоматически для parsitasks.ru.";
+  settingsController.syncControls();
+  remoteAuthController.render();
+  renderRemoteSyncStatus();
 }
 
 function handleDateRollover() {

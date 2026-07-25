@@ -12,6 +12,8 @@ module.exports = [
       assert.doesNotMatch(sql, /to anon/);
       assert.doesNotMatch(sql, /x-rhythm-user-key/);
       assert.match(sql, /create table if not exists public\.rhythm_state_snapshots/);
+      assert.match(sql, /summary jsonb not null default '\{\}'::jsonb/);
+      assert.match(sql, /jsonb_build_object\(/);
       assert.match(sql, /create trigger rhythm_states_snapshot/);
       assert.match(sql, /delete_parsitasks_account/);
     },

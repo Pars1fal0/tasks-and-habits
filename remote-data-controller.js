@@ -6,9 +6,8 @@
       ctx.els.remoteSnapshotsLoadButton?.addEventListener("click", loadSnapshots);
       ctx.els.remoteSnapshotRestoreButton?.addEventListener("click", restoreSelectedSnapshot);
       ctx.els.remoteAccountDeleteButton?.addEventListener("click", deleteAccount);
-      ctx.els.remoteSnapshotSelect?.addEventListener("change", () => {
-        ctx.els.remoteSnapshotRestoreButton.disabled = busy || !ctx.els.remoteSnapshotSelect.value;
-      });
+      ctx.els.remoteSnapshotSelect?.addEventListener("change", syncControls);
+      syncControls();
     }
 
     async function loadSnapshots() {
@@ -16,7 +15,7 @@
       if (busy) return;
       setBusy(true, "Загружаю версии...");
       try {
-        const result = await ctx.remoteSync.listSnapshots(ctx.getConfig(), 15);
+        const result = await ctx.remoteSync.listSnapshots(ctx.getConfig(), 30);
         renderSnapshots(result.snapshots);
         setStatus(result.snapshots.length ? `Доступно версий: ${result.snapshots.length}` : "Предыдущих версий пока нет");
       } catch (error) {
@@ -38,14 +37,15 @@
       if (!confirmed) return;
       setBusy(true, "Восстанавливаю версию...");
       try {
+        const undo = ctx.createUndoSnapshot();
         const backup = ctx.createImportSafetyBackup({ state: JSON.stringify(ctx.getState()) });
         if (backup?.ok === false) throw new Error("Не удалось создать safety backup");
         const result = await ctx.remoteSync.restoreSnapshot(ctx.getConfig(), snapshotId);
         ctx.replaceState(result.snapshot.state);
         ctx.saveState({ skipBackup: true, skipRemote: true });
         ctx.render();
-        ctx.showToast("Облачная версия восстановлена");
-        const versions = await ctx.remoteSync.listSnapshots(ctx.getConfig(), 15);
+        ctx.showToast("Облачная версия восстановлена", { undo });
+        const versions = await ctx.remoteSync.listSnapshots(ctx.getConfig(), 30);
         renderSnapshots(versions.snapshots);
         setStatus(`Версия восстановлена · доступно версий: ${versions.snapshots.length}`);
       } catch (error) {
@@ -58,11 +58,16 @@
 
     async function deleteAccount() {
       if (!ctx.isReady() || busy) return ctx.showToast("Сначала войди в аккаунт синхронизации");
+      const verificationText = ctx.getUserEmail() || "УДАЛИТЬ";
       const confirmed = await ctx.confirmAction({
         confirmLabel: "Удалить аккаунт",
         message: "Аккаунт, облачное состояние и все серверные версии будут удалены без возможности восстановления. Локальные данные на этом устройстве останутся.",
         tone: "danger",
         title: "Удалить аккаунт и облачные данные?",
+        verificationLabel: ctx.getUserEmail()
+          ? "Введи email аккаунта для подтверждения"
+          : 'Введи "УДАЛИТЬ" для подтверждения',
+        verificationText,
       });
       if (!confirmed) return;
       setBusy(true, "Удаляю аккаунт...");
@@ -91,25 +96,31 @@
       snapshots.forEach((snapshot) => {
         const option = document.createElement("option");
         option.value = String(snapshot.id);
-        option.textContent = ctx.formatDate(snapshot.created_at);
+        option.textContent = formatSnapshotLabel(snapshot);
         select.appendChild(option);
       });
       ctx.els.remoteSnapshotRestoreButton.disabled = !snapshots.length;
     }
 
+    function formatSnapshotLabel(snapshot) {
+      const counts = snapshotSummaryParts(snapshot?.summary);
+      return [ctx.formatDate(snapshot.created_at), counts.join(" · ")].filter(Boolean).join(" · ");
+    }
+
     function setBusy(value, message = "") {
       busy = value;
-      [
-        ctx.els.remoteSnapshotsLoadButton,
-        ctx.els.remoteSnapshotRestoreButton,
-        ctx.els.remoteAccountDeleteButton,
-      ].forEach((button) => {
-        if (button) button.disabled = value;
-      });
-      if (ctx.els.remoteSnapshotRestoreButton) {
-        ctx.els.remoteSnapshotRestoreButton.disabled = value || !ctx.els.remoteSnapshotSelect?.value;
-      }
+      syncControls();
       if (message) setStatus(message);
+    }
+
+    function syncControls() {
+      const unavailable = busy || !ctx.isReady();
+      if (ctx.els.remoteSnapshotsLoadButton) ctx.els.remoteSnapshotsLoadButton.disabled = unavailable;
+      if (ctx.els.remoteAccountDeleteButton) ctx.els.remoteAccountDeleteButton.disabled = unavailable;
+      if (ctx.els.remoteSnapshotSelect) ctx.els.remoteSnapshotSelect.disabled = unavailable;
+      if (ctx.els.remoteSnapshotRestoreButton) {
+        ctx.els.remoteSnapshotRestoreButton.disabled = unavailable || !ctx.els.remoteSnapshotSelect?.value;
+      }
     }
 
     function setStatus(message) {
@@ -123,10 +134,18 @@
         : `Ошибка облачных данных: ${text || "неизвестная ошибка"}`;
     }
 
-    return { bindEvents, deleteAccount, loadSnapshots, restoreSelectedSnapshot };
+    return { bindEvents, deleteAccount, loadSnapshots, restoreSelectedSnapshot, syncControls };
   }
 
-  const api = { createRemoteDataController };
+  function snapshotSummaryParts(summary = {}) {
+    return [
+      Number.isFinite(Number(summary.tasks)) ? `${Number(summary.tasks)} задач` : "",
+      Number.isFinite(Number(summary.habits)) ? `${Number(summary.habits)} привычек` : "",
+      Number.isFinite(Number(summary.goals)) ? `${Number(summary.goals)} целей` : "",
+    ].filter(Boolean);
+  }
+
+  const api = { createRemoteDataController, snapshotSummaryParts };
   global.RhythmRemoteDataController = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

@@ -106,6 +106,22 @@ module.exports = [
     },
   },
   {
+    name: "MCP and the browser share custom repeat normalization",
+    async fn() {
+      const service = await loadService();
+      const browserRecurrence = require("../recurrence.js");
+      const samples = [
+        { type: "interval", every: 0 },
+        { type: "monthDay", day: 40 },
+        { type: "weekdays", weekdays: [0, 5, 1, 5] },
+        null,
+      ];
+      samples.forEach((sample) => {
+        assert.deepEqual(service.normalizeCustomRepeat(sample), browserRecurrence.normalizeCustomRepeat(sample));
+      });
+    },
+  },
+  {
     name: "MCP completes only the selected occurrence of a recurring task",
     async fn() {
       const service = await loadService();

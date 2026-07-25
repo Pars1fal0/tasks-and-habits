@@ -49,7 +49,7 @@ def load_config():
         raise RuntimeError("Не найден config.json. Запусти install.ps1.")
     config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
     phrases = [normalize_phrase(value) for value in [*config.get("wake_phrases", []), *DEFAULT_WAKE_PHRASES]]
-    config["wake_phrases"] = [value for value in phrases if value]
+    config["wake_phrases"] = list(dict.fromkeys(value for value in phrases if value))
     configured_send_phrases = [
         config.get("send_phrase", "отправь"),
         *config.get("send_phrases", []),
@@ -141,6 +141,7 @@ def run():
     command_started_at = 0.0
     last_command_activity_at = 0.0
     command_parts = []
+    live_partial = ""
 
     def audio_callback(data, frames, timing, status):
         if status:
@@ -155,7 +156,9 @@ def run():
                 pass
 
     def finish_command():
-        nonlocal mode, last_command_activity_at
+        nonlocal mode, last_command_activity_at, live_partial
+        if live_partial:
+            command_parts.append(live_partial)
         prompt = " ".join(command_parts).strip()
         if not prompt:
             logger.info("Пустая команда не отправлена")
@@ -170,8 +173,16 @@ def run():
                 beep("error")
         mode = "wake"
         last_command_activity_at = 0.0
+        live_partial = ""
         command_parts.clear()
         wake_recognizer.Reset()
+
+    def clear_audio_queue():
+        while True:
+            try:
+                audio_queue.get_nowait()
+            except queue.Empty:
+                return
 
     microphone = config.get("microphone")
     try:
@@ -194,7 +205,7 @@ def run():
             auto_send_enabled = config.get("auto_send_enabled", False) is True
             auto_send_seconds = max(0.8, float(config.get("auto_send_seconds", 2.0)))
             if auto_send_enabled and mode == "command" and should_auto_send(
-                command_parts,
+                [*command_parts, live_partial],
                 last_command_activity_at,
                 now,
                 auto_send_seconds,
@@ -207,11 +218,24 @@ def run():
                 mode = "wake"
                 command_recognizer.Reset()
                 command_parts.clear()
+                live_partial = ""
                 last_command_activity_at = 0.0
                 beep("cancel")
 
             recognizer = wake_recognizer if mode == "wake" else command_recognizer
-            if not recognizer.AcceptWaveform(chunk):
+            accepted = recognizer.AcceptWaveform(chunk)
+            if not accepted:
+                if mode != "command":
+                    continue
+                partial = normalize_phrase(json.loads(command_recognizer.PartialResult()).get("partial", ""))
+                if partial and partial != live_partial:
+                    live_partial = partial
+                    last_command_activity_at = now
+                spoken_part, should_send = split_send_phrase(partial, config["send_phrases"])
+                if not should_send:
+                    continue
+                live_partial = spoken_part
+                finish_command()
                 continue
             result = normalize_phrase(json.loads(recognizer.Result()).get("text", ""))
             if not result or result == "[unk]":
@@ -224,13 +248,16 @@ def run():
                 command_started_at = now
                 last_command_activity_at = 0.0
                 command_parts.clear()
+                live_partial = ""
                 command_recognizer.Reset()
+                clear_audio_queue()
             elif mode == "command":
                 if result == config["cancel_phrase"]:
                     logger.info("Диктовка отменена")
                     beep("cancel")
                     mode = "wake"
                     command_parts.clear()
+                    live_partial = ""
                     last_command_activity_at = 0.0
                     wake_recognizer.Reset()
                     continue
@@ -239,6 +266,7 @@ def run():
                 if spoken_part:
                     command_parts.append(spoken_part)
                     last_command_activity_at = now
+                live_partial = ""
                 if not should_send:
                     continue
                 finish_command()

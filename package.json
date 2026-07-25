@@ -1,6 +1,6 @@
 {
   "name": "rhythm-day",
-  "version": "0.17.0",
+  "version": "0.17.1",
   "private": true,
   "description": "Локальный десктопный трекер задач и привычек",
   "main": "desktop/main.cjs",
@@ -48,6 +48,7 @@
       "habit-config-history.js",
       "habit-title-history.js",
       "heatmap-view.js",
+      "hosted-config.js",
       "icon.svg",
       "icon-192.png",
       "icon-512.png",

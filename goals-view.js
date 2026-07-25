@@ -218,6 +218,7 @@
       label.textContent = `${completeCount} из ${steps.length} чекпоинтов`;
       bar.className = "goal-progress-bar";
       bar.setAttribute("role", "progressbar");
+      bar.setAttribute("aria-label", `Прогресс цели: ${completeCount} из ${steps.length} чекпоинтов`);
       bar.setAttribute("aria-valuemin", "0");
       bar.setAttribute("aria-valuemax", "100");
       bar.setAttribute("aria-valuenow", String(progressValue));

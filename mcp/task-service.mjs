@@ -1,3 +1,7 @@
+import recurrence from "../recurrence.js";
+
+export const normalizeCustomRepeat = recurrence.normalizeCustomRepeat;
+
 const PRIORITIES = new Set(["low", "medium", "high"]);
 const REPEATS = new Set(["none", "daily", "every2days", "every3days", "weekdays", "weekends", "weekly", "monthly", "yearly", "custom"]);
 const CATEGORY_COLORS = ["#19b394", "#4f8cff", "#f59e0b", "#e96b75", "#8b7cf6", "#2ca6a4"];
@@ -289,21 +293,6 @@ export function toDateKey(date = new Date(), timeZone = "Europe/Moscow") {
 
 export function stateTimeZone(state, fallback = "Europe/Moscow") {
   return normalizeTimeZone(state?.profile?.timeZone || fallback);
-}
-
-export function normalizeCustomRepeat(value) {
-  const source = value && typeof value === "object" ? value : {};
-  if (source.type === "monthDay") {
-    return { type: "monthDay", day: clampInteger(source.day, 1, 31, 1) };
-  }
-  if (source.type === "interval") {
-    return { type: "interval", every: clampInteger(source.every, 1, 365, 1) };
-  }
-  const weekdays = [...new Set((Array.isArray(source.weekdays) ? source.weekdays : [1, 3, 5])
-    .map(Number)
-    .filter((day) => Number.isInteger(day) && day >= 0 && day <= 6))]
-    .sort((left, right) => left - right);
-  return { type: "weekdays", weekdays: weekdays.length ? weekdays : [1, 3, 5] };
 }
 
 function habitsForDate(state, dateKey) {

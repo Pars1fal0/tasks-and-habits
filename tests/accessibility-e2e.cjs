@@ -12,6 +12,39 @@ const { _electron: electron } = require("playwright-core");
 
   try {
     await page.waitForSelector("#pageTitle");
+    await page.evaluate(() => {
+      const now = new Date();
+      const dateKey = [now.getFullYear(), String(now.getMonth() + 1).padStart(2, "0"), String(now.getDate()).padStart(2, "0")].join("-");
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const previousKey = [yesterday.getFullYear(), String(yesterday.getMonth() + 1).padStart(2, "0"), String(yesterday.getDate()).padStart(2, "0")].join("-");
+      localStorage.setItem("rhythm-day-state-v1", JSON.stringify({
+        schemaVersion: 13,
+        defaultsSeeded: true,
+        profile: { timeZone: "Europe/Moscow" },
+        categories: [
+          { id: "work", name: "Работа", color: "#4f8cff", createdAt: `${dateKey}T06:00:00.000Z` },
+          { id: "health", name: "Здоровье", color: "#19b394", createdAt: `${dateKey}T06:01:00.000Z` },
+        ],
+        tasks: [
+          { id: "block-a", title: "Обсудить макет", date: dateKey, categoryId: "work", priority: "high", repeat: "none", scheduleMode: "block", startTime: "09:00", endTime: "10:15", time: "10:15", completed: {}, createdAt: `${dateKey}T06:10:00.000Z` },
+          { id: "block-b", title: "Подготовить материалы", date: dateKey, categoryId: "work", priority: "medium", repeat: "none", scheduleMode: "block", startTime: "09:30", endTime: "10:30", time: "10:30", completed: {}, createdAt: `${dateKey}T06:11:00.000Z` },
+          { id: "unscheduled", title: "Позвонить врачу", date: dateKey, categoryId: "health", priority: "medium", repeat: "none", scheduleMode: "none", completed: {}, createdAt: `${dateKey}T06:12:00.000Z` },
+          { id: "archived", title: "Завершённая задача", date: previousKey, categoryId: "work", priority: "low", repeat: "none", scheduleMode: "none", completed: { [previousKey]: true }, createdAt: `${previousKey}T06:00:00.000Z` },
+        ],
+        habits: [
+          { id: "habit-check", title: "Разминка", type: "check", repeat: "daily", startDate: previousKey, logs: {}, createdAt: `${previousKey}T06:00:00.000Z` },
+          { id: "habit-number", title: "Вода", type: "number", goal: 8, step: 1, unit: "стаканов", repeat: "daily", startDate: previousKey, logs: { [dateKey]: 3 }, createdAt: `${previousKey}T06:01:00.000Z` },
+        ],
+        goals: [
+          { id: "goal-1", title: "Подготовить релиз", deadline: dateKey, status: "active", checkpoints: [{ id: "step-1", title: "Проверить интерфейс", done: true }, { id: "step-2", title: "Собрать приложение", done: false }], createdAt: `${previousKey}T06:02:00.000Z` },
+        ],
+        taskOrder: { [dateKey]: ["block-a", "block-b", "unscheduled"] },
+      }));
+      localStorage.setItem("rhythm-day-ui-v1", JSON.stringify({ activeDate: dateKey, activeView: "tasks" }));
+    });
+    await page.reload();
+    await page.waitForSelector("#pageTitle");
     await page.evaluate(fs.readFileSync(require.resolve("axe-core/axe.min.js"), "utf8"));
     const views = ["tasks", "timeline", "habits", "goals", "overview", "archive", "settings"];
     for (const width of [390, 1440]) {

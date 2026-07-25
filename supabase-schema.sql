@@ -75,8 +75,12 @@ create table if not exists public.rhythm_state_snapshots (
   user_id uuid not null references auth.users (id) on delete cascade,
   state jsonb not null,
   schema_version integer not null,
+  summary jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
+
+alter table public.rhythm_state_snapshots
+add column if not exists summary jsonb not null default '{}'::jsonb;
 
 create index if not exists rhythm_state_snapshots_user_created_idx
 on public.rhythm_state_snapshots (user_id, created_at desc);
@@ -105,8 +109,18 @@ set search_path = public
 as $$
 begin
   if old.state is distinct from new.state then
-    insert into public.rhythm_state_snapshots (user_id, state, schema_version, created_at)
-    values (old.user_id, old.state, old.schema_version, now());
+    insert into public.rhythm_state_snapshots (user_id, state, schema_version, summary, created_at)
+    values (
+      old.user_id,
+      old.state,
+      old.schema_version,
+      jsonb_build_object(
+        'tasks', jsonb_array_length(coalesce(old.state -> 'tasks', '[]'::jsonb)),
+        'habits', jsonb_array_length(coalesce(old.state -> 'habits', '[]'::jsonb)),
+        'goals', jsonb_array_length(coalesce(old.state -> 'goals', '[]'::jsonb))
+      ),
+      now()
+    );
 
     delete from public.rhythm_state_snapshots
     where id in (

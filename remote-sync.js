@@ -116,7 +116,7 @@
       const normalized = normalizeConfig(config);
       ensureConfigured(normalized);
       const safeLimit = Math.max(1, Math.min(30, Number(limit) || 10));
-      const query = `select=id,schema_version,created_at&user_id=eq.${encodeURIComponent(normalized.userId)}&order=created_at.desc&limit=${safeLimit}`;
+      const query = `select=id,schema_version,summary,created_at&user_id=eq.${encodeURIComponent(normalized.userId)}&order=created_at.desc&limit=${safeLimit}`;
       const response = await fetchFn(`${normalized.supabaseUrl}/rest/v1/rhythm_state_snapshots?${query}`, {
         headers: supabaseHeaders(normalized),
       });
