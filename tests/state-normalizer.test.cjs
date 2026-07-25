@@ -58,7 +58,7 @@ module.exports = [
         },
       });
 
-      assert.equal(normalized.schemaVersion, 12);
+      assert.equal(normalized.schemaVersion, 13);
       assert.equal(normalized.categories[0].color, "#00a78e");
       assert.equal(normalized.categories[1].name, "Работа");
       assert.equal(normalized.tasks[0].title, "Задача");

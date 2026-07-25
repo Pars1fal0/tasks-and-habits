@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "rhythm-day-";
-const CACHE_NAME = `${CACHE_PREFIX}app-v54-__BUILD_HASH__`;
+const CACHE_NAME = `${CACHE_PREFIX}app-v55-__BUILD_HASH__`;
 const APP_SHELL = [
   "./",
   "index.html",
@@ -12,9 +12,11 @@ const APP_SHELL = [
   "remote-auth.js",
   "remote-auth-controller.js",
   "remote-sync.js",
-  "remote-sync-controller.js",
+    "remote-sync-controller.js",
+    "remote-data-controller.js",
   "sync-history.js",
-  "settings-state.js",
+    "settings-state.js",
+    "profile-settings.js",
   "data-normalizers.js",
   "sync-metadata.js",
   "tombstone-retention.js",

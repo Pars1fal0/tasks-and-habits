@@ -198,4 +198,67 @@ module.exports = [
       );
     },
   },
+  {
+    name: "lists cloud snapshots for the authenticated user",
+    async fn() {
+      const calls = [];
+      const sync = createRemoteSync({
+        fetch: async (url) => {
+          calls.push(url);
+          return {
+            ok: true,
+            status: 200,
+            text: async () => JSON.stringify([{ id: 7, created_at: "2026-07-25T10:00:00.000Z" }]),
+          };
+        },
+      });
+      const result = await sync.listSnapshots(authConfig, 15);
+      assert.equal(result.snapshots[0].id, 7);
+      assert.match(calls[0], /rhythm_state_snapshots/);
+      assert.match(calls[0], /user_id=eq\.user-123/);
+    },
+  },
+  {
+    name: "deletes the authenticated Parsitasks account through the protected RPC",
+    async fn() {
+      const calls = [];
+      const sync = createRemoteSync({
+        fetch: async (url, options) => {
+          calls.push({ url, options });
+          return { ok: true, status: 204, text: async () => "" };
+        },
+      });
+      const result = await sync.deleteAccount(authConfig);
+      assert.equal(result.ok, true);
+      assert.match(calls[0].url, /rpc\/delete_parsitasks_account$/);
+      assert.equal(calls[0].options.method, "POST");
+      assert.equal(calls[0].options.headers.Authorization, "Bearer user-jwt");
+    },
+  },
+  {
+    name: "restores a selected cloud snapshot over the current remote revision",
+    async fn() {
+      const calls = [];
+      const responses = [
+        [{ state: { schemaVersion: 13, tasks: [{ id: "old" }] }, schema_version: 13, created_at: "2026-07-24T10:00:00Z" }],
+        [{ state: { tasks: [{ id: "current" }] }, ui_state: {}, updated_at: "2026-07-25T10:00:00Z" }],
+        [{ updated_at: "2026-07-25T10:01:00Z" }],
+      ];
+      const sync = createRemoteSync({
+        fetch: async (url, options = {}) => {
+          calls.push({ url, options });
+          return {
+            ok: true,
+            status: 200,
+            text: async () => JSON.stringify(responses.shift()),
+          };
+        },
+      });
+      const result = await sync.restoreSnapshot(authConfig, 42);
+      assert.equal(result.snapshot.state.tasks[0].id, "old");
+      assert.equal(calls[2].options.method, "PATCH");
+      assert.match(calls[2].url, /updated_at=eq\.2026-07-25T10%3A00%3A00Z/);
+      assert.equal(JSON.parse(calls[2].options.body).state.tasks[0].id, "old");
+    },
+  },
 ];

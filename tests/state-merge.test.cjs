@@ -3,6 +3,22 @@ const { mergeStates } = require("../state-merge.js");
 
 module.exports = [
   {
+    name: "keeps the newest synchronized user time zone",
+    fn() {
+      const merged = mergeStates(
+        {
+          profile: { timeZone: "Europe/Moscow", updatedAt: "2026-07-25T10:00:00.000Z" },
+          tasks: [], habits: [], goals: [], categories: [], taskOrder: {},
+        },
+        {
+          profile: { timeZone: "Asia/Yekaterinburg", updatedAt: "2026-07-25T11:00:00.000Z" },
+          tasks: [], habits: [], goals: [], categories: [], taskOrder: {},
+        },
+      );
+      assert.equal(merged.profile.timeZone, "Asia/Yekaterinburg");
+    },
+  },
+  {
     name: "keeps an explicit task completion and habit value reset from being resurrected",
     fn() {
       const resetAt = "2026-07-13T12:00:00.000Z";

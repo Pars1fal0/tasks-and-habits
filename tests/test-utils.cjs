@@ -45,7 +45,7 @@ function createMemoryStorage() {
 
 function createStateNormalizer() {
   return stateNormalizerApi.createStateNormalizer({
-    schemaVersion: 12,
+    schemaVersion: 13,
     validPriorities: ["high", "medium", "low"],
     cleanText,
     cleanTimeValue: (value) => {

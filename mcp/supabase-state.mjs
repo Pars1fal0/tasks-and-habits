@@ -39,7 +39,7 @@ export function createSupabaseStateStore(options) {
       const clientUpdatedAt = new Date().toISOString();
       const payload = {
         state: mutation.state,
-        schema_version: Number(mutation.state?.schemaVersion) || 12,
+        schema_version: Number(mutation.state?.schemaVersion) || 13,
         client_updated_at: clientUpdatedAt,
       };
 

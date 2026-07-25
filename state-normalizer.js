@@ -6,6 +6,7 @@
       const normalized = {
         schemaVersion: config.schemaVersion,
         defaultsSeeded: raw?.defaultsSeeded === true,
+        profile: config.normalizeProfile?.(raw?.profile) || {},
         tasks: [],
         habits: [],
         goals: [],

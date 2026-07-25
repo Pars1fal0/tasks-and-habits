@@ -1,13 +1,13 @@
 {
   "name": "rhythm-day",
-  "version": "0.16.0",
+  "version": "0.17.0",
   "private": true,
   "description": "Локальный десктопный трекер задач и привычек",
   "main": "desktop/main.cjs",
   "scripts": {
     "desktop": "electron .",
     "desktop:smoke": "electron . --smoke-test",
-    "test:e2e": "node tests/electron-e2e.cjs && node tests/menu-popovers-e2e.cjs",
+    "test:e2e": "node tests/electron-e2e.cjs && node tests/menu-popovers-e2e.cjs && node tests/accessibility-e2e.cjs",
     "lint": "node tests/lint.cjs",
     "test": "node tests/run-tests.cjs",
     "test:sync-live": "node tests/remote-sync-live.cjs",
@@ -60,6 +60,7 @@
       "notifications.js",
       "navigation-state.js",
       "planning-history.js",
+      "profile-settings.js",
       "pwa-controller.js",
       "overdue-controller.js",
       "quick-input.js",
@@ -69,6 +70,7 @@
       "README.md",
       "remote-sync.js",
       "remote-sync-controller.js",
+      "remote-data-controller.js",
       "sync-history.js",
       "settings-state.js",
       "settings-sync.js",
@@ -124,11 +126,16 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@supabase/supabase-js": "^2.110.7",
     "agents": "^0.17.4",
-    "electron": "^42.5.0",
-    "electron-builder": "^26.0.12",
+    "axe-core": "^4.12.0",
+    "electron": "^43.2.0",
+    "electron-builder": "^26.15.3",
     "esbuild": "^0.28.1",
     "playwright-core": "^1.61.1",
-    "wrangler": "^4.110.0",
+    "wrangler": "^4.114.0",
     "zod": "^4.4.3"
+  },
+  "overrides": {
+    "@hono/node-server": "2.0.11",
+    "brace-expansion": "5.0.8"
   }
 }

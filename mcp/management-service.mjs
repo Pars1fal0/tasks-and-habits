@@ -1,5 +1,6 @@
 import { recordMcpActivity } from "./activity-service.mjs";
 import { getTodayOverview, taskScheduledOn, tasksForDate } from "./task-service.mjs";
+import { getDayBrief, updateTaskCommand } from "./write-service.mjs";
 
 const HABIT_REPEATS = new Set(["daily", "every2days", "every3days", "weekdays", "weekends", "weekly", "custom"]);
 const HEX_COLOR = /^#[0-9a-f]{6}$/i;
@@ -109,6 +110,50 @@ export function listCategories(state) {
       color: category.color,
       taskCount: counts.get(category.id) || 0,
     })),
+  };
+}
+
+export function previewTaskPlan(state, input) {
+  const simulation = simulateTaskPlan(state, input.operations, `preview-${Date.now().toString(36)}`);
+  return {
+    operations: simulation.operations,
+    conflicts: timelineConflictsForDates(simulation.state, simulation.operations.map((item) => item.date)),
+    summary: planSummary(simulation.operations),
+  };
+}
+
+export function applyTaskPlanCommand(state, input, options = {}) {
+  if (input.confirm !== true) throw new Error("Сначала покажи предпросмотр и получи подтверждение пользователя");
+  const before = clone(state);
+  const nextState = prepareState(state);
+  const requestId = normalizeRequestId(input.requestId);
+  const previousAction = findActivity(nextState, requestId);
+  if (previousAction) {
+    return {
+      changed: false,
+      state: nextState,
+      operations: [],
+      activity: previousAction,
+      summary: previousAction.summary,
+    };
+  }
+
+  const simulation = simulateTaskPlan(nextState, input.operations, `batch-${requestId}`, options);
+  simulation.state.mcpActivity = clone(before.mcpActivity || []);
+  const summary = `План применён: ${simulation.operations.length} изменений`;
+  const activity = recordMcpActivity(before, simulation.state, {
+    requestId,
+    type: "apply_task_plan",
+    title: "Планирование задач",
+    summary,
+  }, options.now || new Date().toISOString());
+  return {
+    changed: true,
+    state: simulation.state,
+    operations: simulation.operations,
+    conflicts: timelineConflictsForDates(simulation.state, simulation.operations.map((item) => item.date)),
+    activity,
+    summary,
   };
 }
 
@@ -461,6 +506,53 @@ function normalizeHabitConfig(input) {
     customRepeat,
     unit: type === "number" ? clean(input.unit).slice(0, 30) : "",
     goal,
+  };
+}
+
+function simulateTaskPlan(state, operations, requestPrefix, options = {}) {
+  if (!Array.isArray(operations) || operations.length < 1 || operations.length > 30) {
+    throw new Error("План должен содержать от 1 до 30 изменений");
+  }
+  let nextState = prepareState(state);
+  const results = [];
+  operations.forEach((operation, index) => {
+    try {
+      const operationRequestId = `${requestPrefix.slice(0, 90)}:${index + 1}`;
+      const mutation = updateTaskCommand(nextState, {
+        ...operation,
+        requestId: operationRequestId,
+      }, {
+        now: options.now || new Date().toISOString(),
+        requestId: operationRequestId,
+      });
+      nextState = mutation.state;
+      results.push({
+        index,
+        taskId: mutation.task.id,
+        title: mutation.task.title,
+        date: mutation.task.date,
+        scope: mutation.scope,
+        scheduleMode: mutation.task.scheduleMode || "none",
+        time: mutation.task.startTime || mutation.task.time || "",
+        endTime: mutation.task.endTime || "",
+      });
+    } catch (error) {
+      throw new Error(`Изменение ${index + 1}: ${error.message}`);
+    }
+  });
+  return { state: nextState, operations: results };
+}
+
+function timelineConflictsForDates(state, dates) {
+  return [...new Set(dates)].flatMap((date) =>
+    getDayBrief(state, date, "plan").conflicts.map((taskIds) => ({ date, taskIds })));
+}
+
+function planSummary(operations) {
+  return {
+    changes: operations.length,
+    days: new Set(operations.map((item) => item.date)).size,
+    timed: operations.filter((item) => item.scheduleMode !== "none").length,
   };
 }
 

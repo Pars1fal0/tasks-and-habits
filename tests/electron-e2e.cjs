@@ -43,6 +43,13 @@ const { _electron: electron } = require("playwright-core");
     assert.equal(await page.locator(".settings-accordion").first().getAttribute("open"), null);
     assert.equal(await page.locator("#remoteSyncPushButton").isDisabled(), true);
     assert.equal(await page.locator("#remoteSyncPullButton").isDisabled(), true);
+    await page.locator("#timeZoneSetting").evaluate((node) => node.closest("details")?.querySelector("summary")?.click());
+    await page.locator("#timeZoneSetting").fill("Asia/Yekaterinburg");
+    await page.locator("#timeZoneSetting").dispatchEvent("change");
+    assert.equal(
+      await page.evaluate(() => JSON.parse(localStorage.getItem("rhythm-day-state-v1")).profile.timeZone),
+      "Asia/Yekaterinburg",
+    );
 
     await page.setViewportSize({ height: 780, width: 390 });
     assert.equal(await page.locator(".task-filter-disclosure").getAttribute("open"), null);

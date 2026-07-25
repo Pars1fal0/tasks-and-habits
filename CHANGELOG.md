@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.17.0
+
+- Added automatic Supabase state snapshots with retention of the latest 30 versions and a recovery interface in Settings.
+- Added authenticated self-service account deletion while preserving local device data.
+- Added a synchronized user time zone so the app and ChatGPT agree on today and tomorrow.
+- Added atomic MCP task-plan preview/apply tools with one shared undo action.
+- Added custom task recurrence to MCP and guided prompts for weekly planning, backlog review, and monthly review.
+- Added real Electron accessibility and rendering checks across mobile and desktop views.
+- Fixed primary-action, calendar, goal metric, and mobile navigation contrast plus the timeline ARIA hierarchy.
+- Updated Electron, Electron Builder, and Wrangler and pinned vulnerable transitive build dependencies to audited versions.
+
 ## 0.16.0
 
 - Expanded the authenticated ChatGPT MCP integration from 13 to 26 tools.

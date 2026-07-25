@@ -39,6 +39,7 @@
       ...localState,
       ...remoteState,
       defaultsSeeded: localState.defaultsSeeded === true || remoteState.defaultsSeeded === true || categories.length > 0,
+      profile: mergeProfile(localState.profile, remoteState.profile),
       categories,
       tasks,
       habits: applyEntityOrder(habits, localState.habits, remoteState.habits, localMeta.habitOrderUpdatedAt, remoteMeta.habitOrderUpdatedAt),
@@ -48,6 +49,14 @@
       tombstones,
       syncMeta,
     };
+  }
+
+  function mergeProfile(local = {}, remote = {}) {
+    const localUpdatedAt = String(local?.updatedAt || "");
+    const remoteUpdatedAt = String(remote?.updatedAt || "");
+    if (!localUpdatedAt) return clone(remote);
+    if (!remoteUpdatedAt) return clone(local);
+    return clone(remoteUpdatedAt >= localUpdatedAt ? remote : local);
   }
 
   function mergeEntities(local = [], remote = [], mergeEntity = chooseNewest) {

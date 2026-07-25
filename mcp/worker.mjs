@@ -7,10 +7,12 @@ import {
   fetchKnowledge,
   getTodayOverview,
   searchKnowledge,
+  stateTimeZone,
   toDateKey,
 } from "./task-service.mjs";
 import { normalizeMcpActivity, recordMcpActivity } from "./activity-service.mjs";
 import { registerManagementTools } from "./management-tools.mjs";
+import { registerParsitasksPrompts } from "./prompts.mjs";
 import {
   createGoalCommand,
   deleteTaskCommand,
@@ -89,7 +91,7 @@ async function handleMcp(request, env, ctx) {
 
 export function createParsitasksServer(context) {
   const server = new McpServer(
-    { name: "parsitasks", version: "0.3.0" },
+    { name: "parsitasks", version: "0.4.0" },
     {
       instructions: [
         "Parsitasks stores the user's tasks, habits, goals, and calendar.",
@@ -124,8 +126,8 @@ export function createParsitasksServer(context) {
       annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
     },
     async ({ date }) => safeTool(async () => {
-      const dateKey = date || toDateKey(new Date(), context.timeZone);
       const snapshot = await context.store.read();
+      const dateKey = date || todayForState(snapshot.state, context);
       const result = getTodayOverview(snapshot.state, dateKey);
       return toolResult(result, `Обзор Parsitasks за ${dateKey} загружен`);
     }),
@@ -196,7 +198,8 @@ export function createParsitasksServer(context) {
         endTime: z.string().optional().describe("Конец временного блока HH:mm, шаг 15 минут"),
         category: z.string().max(60).optional(),
         priority: z.enum(["low", "medium", "high"]).optional(),
-        repeat: z.enum(["none", "daily", "every2days", "every3days", "weekdays", "weekends", "weekly", "monthly", "yearly"]).optional(),
+        repeat: z.enum(["none", "daily", "every2days", "every3days", "weekdays", "weekends", "weekly", "monthly", "yearly", "custom"]).optional(),
+        customRepeat: taskCustomRepeat().optional(),
         repeatUntil: z.string().optional().describe("Последняя дата повтора YYYY-MM-DD"),
         reminderOffset: z.enum(["none", "0", "5", "15", "30", "60", "1440"]).optional(),
       },
@@ -209,8 +212,8 @@ export function createParsitasksServer(context) {
       annotations: { readOnlyHint: false, openWorldHint: false, destructiveHint: false },
     },
     async (input) => safeTool(async () => {
-      const today = toDateKey(new Date(), context.timeZone);
       const result = await context.store.mutate((state) => {
+        const today = todayForState(state, context);
         const mutation = createTaskCommand(state, input, { today });
         if (!mutation.changed) return mutation;
         const summary = `Задача «${mutation.task.title}» создана на ${mutation.task.date}`;
@@ -252,9 +255,9 @@ export function createParsitasksServer(context) {
       annotations: { readOnlyHint: false, openWorldHint: false, destructiveHint: false },
     },
     async (input) => safeTool(async () => {
-      const today = toDateKey(new Date(), context.timeZone);
       const taskId = String(input.taskId || "").replace(/^task:/, "");
       const result = await context.store.mutate((state) => {
+        const today = todayForState(state, context);
         const previousActivity = (state.mcpActivity || [])
           .find((activity) => activity?.requestId === input.requestId);
         if (previousActivity) {
@@ -304,6 +307,7 @@ export function createParsitasksServer(context) {
     security: OAUTH_SECURITY,
     writeTool,
   });
+  registerParsitasksPrompts(server);
   return server;
 }
 
@@ -327,7 +331,8 @@ function registerExtendedTools(server, context) {
         startTime: z.string().optional(),
         endTime: z.string().optional(),
         reminderOffset: z.enum(["none", "0", "5", "15", "30", "60", "1440"]).optional(),
-        repeat: z.enum(["none", "daily", "every2days", "every3days", "weekdays", "weekends", "weekly", "monthly", "yearly"]).optional(),
+        repeat: z.enum(["none", "daily", "every2days", "every3days", "weekdays", "weekends", "weekly", "monthly", "yearly", "custom"]).optional(),
+        customRepeat: taskCustomRepeat().optional(),
         repeatUntil: z.string().optional(),
       },
       outputSchema: {
@@ -389,8 +394,8 @@ function registerExtendedTools(server, context) {
       annotations: { readOnlyHint: false, openWorldHint: false, destructiveHint: false },
     },
     async (input) => {
-      const today = toDateKey(new Date(), context.timeZone);
-      return writeTool(context, (state) => setHabitValueCommand(state, input, { today }));
+      return writeTool(context, (state) =>
+        setHabitValueCommand(state, input, { today: todayForState(state, context) }));
     },
   );
 
@@ -464,8 +469,8 @@ function registerExtendedTools(server, context) {
       annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
     },
     async ({ date, mode }) => safeTool(async () => {
-      const dateKey = date || toDateKey(new Date(), context.timeZone);
       const snapshot = await context.store.read();
+      const dateKey = date || todayForState(snapshot.state, context);
       const result = getDayBrief(snapshot.state, dateKey, mode || "plan");
       return toolResult(result, `${mode === "review" ? "Итог" : "План"} на ${dateKey} подготовлен`);
     }),
@@ -565,6 +570,19 @@ function toolResult(structuredContent, text) {
     structuredContent,
     content: [{ type: "text", text: String(text || JSON.stringify(structuredContent)) }],
   };
+}
+
+function taskCustomRepeat() {
+  return z.object({
+    type: z.enum(["weekdays", "monthDay", "interval"]),
+    weekdays: z.array(z.number().int().min(0).max(6)).optional(),
+    day: z.number().int().min(1).max(31).optional(),
+    every: z.number().int().min(1).max(365).optional(),
+  });
+}
+
+function todayForState(state, context) {
+  return toDateKey(new Date(), stateTimeZone(state, context.timeZone));
 }
 
 function protectedResourceMetadata(url, env) {

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   acknowledgeOverdueCommand,
+  applyTaskPlanCommand,
   createHabitCommand,
   deleteCategoryCommand,
   deleteGoalCommand,
@@ -9,12 +10,13 @@ import {
   getCalendarRange,
   getProductivityStats,
   listCategories,
+  previewTaskPlan,
   setHabitActiveCommand,
   updateGoalCommand,
   updateHabitCommand,
   upsertCategoryCommand,
 } from "./management-service.mjs";
-import { toDateKey } from "./task-service.mjs";
+import { stateTimeZone, toDateKey } from "./task-service.mjs";
 
 export function registerManagementTools(server, context, helpers) {
   const security = helpers.security;
@@ -63,8 +65,8 @@ export function registerManagementTools(server, context, helpers) {
       annotations: readOnly(),
     },
     async (input) => {
-      const today = toDateKey(new Date(), context.timeZone);
-      return helpers.readTool(context, (state) => getBacklog(state, input, { today }));
+      return helpers.readTool(context, (state) =>
+        getBacklog(state, input, { today: todayForState(state, context) }));
     },
   );
 
@@ -107,6 +109,47 @@ export function registerManagementTools(server, context, helpers) {
   );
 
   server.registerTool(
+    "preview_task_plan",
+    {
+      title: "Предпросмотр плана задач",
+      description: "Проверяет пакет переносов и изменений задач без сохранения. Используй перед apply_task_plan.",
+      inputSchema: {
+        operations: z.array(taskPlanOperation()).min(1).max(30),
+      },
+      outputSchema: {
+        operations: z.array(z.record(z.string(), z.unknown())),
+        conflicts: z.array(z.record(z.string(), z.unknown())),
+        summary: z.record(z.string(), z.number()),
+      },
+      securitySchemes: security,
+      annotations: readOnly(),
+    },
+    async (input) => helpers.readTool(context, (state) => previewTaskPlan(state, input)),
+  );
+
+  server.registerTool(
+    "apply_task_plan",
+    {
+      title: "Применить подтверждённый план задач",
+      description: "Атомарно применяет ранее показанный пакет изменений. Возвращает один actionId для общего Undo.",
+      inputSchema: {
+        requestId: requestId(),
+        operations: z.array(taskPlanOperation()).min(1).max(30),
+        confirm: z.boolean(),
+      },
+      outputSchema: {
+        saved: z.boolean(),
+        operations: z.array(z.record(z.string(), z.unknown())),
+        conflicts: z.array(z.record(z.string(), z.unknown())).optional(),
+        actionId: z.string(),
+      },
+      securitySchemes: security,
+      annotations: writeSafe(),
+    },
+    async (input) => helpers.writeTool(context, (state) => applyTaskPlanCommand(state, input)),
+  );
+
+  server.registerTool(
     "create_habit",
     {
       title: "Создать привычку",
@@ -131,8 +174,8 @@ export function registerManagementTools(server, context, helpers) {
       annotations: writeSafe(),
     },
     async (input) => {
-      const today = toDateKey(new Date(), context.timeZone);
-      return helpers.writeTool(context, (state) => createHabitCommand(state, input, { today }));
+      return helpers.writeTool(context, (state) =>
+        createHabitCommand(state, input, { today: todayForState(state, context) }));
     },
   );
 
@@ -162,8 +205,8 @@ export function registerManagementTools(server, context, helpers) {
       annotations: writeSafe(),
     },
     async (input) => {
-      const today = toDateKey(new Date(), context.timeZone);
-      return helpers.writeTool(context, (state) => updateHabitCommand(state, input, { today }));
+      return helpers.writeTool(context, (state) =>
+        updateHabitCommand(state, input, { today: todayForState(state, context) }));
     },
   );
 
@@ -189,8 +232,8 @@ export function registerManagementTools(server, context, helpers) {
       annotations: writeSafe(),
     },
     async (input) => {
-      const today = toDateKey(new Date(), context.timeZone);
-      return helpers.writeTool(context, (state) => setHabitActiveCommand(state, input, { today }));
+      return helpers.writeTool(context, (state) =>
+        setHabitActiveCommand(state, input, { today: todayForState(state, context) }));
     },
   );
 
@@ -338,6 +381,10 @@ function requestId() {
   return z.string().min(8).max(100);
 }
 
+function todayForState(state, context) {
+  return toDateKey(new Date(), stateTimeZone(state, context.timeZone));
+}
+
 function habitRepeat() {
   return z.enum(["daily", "every2days", "every3days", "weekdays", "weekends", "weekly", "custom"]);
 }
@@ -348,6 +395,26 @@ function customRepeat() {
     weekdays: z.array(z.number().int().min(0).max(6)).optional(),
     day: z.number().int().min(1).max(31).optional(),
     every: z.number().int().min(1).max(365).optional(),
+  });
+}
+
+function taskPlanOperation() {
+  return z.object({
+    taskId: z.string(),
+    occurrenceDate: z.string().optional(),
+    scope: z.enum(["occurrence", "following", "series"]).optional(),
+    title: z.string().min(1).max(200).optional(),
+    date: z.string().optional(),
+    category: z.string().max(60).optional(),
+    priority: z.enum(["low", "medium", "high"]).optional(),
+    scheduleMode: z.enum(["none", "deadline", "block"]).optional(),
+    time: z.string().optional(),
+    startTime: z.string().optional(),
+    endTime: z.string().optional(),
+    reminderOffset: z.enum(["none", "0", "5", "15", "30", "60", "1440"]).optional(),
+    repeat: z.enum(["none", "daily", "every2days", "every3days", "weekdays", "weekends", "weekly", "monthly", "yearly", "custom"]).optional(),
+    customRepeat: customRepeat().optional(),
+    repeatUntil: z.string().optional(),
   });
 }
 

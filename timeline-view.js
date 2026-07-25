@@ -68,7 +68,7 @@
         slot.className = "timeline-hour-slot";
         slot.style.minHeight = `${hourHeight}px`;
         slot.dataset.hour = String(row.hour);
-        slot.setAttribute("role", "list");
+        slot.setAttribute("role", "group");
         slot.setAttribute("aria-label", `Задачи на ${row.label}`);
         timelineDrag.attachDropZone(slot, row.hour);
         attachSlotCreate(slot, row.hour);
@@ -107,7 +107,7 @@
       card.classList.toggle("is-time-block", entry.isTimeBlock);
       card.classList.toggle("is-deadline-marker", Number.isFinite(entry.minutes) && !entry.isTimeBlock);
       card.dataset.taskId = entry.task.id;
-      card.setAttribute("role", "listitem");
+      if (!Number.isFinite(entry.minutes)) card.setAttribute("role", "listitem");
       if (entry.categoryColor) card.style.setProperty("--timeline-color", entry.categoryColor);
       card.addEventListener("click", (event) => {
         if (card.dataset.suppressClick === "true" || event.target.closest(".timeline-resize-handle, .timeline-menu-button, .timeline-task-menu")) return;

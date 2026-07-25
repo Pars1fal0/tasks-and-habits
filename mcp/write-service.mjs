@@ -1,5 +1,5 @@
 import { recordMcpActivity, undoMcpActivity } from "./activity-service.mjs";
-import { taskScheduledOn } from "./task-service.mjs";
+import { normalizeCustomRepeat, taskScheduledOn } from "./task-service.mjs";
 
 const PRIORITIES = new Set(["low", "medium", "high"]);
 const SCOPES = new Set(["occurrence", "following", "series"]);
@@ -340,8 +340,15 @@ function applyTaskChanges(state, task, input, options, now) {
     changed.push("reminderOffset");
   }
   if (input.repeat !== undefined) {
+    if (!new Set(["none", "daily", "every2days", "every3days", "weekdays", "weekends", "weekly", "monthly", "yearly", "custom"]).has(input.repeat)) {
+      throw new Error("Неизвестный тип повтора");
+    }
     task.repeat = input.repeat;
     changed.push("repeat");
+  }
+  if (input.customRepeat !== undefined) {
+    task.customRepeat = normalizeCustomRepeat(input.customRepeat);
+    changed.push("customRepeat");
   }
   if (input.repeatUntil !== undefined) {
     task.repeatUntil = input.repeatUntil ? normalizeDate(input.repeatUntil) : "";

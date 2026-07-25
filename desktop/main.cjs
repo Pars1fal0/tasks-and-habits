@@ -463,8 +463,10 @@ function createWindow() {
         click('[data-view="timeline"]');
         const timelineAccessibilityWorks =
           document.querySelector("#timelineSummary")?.getAttribute("aria-live") === "polite" &&
-          document.querySelectorAll(".timeline-hour-slot[role='list']").length >= 8 &&
-          document.querySelectorAll(".timeline-task[role='listitem']").length >= 1;
+          document.querySelectorAll(".timeline-hour-slot[role='group']").length >= 8 &&
+          document.querySelectorAll(".timeline-task.is-scheduled").length >= 1 &&
+          document.querySelector("#timelineUnscheduledList")?.getAttribute("role") === "list" &&
+          !document.querySelector(".timeline-task.is-scheduled[role='listitem']");
 
         document.querySelector('[data-view="overview"]').click();
         document.querySelector('[data-overview-mode="year"]').click();

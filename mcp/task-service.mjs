@@ -4,8 +4,9 @@ const CATEGORY_COLORS = ["#19b394", "#4f8cff", "#f59e0b", "#e96b75", "#8b7cf6", 
 
 export function createEmptyState() {
   return {
-    schemaVersion: 12,
+    schemaVersion: 13,
     defaultsSeeded: false,
+    profile: { timeZone: "Europe/Moscow" },
     tasks: [],
     habits: [],
     goals: [],
@@ -183,7 +184,7 @@ export function createTaskCommand(state, input, options = {}) {
     repeatUntil: input.repeatUntil ? normalizeDateKey(input.repeatUntil) : "",
     sourceTaskId: "",
     movedFromDate: "",
-    customRepeat: { type: "weekdays", weekdays: [1, 3, 5] },
+    customRepeat: normalizeCustomRepeat(input.customRepeat),
     reminderOffset: schedule.mode === "none" ? "none" : normalizeReminder(input.reminderOffset),
     completed: {},
     acknowledgedOverdue: {},
@@ -284,6 +285,25 @@ export function toDateKey(date = new Date(), timeZone = "Europe/Moscow") {
   }).formatToParts(date);
   const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
   return `${values.year}-${values.month}-${values.day}`;
+}
+
+export function stateTimeZone(state, fallback = "Europe/Moscow") {
+  return normalizeTimeZone(state?.profile?.timeZone || fallback);
+}
+
+export function normalizeCustomRepeat(value) {
+  const source = value && typeof value === "object" ? value : {};
+  if (source.type === "monthDay") {
+    return { type: "monthDay", day: clampInteger(source.day, 1, 31, 1) };
+  }
+  if (source.type === "interval") {
+    return { type: "interval", every: clampInteger(source.every, 1, 365, 1) };
+  }
+  const weekdays = [...new Set((Array.isArray(source.weekdays) ? source.weekdays : [1, 3, 5])
+    .map(Number)
+    .filter((day) => Number.isInteger(day) && day >= 0 && day <= 6))]
+    .sort((left, right) => left - right);
+  return { type: "weekdays", weekdays: weekdays.length ? weekdays : [1, 3, 5] };
 }
 
 function habitsForDate(state, dateKey) {
@@ -396,7 +416,9 @@ function normalizeReminder(value) {
 
 function ensureStateShape(state) {
   if (!state || typeof state !== "object" || Array.isArray(state)) throw new Error("Состояние приложения повреждено");
-  state.schemaVersion = Number(state.schemaVersion) || 12;
+  state.schemaVersion = Number(state.schemaVersion) || 13;
+  state.profile = state.profile && typeof state.profile === "object" ? state.profile : {};
+  state.profile.timeZone = normalizeTimeZone(state.profile.timeZone);
   state.tasks = Array.isArray(state.tasks) ? state.tasks : [];
   state.habits = Array.isArray(state.habits) ? state.habits : [];
   state.goals = Array.isArray(state.goals) ? state.goals : [];
@@ -407,6 +429,16 @@ function ensureStateShape(state) {
     ? state.tombstones
     : { tasks: {}, habits: {}, goals: {}, categories: {} };
   state.syncMeta = normalizeSyncMeta(state.syncMeta);
+}
+
+function normalizeTimeZone(value) {
+  const candidate = String(value || "Europe/Moscow");
+  try {
+    new Intl.DateTimeFormat("ru-RU", { timeZone: candidate }).format(new Date());
+    return candidate;
+  } catch {
+    return "Europe/Moscow";
+  }
 }
 
 function normalizeSyncMeta(value) {

@@ -88,6 +88,24 @@ module.exports = [
     },
   },
   {
+    name: "MCP creates tasks with custom interval recurrence",
+    async fn() {
+      const service = await loadService();
+      const result = service.createTaskCommand(service.createEmptyState(), {
+        requestId: "request-custom-repeat",
+        title: "Every four days",
+        date: "2026-07-20",
+        repeat: "custom",
+        customRepeat: { type: "interval", every: 4 },
+      }, { today: "2026-07-20" });
+
+      assert.equal(result.task.repeat, "custom");
+      assert.deepEqual(result.task.customRepeat, { type: "interval", every: 4 });
+      assert.equal(service.taskScheduledOn(result.task, "2026-07-24"), true);
+      assert.equal(service.taskScheduledOn(result.task, "2026-07-23"), false);
+    },
+  },
+  {
     name: "MCP completes only the selected occurrence of a recurring task",
     async fn() {
       const service = await loadService();
@@ -157,6 +175,16 @@ module.exports = [
       assert.equal(overview.tasks[0].title, "Тренировка");
       assert.equal(overview.habits[0].value, 4);
       assert.equal(overview.habits[0].completed, false);
+    },
+  },
+  {
+    name: "MCP resolves today using the synchronized profile time zone",
+    async fn() {
+      const service = await loadService();
+      const state = service.createEmptyState();
+      state.profile = { timeZone: "Asia/Yekaterinburg" };
+      assert.equal(service.stateTimeZone(state, "Europe/Moscow"), "Asia/Yekaterinburg");
+      assert.equal(service.stateTimeZone({ profile: { timeZone: "invalid" } }, "Europe/Moscow"), "Europe/Moscow");
     },
   },
   {

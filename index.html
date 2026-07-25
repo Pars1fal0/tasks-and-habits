@@ -872,6 +872,24 @@
                   <option value="sunday">Воскресенье</option>
                 </select>
               </label>
+              <label class="settings-row">
+                <span>
+                  <strong>Часовой пояс</strong>
+                  <small>Используется приложением и ChatGPT для слов «сегодня» и «завтра».</small>
+                </span>
+                <input id="timeZoneSetting" list="timeZoneOptions" autocomplete="off" aria-label="Часовой пояс">
+                <datalist id="timeZoneOptions">
+                  <option value="Europe/Moscow"></option>
+                  <option value="Europe/Kaliningrad"></option>
+                  <option value="Europe/Samara"></option>
+                  <option value="Asia/Yekaterinburg"></option>
+                  <option value="Asia/Omsk"></option>
+                  <option value="Asia/Novosibirsk"></option>
+                  <option value="Asia/Irkutsk"></option>
+                  <option value="Asia/Vladivostok"></option>
+                  <option value="UTC"></option>
+                </datalist>
+              </label>
               <div class="settings-actions">
                 <button class="ghost-button compact-button" id="settingsResetButton" type="button">Сбросить интерфейс</button>
               </div>
@@ -986,6 +1004,21 @@
                 <button class="ghost-button compact-button" id="remoteSyncPullButton" type="button">Загрузить из облака</button>
                 <button class="ghost-button compact-button" id="remoteSyncCheckButton" type="button">Проверить подключение</button>
               </div>
+              <div class="settings-row remote-version-row">
+                <span>
+                  <strong>История облачных версий</strong>
+                  <small>Перед каждым изменением база сохраняет предыдущую версию. Хранятся последние 30.</small>
+                </span>
+                <select id="remoteSnapshotSelect" aria-label="Облачная версия">
+                  <option value="">Загрузи список версий</option>
+                </select>
+              </div>
+              <div class="settings-actions">
+                <button class="ghost-button compact-button" id="remoteSnapshotsLoadButton" type="button">Показать версии</button>
+                <button class="ghost-button compact-button" id="remoteSnapshotRestoreButton" type="button" disabled>Восстановить версию</button>
+                <button class="ghost-button compact-button danger-button" id="remoteAccountDeleteButton" type="button">Удалить аккаунт и облако</button>
+              </div>
+              <p class="settings-status" id="remoteSnapshotsStatus" aria-live="polite">История версий ещё не загружена</p>
               <div class="settings-actions">
                 <button class="ghost-button compact-button" id="settingsExportSettingsButton" type="button">Экспорт настроек</button>
                 <button class="ghost-button compact-button" id="settingsImportSettingsButton" type="button">Импорт настроек</button>
@@ -1109,9 +1142,11 @@
     <script src="remote-auth-controller.js?v=1" defer></script>
     <script src="remote-sync.js?v=2" defer></script>
     <script src="remote-sync-controller.js?v=4" defer></script>
+    <script src="remote-data-controller.js?v=1" defer></script>
     <script src="device-sync-controller.js?v=1" defer></script>
     <script src="sync-history.js?v=1" defer></script>
     <script src="settings-state.js?v=2" defer></script>
+    <script src="profile-settings.js?v=1" defer></script>
     <script src="data-normalizers.js?v=1" defer></script>
     <script src="sync-metadata.js?v=1" defer></script>
     <script src="tombstone-retention.js?v=1" defer></script>

@@ -111,6 +111,59 @@
       return { found: Boolean(row), ok: true, row };
     }
 
+    async function listSnapshots(config, limit = 10) {
+      ensureFetch();
+      const normalized = normalizeConfig(config);
+      ensureConfigured(normalized);
+      const safeLimit = Math.max(1, Math.min(30, Number(limit) || 10));
+      const query = `select=id,schema_version,created_at&user_id=eq.${encodeURIComponent(normalized.userId)}&order=created_at.desc&limit=${safeLimit}`;
+      const response = await fetchFn(`${normalized.supabaseUrl}/rest/v1/rhythm_state_snapshots?${query}`, {
+        headers: supabaseHeaders(normalized),
+      });
+      const data = await readResponse(response);
+      if (!response.ok) throw createRemoteError("snapshots-failed", response, data);
+      return { ok: true, snapshots: Array.isArray(data) ? data : [] };
+    }
+
+    async function restoreSnapshot(config, snapshotId) {
+      ensureFetch();
+      const normalized = normalizeConfig(config);
+      ensureConfigured(normalized);
+      const id = String(snapshotId || "").trim();
+      if (!/^\d+$/.test(id)) throw new Error("Snapshot is not selected");
+      const query = `select=state,schema_version,created_at&id=eq.${encodeURIComponent(id)}&user_id=eq.${encodeURIComponent(normalized.userId)}&limit=1`;
+      const response = await fetchFn(`${normalized.supabaseUrl}/rest/v1/rhythm_state_snapshots?${query}`, {
+        headers: supabaseHeaders(normalized),
+      });
+      const data = await readResponse(response);
+      if (!response.ok) throw createRemoteError("snapshot-restore-failed", response, data);
+      const snapshot = Array.isArray(data) ? data[0] : null;
+      if (!snapshot?.state) throw new Error("Snapshot is not available");
+      const current = await pullState(normalized);
+      const saved = await pushState(normalized, {
+        state: snapshot.state,
+        schemaVersion: snapshot.schema_version,
+        uiState: current.uiState || {},
+        expectedUpdatedAt: current.updatedAt,
+        expectMissing: !current.found,
+      });
+      return { ok: true, snapshot, saved };
+    }
+
+    async function deleteAccount(config) {
+      ensureFetch();
+      const normalized = normalizeConfig(config);
+      ensureConfigured(normalized);
+      const response = await fetchFn(`${normalized.supabaseUrl}/rest/v1/rpc/delete_parsitasks_account`, {
+        method: "POST",
+        headers: supabaseHeaders(normalized),
+        body: "{}",
+      });
+      const data = await readResponse(response);
+      if (!response.ok) throw createRemoteError("account-delete-failed", response, data);
+      return { ok: true };
+    }
+
     function ensureFetch() {
       if (!fetchFn) throw new Error("Fetch API is not available for remote sync");
     }
@@ -152,10 +205,13 @@
 
     return {
       checkConnection,
+      deleteAccount,
       isConfigured,
+      listSnapshots,
       normalizeConfig,
       pullState,
       pushState,
+      restoreSnapshot,
     };
   }
 

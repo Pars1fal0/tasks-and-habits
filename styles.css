@@ -16,7 +16,8 @@
   --line: rgba(226, 240, 235, 0.11);
   --line-strong: rgba(226, 240, 235, 0.2);
   --teal: #27c6a5;
-  --teal-deep: #11977e;
+  --teal-deep: #29b99c;
+  --button-primary: #08745f;
   --teal-soft: rgba(39, 198, 165, 0.14);
   --violet: #8b91ff;
   --violet-soft: rgba(139, 145, 255, 0.14);
@@ -63,6 +64,7 @@
   --line-strong: #cbd8d3;
   --teal: #0f8f78;
   --teal-deep: #0b705f;
+  --button-primary: #0b705f;
   --teal-soft: #e7f5f1;
   --violet: #5d62c6;
   --violet-soft: #eeeffb;
@@ -648,8 +650,8 @@ select:focus-visible {
 }
 
 .primary-button {
-  border: 1px solid var(--teal-deep);
-  background: var(--teal-deep);
+  border: 1px solid var(--button-primary);
+  background: var(--button-primary);
   box-shadow: 0 8px 18px rgba(15, 143, 120, 0.18);
   color: #ffffff;
   font-size: 14px;
@@ -658,7 +660,7 @@ select:focus-visible {
 
 .primary-button:hover {
   transform: translateY(-1px);
-  background: #0b7e69;
+  background: #066451;
   box-shadow: 0 12px 26px rgba(15, 143, 120, 0.22);
 }
 
@@ -1338,6 +1340,11 @@ body.has-floating-task-form::before {
 
 .goal-metric-done {
   background: color-mix(in srgb, var(--teal) 9%, var(--surface));
+}
+
+.goal-metric-done .metric-label,
+.goal-metric-alert .metric-label {
+  color: var(--text-soft);
 }
 
 .goal-list {
@@ -3726,12 +3733,16 @@ body.has-floating-task-form::before {
 }
 
 .month-day.is-outside {
-  opacity: 0.48;
+  background: var(--surface-soft);
+}
+
+.month-day.is-outside .month-day-head strong {
+  color: var(--text-soft);
 }
 
 .week-board-day.is-today .week-board-header strong,
 .month-day.is-today .month-day-head strong {
-  background: var(--teal);
+  background: var(--button-primary);
   color: #ffffff;
 }
 

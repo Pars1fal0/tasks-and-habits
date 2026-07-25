@@ -1,12 +1,13 @@
 const assert = require("node:assert/strict");
 
 async function loadServices() {
-  const [taskService, managementService, writeService] = await Promise.all([
+  const [taskService, managementService, writeService, activityService] = await Promise.all([
     import("../mcp/task-service.mjs"),
     import("../mcp/management-service.mjs"),
     import("../mcp/write-service.mjs"),
+    import("../mcp/activity-service.mjs"),
   ]);
-  return { taskService, managementService, writeService };
+  return { taskService, managementService, writeService, activityService };
 }
 
 function task(overrides = {}) {
@@ -234,6 +235,47 @@ module.exports = [
       assert.equal(undone.state.goals.length, 1);
       assert.notEqual(undone.state.goals[0].id, "goal-1");
       assert.ok(undone.state.tombstones.goals["goal-1"]);
+    },
+  },
+  {
+    name: "MCP previews and atomically applies a task plan with one undo action",
+    async fn() {
+      const { taskService, managementService, activityService } = await loadServices();
+      const state = taskService.createEmptyState();
+      state.tasks.push({
+        id: "plan-task",
+        title: "Plan task",
+        date: "2026-07-25",
+        priority: "high",
+        repeat: "none",
+        completed: {},
+        excludedDates: {},
+      });
+      const operations = [{
+        taskId: "plan-task",
+        date: "2026-07-27",
+        scheduleMode: "block",
+        startTime: "10:00",
+        endTime: "10:30",
+      }];
+      const preview = managementService.previewTaskPlan(state, { operations });
+      assert.equal(state.tasks[0].date, "2026-07-25");
+      assert.equal(preview.operations[0].date, "2026-07-27");
+
+      const applied = managementService.applyTaskPlanCommand(state, {
+        requestId: "weekly-plan-apply",
+        operations,
+        confirm: true,
+      }, { now: "2026-07-25T10:00:00.000Z" });
+      assert.equal(applied.state.tasks[0].date, "2026-07-27");
+      assert.equal(applied.state.mcpActivity.length, 1);
+
+      const undone = activityService.undoMcpActivity(
+        applied.state,
+        applied.activity.id,
+        "2026-07-25T10:01:00.000Z",
+      );
+      assert.equal(undone.state.tasks[0].date, "2026-07-25");
     },
   },
 ];

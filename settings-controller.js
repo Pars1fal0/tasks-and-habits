@@ -20,6 +20,7 @@
       ctx.els.firstDayOfWeek?.addEventListener("change", () => ctx.updateSetting("firstDayOfWeek", ctx.els.firstDayOfWeek.value));
       ctx.els.densityPreference?.addEventListener("change", () => ctx.updateSetting("densityPreference", ctx.els.densityPreference.value));
       ctx.els.timeFormat?.addEventListener("change", () => ctx.updateSetting("timeFormat", ctx.els.timeFormat.value));
+      ctx.els.timeZoneSetting?.addEventListener("change", () => ctx.updateTimeZone(ctx.els.timeZoneSetting.value));
     }
 
     function syncControls(settings = ctx.getSettings()) {
@@ -29,6 +30,7 @@
       setValue(ctx.els.firstDayOfWeek, settings.firstDayOfWeek);
       setValue(ctx.els.densityPreference, settings.densityPreference);
       setValue(ctx.els.timeFormat, settings.timeFormat);
+      setValue(ctx.els.timeZoneSetting, settings.timeZone);
       settingsSync.syncControls(settings);
       ctx.renderBackupStatus?.();
     }

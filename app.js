@@ -1,4 +1,4 @@
-﻿const SCHEMA_VERSION = 12;
+﻿const SCHEMA_VERSION = 13;
 const VALID_PRIORITIES = ["high", "medium", "low"];
 const VALID_HABIT_REPEATS = ["daily", "every2days", "every3days", "weekdays", "weekends", "weekly", "custom"];
 const VALID_REMINDER_OFFSETS = ["none", "0", "5", "15", "30", "60", "1440"];
@@ -47,6 +47,7 @@ const settingsState = window.RhythmSettingsState.createSettingsState({
   cleanText,
   validBackupSchedules: VALID_BACKUP_SCHEDULES,
 });
+const profileSettings = window.RhythmProfileSettings;
 const stateNormalizer = window.RhythmStateNormalizer.createStateNormalizer({
   schemaVersion: SCHEMA_VERSION,
   validPriorities: VALID_PRIORITIES,
@@ -61,6 +62,7 @@ const stateNormalizer = window.RhythmStateNormalizer.createStateNormalizer({
   normalizeHabitTitleHistory: window.RhythmHabitTitleHistory.normalizeHabitTitleHistory,
   normalizeReminderOffset,
   normalizeMcpActivity: window.RhythmMcpActivity.normalizeActivity,
+  normalizeProfile: profileSettings.normalizeProfile,
   pruneTombstones: window.RhythmTombstoneRetention.pruneTombstones,
   normalizeSyncMeta: window.RhythmSyncMetadata.normalizeSyncMeta,
   pruneSyncMeta: window.RhythmSyncMetadata.pruneSyncMeta,
@@ -266,11 +268,16 @@ const els = {
   remoteAuthSignUpButton: document.querySelector("#remoteAuthSignUpButton"),
   remoteAuthStatus: document.querySelector("#remoteAuthStatus"),
   remoteSyncCheckButton: document.querySelector("#remoteSyncCheckButton"),
+  remoteAccountDeleteButton: document.querySelector("#remoteAccountDeleteButton"),
   remoteSyncEnabled: document.querySelector("#remoteSyncEnabled"),
   remoteSyncHistory: document.querySelector("#remoteSyncHistory"),
   mcpActivityList: document.querySelector("#mcpActivityList"),
   remoteSyncPullButton: document.querySelector("#remoteSyncPullButton"),
   remoteSyncPushButton: document.querySelector("#remoteSyncPushButton"),
+  remoteSnapshotRestoreButton: document.querySelector("#remoteSnapshotRestoreButton"),
+  remoteSnapshotSelect: document.querySelector("#remoteSnapshotSelect"),
+  remoteSnapshotsLoadButton: document.querySelector("#remoteSnapshotsLoadButton"),
+  remoteSnapshotsStatus: document.querySelector("#remoteSnapshotsStatus"),
   remoteSyncStatus: document.querySelector("#remoteSyncStatus"),
   remoteSyncUrl: document.querySelector("#remoteSyncUrl"),
   resetHabitForm: document.querySelector("#resetHabitForm"),
@@ -324,6 +331,7 @@ const els = {
   taskTitle: document.querySelector("#taskTitle"),
   themePreference: document.querySelector("#themePreference"),
   timeFormat: document.querySelector("#timeFormat"),
+  timeZoneSetting: document.querySelector("#timeZoneSetting"),
   timelineEmpty: document.querySelector("#timelineEmpty"),
   timelineGrid: document.querySelector("#timelineGrid"),
   timelineSummary: document.querySelector("#timelineSummary"),
@@ -788,7 +796,7 @@ const settingsController = window.RhythmSettingsController.createSettingsControl
   els,
   exportData,
   exportSettings: settingsTransfer.exportSettings,
-  getSettings: getUiSettings,
+  getSettings: () => ({ ...getUiSettings(), timeZone: state.profile.timeZone }),
   importSettings: settingsTransfer.importSettings,
   openBackupFolder,
   checkRemoteConnection,
@@ -800,6 +808,7 @@ const settingsController = window.RhythmSettingsController.createSettingsControl
   resetInterfaceSettings: settingsTransfer.resetInterfaceSettings,
   restoreBackup,
   updateSetting,
+  updateTimeZone,
 });
 
 const remoteSyncWorkflow = window.RhythmRemoteSyncController.createRemoteSyncWorkflow({
@@ -859,6 +868,35 @@ const remoteAuthController = window.RhythmRemoteAuthController.createRemoteAuthC
     await remoteSyncWorkflow.resumePending();
     return result;
   },
+});
+const remoteDataController = window.RhythmRemoteDataController.createRemoteDataController({
+  afterAccountDeleted: async () => {
+    remoteSyncEnabled = "off";
+    remoteSyncPending = false;
+    await remoteAuth.signOut();
+    saveUiState();
+    settingsController.syncControls();
+    remoteAuthController.render();
+    renderRemoteSyncStatus();
+  },
+  confirmAction,
+  createImportSafetyBackup,
+  els,
+  formatDate: formatBackupDate,
+  getConfig: () => remoteSync.normalizeConfig({
+    accessToken: remoteAuth.getSession()?.access_token || "",
+    anonKey: remoteSyncAnonKey,
+    enabled: true,
+    supabaseUrl: remoteSyncUrl,
+    userId: remoteAuth.getSession()?.user?.id || "",
+  }),
+  getState: () => state,
+  isReady: () => Boolean(remoteAuth.getSession()?.access_token && remoteSyncUrl && remoteSyncAnonKey),
+  remoteSync,
+  render,
+  replaceState,
+  saveState,
+  showToast,
 });
 const deviceSyncController = window.RhythmDeviceSyncController.createDeviceSyncController({
   ensureFreshSession: () => remoteAuth.ensureFreshSession().catch(() => null),
@@ -1074,6 +1112,7 @@ function init() {
   applySettingsPreferences();
   settingsController.syncControls();
   confirmDialog.bindEvents();
+  remoteDataController.bindEvents();
   appEvents.bind();
   syncNavigationRoute({ replace: true });
   resetTaskForm({ open: false });
@@ -2203,6 +2242,21 @@ function normalizeTimeFormat(value) {
 
 function normalizeRemoteSyncEnabled(value) {
   return settingsState.normalizeRemoteSyncEnabled(value);
+}
+
+function updateTimeZone(value) {
+  const fallback = profileSettings.detectTimeZone();
+  const normalized = profileSettings.normalizeTimeZone(value, fallback);
+  if (normalized !== String(value || "").trim()) {
+    settingsController.syncControls();
+    showToast("Укажи часовой пояс в формате Europe/Moscow");
+    return;
+  }
+  state.profile = { timeZone: normalized, updatedAt: new Date().toISOString() };
+  saveState();
+  settingsController.syncControls();
+  render();
+  showToast(`Часовой пояс: ${normalized}`);
 }
 
 function applyThemePreference() {

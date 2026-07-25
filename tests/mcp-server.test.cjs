@@ -8,6 +8,7 @@ module.exports = [
     fn() {
       const source = fs.readFileSync(path.resolve(__dirname, "../mcp/worker.mjs"), "utf8");
       const managementSource = fs.readFileSync(path.resolve(__dirname, "../mcp/management-tools.mjs"), "utf8");
+      const promptsSource = fs.readFileSync(path.resolve(__dirname, "../mcp/prompts.mjs"), "utf8");
       const toolNames = [...`${source}\n${managementSource}`.matchAll(/server\.registerTool\(\s*"([^"]+)"/g)]
         .map((match) => match[1]);
 
@@ -29,6 +30,8 @@ module.exports = [
         "get_backlog",
         "get_productivity_stats",
         "list_categories",
+        "preview_task_plan",
+        "apply_task_plan",
         "create_habit",
         "update_habit",
         "set_habit_active",
@@ -44,6 +47,10 @@ module.exports = [
       assert.match(source, /annotations:\s*\{\s*readOnlyHint:\s*false,\s*openWorldHint:\s*false,\s*destructiveHint:\s*false\s*\}/);
       assert.match(source, /"delete_task"[\s\S]*confirm:\s*z\.boolean/);
       assert.match(source, /destructiveHint:\s*true/);
+      assert.deepEqual(
+        [...promptsSource.matchAll(/server\.registerPrompt\(\s*"([^"]+)"/g)].map((match) => match[1]),
+        ["plan_week", "review_backlog", "monthly_review"],
+      );
     },
   },
 ];
