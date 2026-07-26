@@ -4,6 +4,7 @@
     habit: "Привычка",
     goal: "Цель",
     journal: "Дневник",
+    nutrition: "Питание",
     archive: "Архив",
   };
 
@@ -70,6 +71,28 @@
         detail: excerptAround(entry.text, search),
         date: entry.date,
         view: "journal",
+      });
+    });
+    (state.nutritionMeals || []).forEach((meal) => {
+      const ingredients = (meal.ingredients || []).map((item) => item.name).join(" ");
+      if (!matches(`${meal.title} ${ingredients} ${meal.notes || ""}`, search)) return;
+      results.push({
+        id: meal.id,
+        type: "nutrition",
+        title: meal.title,
+        detail: [meal.date, meal.time].filter(Boolean).join(" · "),
+        date: meal.date,
+        view: "nutrition",
+      });
+    });
+    (state.nutritionFoods || []).forEach((food) => {
+      if (!matches(food.name, search)) return;
+      results.push({
+        id: food.id,
+        type: "nutrition",
+        title: food.name,
+        detail: `${food.calories || 0} ккал на 100 ${food.unit || "г"}`,
+        view: "nutrition",
       });
     });
     return results.slice(0, options.limit || 40);

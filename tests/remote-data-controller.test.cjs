@@ -7,8 +7,8 @@ module.exports = [
     name: "describes cloud snapshots with useful entity counts",
     fn() {
       assert.deepEqual(
-        snapshotSummaryParts({ goals: 2, habits: 4, tasks: 12 }),
-        ["12 задач", "4 привычек", "2 целей"],
+        snapshotSummaryParts({ goals: 2, habits: 4, nutritionMeals: 7, tasks: 12 }),
+        ["12 задач", "4 привычек", "2 целей", "7 блюд"],
       );
       assert.deepEqual(snapshotSummaryParts(), []);
       assert.deepEqual(
@@ -18,7 +18,7 @@ module.exports = [
           tasks: [{ title: "Проверить сборку" }, { title: "Опубликовать" }],
         }),
         {
-          counts: { goals: 1, habits: 1, journalEntries: 0, tasks: 2 },
+          counts: { goals: 1, habits: 1, journalEntries: 0, nutritionMeals: 0, tasks: 2 },
           examples: ["Проверить сборку", "Опубликовать", "Читать"],
         },
       );

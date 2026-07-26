@@ -32,6 +32,7 @@
       <symbol id="icon-heat" viewBox="0 0 24 24"><path d="M4 4h4v4H4V4ZM10 4h4v4h-4V4ZM16 4h4v4h-4V4ZM4 10h4v4H4v-4ZM10 10h4v4h-4v-4ZM16 10h4v4h-4v-4ZM4 16h4v4H4v-4ZM10 16h4v4h-4v-4ZM16 16h4v4h-4v-4Z"/></symbol>
       <symbol id="icon-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 7v5l3 2"/></symbol>
       <symbol id="icon-journal" viewBox="0 0 24 24"><path d="M5 3h13a2 2 0 0 1 2 2v16H7a3 3 0 0 1-3-3V4a1 1 0 0 1 1-1Z"/><path d="M8 3v18M11 8h6M11 12h6"/></symbol>
+      <symbol id="icon-nutrition" viewBox="0 0 24 24"><path d="M7 3v8M4 3v5a3 3 0 0 0 6 0V3M7 11v10M16 3v18M16 3c3 1 4 4 4 7h-4"/></symbol>
       <symbol id="icon-more" viewBox="0 0 24 24"><path d="M5 12h.01M12 12h.01M19 12h.01"/></symbol>
       <symbol id="icon-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
       <symbol id="icon-rotate" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></symbol>
@@ -77,6 +78,10 @@
             <svg class="ui-icon"><use href="#icon-calendar"></use></svg>
             <span>Календарь</span>
           </button>
+          <button class="nav-tab" data-view="nutrition" type="button">
+            <svg class="ui-icon"><use href="#icon-nutrition"></use></svg>
+            <span>Питание</span>
+          </button>
           <button class="nav-tab" data-view="journal" type="button">
             <svg class="ui-icon"><use href="#icon-journal"></use></svg>
             <span>Дневник</span>
@@ -102,6 +107,10 @@
               <button class="nav-tab" data-view="journal" type="button">
                 <svg class="ui-icon"><use href="#icon-journal"></use></svg>
                 <span>Дневник</span>
+              </button>
+              <button class="nav-tab" data-view="nutrition" type="button">
+                <svg class="ui-icon"><use href="#icon-nutrition"></use></svg>
+                <span>Питание</span>
               </button>
               <button class="nav-tab" data-view="archive" type="button">
                 <svg class="ui-icon"><use href="#icon-archive"></use></svg>
@@ -793,6 +802,135 @@
           </div>
         </section>
 
+        <section class="view" id="nutritionView" aria-labelledby="nutritionHeading">
+          <div class="toolbar nutrition-toolbar">
+            <div>
+              <h2 id="nutritionHeading">План питания</h2>
+              <p class="muted" id="nutritionWeekLabel">Неделя</p>
+            </div>
+            <div class="nutrition-toolbar-actions">
+              <div class="segmented-control" aria-label="Переключение недели">
+                <button class="icon-button" id="nutritionPrevWeek" type="button" aria-label="Предыдущая неделя">
+                  <svg class="ui-icon"><use href="#icon-chevron-left"></use></svg>
+                </button>
+                <button class="ghost-button compact-button" id="nutritionCurrentWeek" type="button">Эта неделя</button>
+                <button class="icon-button" id="nutritionNextWeek" type="button" aria-label="Следующая неделя">
+                  <svg class="ui-icon"><use href="#icon-chevron-right"></use></svg>
+                </button>
+              </div>
+              <button class="primary-button compact-button icon-text-button" id="nutritionAddMeal" type="button">
+                <svg class="ui-icon"><use href="#icon-plus"></use></svg>
+                Блюдо
+              </button>
+            </div>
+          </div>
+
+          <div class="nutrition-metrics" aria-label="Итог выбранной недели">
+            <div><span>Калории</span><strong id="nutritionCaloriesMetric">0</strong><small>ккал</small></div>
+            <div><span>Белки</span><strong id="nutritionProteinMetric">0</strong><small>г</small></div>
+            <div><span>Жиры</span><strong id="nutritionFatMetric">0</strong><small>г</small></div>
+            <div><span>Углеводы</span><strong id="nutritionCarbsMetric">0</strong><small>г</small></div>
+          </div>
+
+          <div class="nutrition-content">
+            <section class="panel nutrition-week-panel">
+              <div class="nutrition-week-board" id="nutritionWeekBoard"></div>
+              <div class="empty-state" id="nutritionEmpty">
+                <strong>На этой неделе пока нет блюд</strong>
+                <span>Добавь первое блюдо или попроси ChatGPT составить план.</span>
+              </div>
+            </section>
+            <aside class="nutrition-side">
+              <details class="panel nutrition-details" open>
+                <summary>
+                  <span>Список покупок</span>
+                  <small id="nutritionShoppingCount">0</small>
+                </summary>
+                <div class="nutrition-shopping-list" id="nutritionShoppingList"></div>
+              </details>
+              <details class="panel nutrition-details">
+                <summary><span>Дневные цели</span></summary>
+                <form class="nutrition-targets-form" id="nutritionTargetsForm">
+                  <label>Ккал<input id="nutritionTargetCalories" type="number" min="0" max="10000" step="10"></label>
+                  <label>Белки, г<input id="nutritionTargetProtein" type="number" min="0" max="1000" step="1"></label>
+                  <label>Жиры, г<input id="nutritionTargetFat" type="number" min="0" max="1000" step="1"></label>
+                  <label>Углеводы, г<input id="nutritionTargetCarbs" type="number" min="0" max="2000" step="1"></label>
+                  <label class="nutrition-pause-control">
+                    <input id="nutritionPaused" type="checkbox">
+                    <span>План на паузе</span>
+                  </label>
+                  <button class="ghost-button compact-button" type="submit">Сохранить цели</button>
+                </form>
+              </details>
+              <details class="panel nutrition-details">
+                <summary><span>Продукты</span><small id="nutritionFoodCount">0</small></summary>
+                <form class="nutrition-food-form" id="nutritionFoodForm">
+                  <input id="nutritionFoodId" type="hidden">
+                  <input id="nutritionFoodName" type="text" maxlength="120" placeholder="Название продукта" required>
+                  <div class="nutrition-food-nutrients">
+                    <label>Ккал<input id="nutritionFoodCalories" type="number" min="0" max="5000" step="0.1"></label>
+                    <label>Б<input id="nutritionFoodProtein" type="number" min="0" max="1000" step="0.1"></label>
+                    <label>Ж<input id="nutritionFoodFat" type="number" min="0" max="1000" step="0.1"></label>
+                    <label>У<input id="nutritionFoodCarbs" type="number" min="0" max="1000" step="0.1"></label>
+                  </div>
+                  <div class="nutrition-food-row">
+                    <input id="nutritionFoodUnit" type="text" maxlength="20" value="г" aria-label="Единица измерения">
+                    <button class="ghost-button compact-button" type="submit">Сохранить</button>
+                  </div>
+                </form>
+                <div class="nutrition-food-list" id="nutritionFoodList"></div>
+              </details>
+            </aside>
+          </div>
+        </section>
+
+        <dialog class="nutrition-meal-dialog" id="nutritionMealDialog" aria-labelledby="nutritionMealHeading">
+          <form id="nutritionMealForm" method="dialog">
+            <div class="dialog-header">
+              <div>
+                <span class="metric-label">Питание</span>
+                <h2 id="nutritionMealHeading">Новое блюдо</h2>
+              </div>
+              <button class="icon-button" id="nutritionMealClose" type="button" aria-label="Закрыть">
+                <svg class="ui-icon"><use href="#icon-close"></use></svg>
+              </button>
+            </div>
+            <input id="nutritionMealId" type="hidden">
+            <label>Название<input id="nutritionMealTitle" type="text" maxlength="160" required></label>
+            <div class="form-grid">
+              <label>Дата<input id="nutritionMealDate" type="date" required></label>
+              <label>Приём пищи
+                <select id="nutritionMealType">
+                  <option value="breakfast">Завтрак</option>
+                  <option value="snack">Перекус</option>
+                  <option value="lunch">Обед</option>
+                  <option value="dinner">Ужин</option>
+                  <option value="other">Другое</option>
+                </select>
+              </label>
+              <label>Время<input id="nutritionMealTime" type="time" step="300"></label>
+              <label>Порций<input id="nutritionMealServings" type="number" min="0.1" max="100" step="0.1" value="1"></label>
+            </div>
+            <label>
+              Продукты
+              <textarea id="nutritionMealIngredients" rows="5" placeholder="Куриная грудка | 180 | г&#10;Рис | 90 | г"></textarea>
+              <small class="field-hint">Один продукт на строку: название | количество | единица.</small>
+            </label>
+            <fieldset class="nutrition-manual-values">
+              <legend>Итого на всё блюдо</legend>
+              <label>Ккал<input id="nutritionMealCalories" type="number" min="0" max="100000" step="0.1"></label>
+              <label>Белки<input id="nutritionMealProtein" type="number" min="0" max="10000" step="0.1"></label>
+              <label>Жиры<input id="nutritionMealFat" type="number" min="0" max="10000" step="0.1"></label>
+              <label>Углеводы<input id="nutritionMealCarbs" type="number" min="0" max="10000" step="0.1"></label>
+            </fieldset>
+            <label>Заметка<textarea id="nutritionMealNotes" rows="2" maxlength="1000"></textarea></label>
+            <div class="dialog-actions">
+              <button class="ghost-button" id="nutritionMealCancel" type="button">Отмена</button>
+              <button class="primary-button" type="submit">Сохранить блюдо</button>
+            </div>
+          </form>
+        </dialog>
+
         <section class="view" id="journalView" aria-labelledby="journalHeading">
           <div class="toolbar">
             <div>
@@ -1264,6 +1402,7 @@
     <script src="profile-settings.js?v=2" defer></script>
     <script src="hosted-config.js?v=1" defer></script>
     <script src="journal-model.js?v=3" defer></script>
+    <script src="nutrition-model.js?v=1" defer></script>
     <script src="data-normalizers.js?v=1" defer></script>
     <script src="sync-metadata.js?v=3" defer></script>
     <script src="tombstone-retention.js?v=2" defer></script>
@@ -1278,6 +1417,8 @@
     <script src="date-rollover.js?v=1" defer></script>
     <script src="planning-history.js?v=1" defer></script>
     <script src="journal-view.js?v=2" defer></script>
+    <script src="nutrition-controller.js?v=1" defer></script>
+    <script src="nutrition-view.js?v=1" defer></script>
     <script src="storage.js?v=1" defer></script>
     <script src="navigation-state.js?v=2" defer></script>
     <script src="archive-view.js?v=4" defer></script>
@@ -1314,6 +1455,6 @@
     <script src="view-renderer.js?v=2" defer></script>
     <script src="app-shell-controller.js?v=2" defer></script>
     <script src="toast.js?v=1" defer></script>
-    <script src="app.js?v=40" defer></script>
+    <script src="app.js?v=41" defer></script>
   </body>
 </html>

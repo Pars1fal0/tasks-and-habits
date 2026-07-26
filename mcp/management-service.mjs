@@ -570,18 +570,30 @@ function normalizeCustomRepeat(value) {
 
 function prepareState(state) {
   const next = clone(state);
-  ["tasks", "habits", "goals", "journalEntries", "categories", "mcpActivity"].forEach((key) => {
+  [
+    "tasks", "habits", "goals", "journalEntries", "categories", "mcpActivity",
+    "nutritionFoods", "nutritionMeals", "nutritionTemplates",
+  ].forEach((key) => {
     next[key] = Array.isArray(next[key]) ? next[key] : [];
   });
   next.taskOrder = next.taskOrder && typeof next.taskOrder === "object" ? next.taskOrder : {};
   next.tombstones = next.tombstones && typeof next.tombstones === "object"
     ? next.tombstones
-    : { tasks: {}, habits: {}, goals: {}, journalEntries: {}, categories: {} };
-  ["tasks", "habits", "goals", "journalEntries", "categories"].forEach((type) => {
+    : {
+      tasks: {}, habits: {}, goals: {}, journalEntries: {}, categories: {},
+      nutritionFoods: {}, nutritionMeals: {}, nutritionTemplates: {},
+    };
+  [
+    "tasks", "habits", "goals", "journalEntries", "categories",
+    "nutritionFoods", "nutritionMeals", "nutritionTemplates",
+  ].forEach((type) => {
     next.tombstones[type] ||= {};
   });
   next.syncMeta = next.syncMeta && typeof next.syncMeta === "object" ? next.syncMeta : {};
-  next.syncMeta.entityFields ||= { tasks: {}, habits: {}, goals: {}, journalEntries: {}, categories: {} };
+  next.syncMeta.entityFields ||= {
+    tasks: {}, habits: {}, goals: {}, journalEntries: {}, categories: {},
+    nutritionFoods: {}, nutritionMeals: {}, nutritionTemplates: {},
+  };
   next.syncMeta.taskFields ||= {};
   next.syncMeta.habitLogs ||= {};
   next.syncMeta.taskOrder ||= {};

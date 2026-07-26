@@ -24,6 +24,9 @@
         case "journal":
           ctx.renderJournal();
           break;
+        case "nutrition":
+          ctx.renderNutrition();
+          break;
         case "archive":
           ctx.renderCategories();
           ctx.renderArchive();

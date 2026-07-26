@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.20.0
+
+- Added a responsive weekly nutrition planner with meals, ingredients, calories/macros, daily targets, a personal food library, and an aggregated shopping list.
+- Included nutrition data in local backups, JSON export, cross-device synchronization, conflict resolution, tombstones, and MCP Undo.
+- Added 19 authenticated MCP tools so ChatGPT can inspect and manage meals, products, templates, targets, shopping lists, and plan pause state.
+- Added atomic nutrition-plan preview/apply operations so a full week can be reviewed before one reversible write.
+- Added nutrition to navigation and workspace search, plus unit, synchronization, Electron, mobile, accessibility, and Cloudflare build coverage.
+
 ## 0.19.1
 
 - Removed duplicate completed-task results from workspace search and improved matching journal excerpts.

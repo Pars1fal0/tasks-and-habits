@@ -11,6 +11,10 @@
         habits: [],
         goals: [],
         journalEntries: [],
+        nutritionFoods: [],
+        nutritionMeals: [],
+        nutritionTemplates: [],
+        nutritionSettings: config.normalizeNutritionSettings?.(),
         categories: [],
         taskOrder: {},
         mcpActivity: config.normalizeMcpActivity?.(raw?.mcpActivity) || [],
@@ -206,6 +210,22 @@
       normalized.journalEntries = config.normalizeJournalEntries?.(raw.journalEntries, {
         createId: config.createId,
       }) || [];
+      const foodById = new Map();
+      normalized.nutritionFoods = (Array.isArray(raw.nutritionFoods) ? raw.nutritionFoods : [])
+        .map((food) => config.normalizeNutritionFood?.(food, { createId: config.createId }))
+        .filter(Boolean)
+        .filter((food) => {
+          if (foodById.has(food.id)) return false;
+          foodById.set(food.id, food);
+          return true;
+        });
+      normalized.nutritionMeals = (Array.isArray(raw.nutritionMeals) ? raw.nutritionMeals : [])
+        .map((meal) => config.normalizeNutritionMeal?.(meal, { createId: config.createId, foodById }))
+        .filter(Boolean);
+      normalized.nutritionTemplates = (Array.isArray(raw.nutritionTemplates) ? raw.nutritionTemplates : [])
+        .map((template) => config.normalizeNutritionTemplate?.(template, { createId: config.createId, foodById }))
+        .filter(Boolean);
+      normalized.nutritionSettings = config.normalizeNutritionSettings?.(raw.nutritionSettings) || {};
 
       const taskIds = new Set(normalized.tasks.map((task) => task.id));
       normalized.taskOrder = Object.fromEntries(
@@ -249,7 +269,10 @@
   }
 
   function normalizeTombstones(value) {
-    const result = { tasks: {}, habits: {}, goals: {}, journalEntries: {}, categories: {} };
+    const result = {
+      tasks: {}, habits: {}, goals: {}, journalEntries: {}, categories: {},
+      nutritionFoods: {}, nutritionMeals: {}, nutritionTemplates: {},
+    };
     Object.keys(result).forEach((type) => {
       Object.entries(value?.[type] || {}).forEach(([id, deletedAt]) => {
         if (id && isValidTimestamp(deletedAt)) result[type][id] = deletedAt;

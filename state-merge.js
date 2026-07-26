@@ -35,6 +35,30 @@
         )),
       tombstones.journalEntries,
     );
+    const nutritionFoods = mergeSimpleEntities(
+      localState.nutritionFoods,
+      remoteState.nutritionFoods,
+      "nutritionFoods",
+      localMeta,
+      remoteMeta,
+      tombstones.nutritionFoods,
+    );
+    const nutritionMeals = mergeSimpleEntities(
+      localState.nutritionMeals,
+      remoteState.nutritionMeals,
+      "nutritionMeals",
+      localMeta,
+      remoteMeta,
+      tombstones.nutritionMeals,
+    );
+    const nutritionTemplates = mergeSimpleEntities(
+      localState.nutritionTemplates,
+      remoteState.nutritionTemplates,
+      "nutritionTemplates",
+      localMeta,
+      remoteMeta,
+      tombstones.nutritionTemplates,
+    );
     const categories = withoutDeleted(
       mergeEntities(localState.categories, remoteState.categories, (local, remote) =>
         mergeEntityFields(
@@ -57,11 +81,30 @@
       habits: applyEntityOrder(habits, localState.habits, remoteState.habits, localMeta.habitOrderUpdatedAt, remoteMeta.habitOrderUpdatedAt),
       goals,
       journalEntries: deduplicateJournalDates(journalEntries),
+      nutritionFoods,
+      nutritionMeals,
+      nutritionTemplates,
+      nutritionSettings: chooseNewest(localState.nutritionSettings || {}, remoteState.nutritionSettings || {}),
       mcpActivity: mcpActivity.mergeActivity(localState.mcpActivity, remoteState.mcpActivity),
       taskOrder: mergeTaskOrder(localState.taskOrder, remoteState.taskOrder, localMeta, remoteMeta, new Set(tasks.map((task) => task.id))),
       tombstones,
       syncMeta,
     };
+  }
+
+  function mergeSimpleEntities(local, remote, type, localMeta, remoteMeta, tombstones) {
+    return withoutDeleted(
+      mergeEntities(local, remote, (localEntity, remoteEntity) =>
+        mergeEntityFields(
+          localEntity,
+          remoteEntity,
+          chooseNewest(localEntity, remoteEntity),
+          ENTITY_FIELDS[type],
+          localMeta.entityFields[type]?.[localEntity.id],
+          remoteMeta.entityFields[type]?.[remoteEntity.id],
+        )),
+      tombstones,
+    );
   }
 
   function mergeProfile(local = {}, remote = {}) {
@@ -251,7 +294,10 @@
   }
 
   function mergeTombstones(local = {}, remote = {}) {
-    const result = { tasks: {}, habits: {}, goals: {}, journalEntries: {}, categories: {} };
+    const result = {
+      tasks: {}, habits: {}, goals: {}, journalEntries: {}, categories: {},
+      nutritionFoods: {}, nutritionMeals: {}, nutritionTemplates: {},
+    };
     Object.keys(result).forEach((type) => {
       const ids = new Set([...Object.keys(local?.[type] || {}), ...Object.keys(remote?.[type] || {})]);
       ids.forEach((id) => {

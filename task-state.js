@@ -46,7 +46,10 @@
     }
 
     function markDeleted(state, type, id) {
-      state.tombstones ||= { tasks: {}, habits: {}, goals: {}, categories: {}, journalEntries: {} };
+      state.tombstones ||= {
+        tasks: {}, habits: {}, goals: {}, categories: {}, journalEntries: {},
+        nutritionFoods: {}, nutritionMeals: {}, nutritionTemplates: {},
+      };
       state.tombstones[type] ||= {};
       state.tombstones[type][id] = new Date().toISOString();
     }

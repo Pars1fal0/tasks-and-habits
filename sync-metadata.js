@@ -8,6 +8,9 @@
     habits: ["startDate", "archived", "archivedAt", "archivedFromDate"],
     goals: ["title", "dueDate", "why"],
     journalEntries: ["date", "text", "revisions"],
+    nutritionFoods: ["name", "unit", "calories", "protein", "fat", "carbs", "source", "approximate"],
+    nutritionMeals: ["date", "type", "time", "title", "servings", "ingredients", "nutrition", "status", "notes"],
+    nutritionTemplates: ["title", "type", "time", "servings", "ingredients", "nutrition", "notes"],
     categories: ["name", "color"],
   };
 

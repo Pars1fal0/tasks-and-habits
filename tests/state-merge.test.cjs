@@ -226,4 +226,28 @@ module.exports = [
       assert.equal(merged.mcpActivity[0].status, "undone");
     },
   },
+  {
+    name: "merges nutrition edits and keeps remote meal deletion",
+    fn() {
+      const merged = mergeStates(
+        {
+          tasks: [], habits: [], goals: [], categories: [], taskOrder: {},
+          nutritionFoods: [{ id: "rice", name: "Рис", calories: 350, updatedAt: "2026-07-26T10:00:00.000Z" }],
+          nutritionMeals: [{ id: "meal", title: "Старый обед", date: "2026-07-27", updatedAt: "2026-07-26T10:00:00.000Z" }],
+          nutritionSettings: { paused: false, updatedAt: "2026-07-26T10:00:00.000Z" },
+        },
+        {
+          tasks: [], habits: [], goals: [], categories: [], taskOrder: {},
+          nutritionFoods: [{ id: "rice", name: "Бурый рис", calories: 350, updatedAt: "2026-07-26T11:00:00.000Z" }],
+          nutritionMeals: [],
+          nutritionSettings: { paused: true, updatedAt: "2026-07-26T11:00:00.000Z" },
+          tombstones: { nutritionMeals: { meal: "2026-07-26T11:00:00.000Z" } },
+        },
+      );
+
+      assert.equal(merged.nutritionFoods[0].name, "Бурый рис");
+      assert.equal(merged.nutritionMeals.length, 0);
+      assert.equal(merged.nutritionSettings.paused, true);
+    },
+  },
 ];

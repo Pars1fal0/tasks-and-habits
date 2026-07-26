@@ -3,7 +3,7 @@ const VALID_PRIORITIES = ["high", "medium", "low"];
 const VALID_HABIT_REPEATS = ["daily", "every2days", "every3days", "weekdays", "weekends", "weekly", "custom"];
 const VALID_REMINDER_OFFSETS = ["none", "0", "5", "15", "30", "60", "1440"];
 const VALID_BACKUP_SCHEDULES = ["0", "5", "15", "30", "60"];
-const VALID_VIEWS = ["tasks", "timeline", "habits", "goals", "overview", "journal", "archive", "settings"];
+const VALID_VIEWS = ["tasks", "timeline", "habits", "goals", "overview", "nutrition", "journal", "archive", "settings"];
 
 const appUtils = window.RhythmAppUtils.createAppUtils({
   getFirstDayOfWeek: () => firstDayOfWeek,
@@ -63,6 +63,10 @@ const stateNormalizer = window.RhythmStateNormalizer.createStateNormalizer({
   normalizeReminderOffset,
   normalizeMcpActivity: window.RhythmMcpActivity.normalizeActivity,
   normalizeJournalEntries: window.RhythmJournalModel.normalizeJournalEntries,
+  normalizeNutritionFood: window.RhythmNutritionModel.normalizeFood,
+  normalizeNutritionMeal: window.RhythmNutritionModel.normalizeMeal,
+  normalizeNutritionSettings: window.RhythmNutritionModel.normalizeSettings,
+  normalizeNutritionTemplate: window.RhythmNutritionModel.normalizeTemplate,
   normalizeProfile: profileSettings.normalizeProfile,
   pruneTombstones: window.RhythmTombstoneRetention.pruneTombstones,
   normalizeSyncMeta: window.RhythmSyncMetadata.normalizeSyncMeta,
@@ -381,6 +385,7 @@ const els = {
     goals: document.querySelector("#goalsView"),
     habits: document.querySelector("#habitsView"),
     journal: document.querySelector("#journalView"),
+    nutrition: document.querySelector("#nutritionView"),
     overview: document.querySelector("#overviewView"),
     settings: document.querySelector("#settingsView"),
     tasks: document.querySelector("#tasksView"),
@@ -393,6 +398,23 @@ const els = {
   weeklyTaskMetric: document.querySelector("#weeklyTaskMetric"),
   weeklyTaskText: document.querySelector("#weeklyTaskText"),
 };
+
+[
+  "nutritionAddMeal", "nutritionCaloriesMetric", "nutritionCarbsMetric", "nutritionCurrentWeek",
+  "nutritionEmpty", "nutritionFatMetric", "nutritionFoodCalories", "nutritionFoodCarbs",
+  "nutritionFoodCount", "nutritionFoodFat", "nutritionFoodForm", "nutritionFoodId",
+  "nutritionFoodList", "nutritionFoodName", "nutritionFoodProtein", "nutritionFoodUnit",
+  "nutritionMealCalories", "nutritionMealCancel", "nutritionMealCarbs", "nutritionMealClose",
+  "nutritionMealDate", "nutritionMealDialog", "nutritionMealFat", "nutritionMealForm",
+  "nutritionMealHeading", "nutritionMealId", "nutritionMealIngredients", "nutritionMealNotes",
+  "nutritionMealProtein", "nutritionMealServings", "nutritionMealTime", "nutritionMealTitle",
+  "nutritionMealType", "nutritionNextWeek", "nutritionPaused", "nutritionPrevWeek",
+  "nutritionProteinMetric", "nutritionShoppingCount", "nutritionShoppingList",
+  "nutritionTargetCalories", "nutritionTargetCarbs", "nutritionTargetFat", "nutritionTargetProtein",
+  "nutritionTargetsForm", "nutritionView", "nutritionWeekBoard", "nutritionWeekLabel",
+].forEach((id) => {
+  els[id] = document.querySelector(`#${id}`);
+});
 
 let pendingUpdateRegistration = null;
 const pwaController = window.RhythmPwaController.createPwaController({
@@ -770,6 +792,50 @@ const globalSearch = window.RhythmGlobalSearch.createGlobalSearch({
   search: window.RhythmGlobalSearch.searchWorkspace,
 });
 
+const nutritionController = window.RhythmNutritionController.createNutritionController({
+  confirmAction,
+  createId,
+  createUndoSnapshot,
+  getState: () => state,
+  model: window.RhythmNutritionModel,
+  now: () => new Date().toISOString(),
+  render,
+  saveState,
+  showToast,
+});
+
+const nutritionView = window.RhythmNutritionView.createNutritionView({
+  ...nutritionController,
+  createId,
+  els,
+  formatDate: (dateKey) => new Intl.DateTimeFormat("ru-RU", {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  }).format(new Date(`${dateKey}T00:00:00.000Z`)),
+  formatDay: (dateKey) => new Intl.DateTimeFormat("ru-RU", {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  }).format(new Date(`${dateKey}T00:00:00.000Z`)),
+  formatWeekday: (dateKey) => new Intl.DateTimeFormat("ru-RU", {
+    weekday: "short",
+    timeZone: "UTC",
+  }).format(new Date(`${dateKey}T00:00:00.000Z`)),
+  getActiveDate: () => activeDate,
+  getFirstDayOfWeek: () => firstDayOfWeek,
+  getState: () => state,
+  model: window.RhythmNutritionModel,
+  setActiveDate: (dateKey) => {
+    activeDate = dateKey;
+    els.activeDate.value = activeDate;
+    saveUiState();
+    render();
+  },
+  showToast,
+  today: () => toDateKey(new Date()),
+});
+
 const taskFormController = window.RhythmTaskForm.createTaskForm({
   els,
   afterSave: () => {
@@ -1084,6 +1150,7 @@ const viewRenderer = window.RhythmViewRenderer.createViewRenderer({
   renderGoals,
   renderHabits,
   renderJournal: journalView.render,
+  renderNutrition: nutritionView.render,
   renderMcpActivity: mcpActivityController.render,
   renderOverview,
   renderRemoteSyncStatus,
@@ -1258,6 +1325,7 @@ async function init() {
   confirmDialog.bindEvents();
   remoteDataController.bindEvents();
   journalView.bindEvents();
+  nutritionView.bindEvents();
   globalSearch.bindEvents();
   appEvents.bind();
   syncNavigationRoute({ replace: true });

@@ -60,6 +60,22 @@ const { _electron: electron } = require("playwright-core");
     await page.locator("#globalSearchInput").press("Enter");
     assert.equal(await page.evaluate(() => window.location.hash), "#journal");
 
+    await page.locator('.nav-tab[data-view="nutrition"]:visible').click();
+    assert.equal(await page.evaluate(() => window.location.hash), "#nutrition");
+    assert.equal(await page.locator(".nutrition-day-column").count(), 7);
+    await page.locator("#nutritionAddMeal").click();
+    await page.locator("#nutritionMealTitle").fill("Тестовый обед");
+    await page.locator("#nutritionMealDate").fill("2026-07-20");
+    await page.locator("#nutritionMealType").selectOption("lunch");
+    await page.locator("#nutritionMealIngredients").fill("Рис | 100 | г");
+    await page.locator("#nutritionMealCalories").fill("350");
+    await page.locator("#nutritionMealForm button[type=submit]").click();
+    assert.equal(await page.locator(".nutrition-meal-card").count(), 1);
+    assert.match(await page.locator(".nutrition-meal-card").textContent(), /Тестовый обед/);
+    await page.reload();
+    await page.waitForSelector('body[data-view="nutrition"]');
+    assert.equal(await page.locator(".nutrition-meal-card").count(), 1);
+
     await page.locator('.nav-tab[data-view="settings"]:visible').click();
     assert.equal(await page.evaluate(() => window.location.hash), "#settings");
     assert.equal(await page.locator(".settings-accordion").first().getAttribute("open"), null);

@@ -13,6 +13,7 @@ import {
 import { normalizeMcpActivity, recordMcpActivity } from "./activity-service.mjs";
 import { appendJournalEntryCommand, getJournalEntry, getJournalPeriod } from "./journal-service.mjs";
 import { registerManagementTools } from "./management-tools.mjs";
+import { registerNutritionTools } from "./nutrition-tools.mjs";
 import { registerParsitasksPrompts } from "./prompts.mjs";
 import {
   createGoalCommand,
@@ -92,10 +93,10 @@ async function handleMcp(request, env, ctx) {
 
 export function createParsitasksServer(context) {
   const server = new McpServer(
-    { name: "parsitasks", version: "0.6.1" },
+    { name: "parsitasks", version: "0.7.0" },
     {
       instructions: [
-        "Parsitasks stores the user's tasks, habits, goals, calendar, and private daily journal.",
+        "Parsitasks stores the user's tasks, habits, goals, calendar, nutrition plan, and private daily journal.",
         "Read current data before proposing broad changes.",
         "Never invent task IDs. Use IDs returned by tools.",
         "Do not claim a write succeeded unless the write tool returned success.",
@@ -105,6 +106,9 @@ export function createParsitasksServer(context) {
         "Journal entries are private user-authored memories. Never invent events or imply that planned tasks actually happened.",
         "Respect the user's independent journal read and write permissions. Do not work around a denied permission.",
         "Append journal text only when the user asks to record it. Read the existing entry before summarizing it.",
+        "Nutrition values may be approximate. Never present estimated calories or macros as medical-grade measurements.",
+        "For a broad nutrition plan, always call preview_nutrition_plan first, show the result, then apply the exact preview token.",
+        "Use set_nutrition_plan_paused when the user asks to stop or resume meal planning; do not delete their plan.",
         "Use calendar and backlog tools before suggesting broad rescheduling.",
         "Use a unique requestId for every intended write and reuse it only for retries.",
       ].join(" "),
@@ -398,6 +402,12 @@ export function createParsitasksServer(context) {
   registerManagementTools(server, context, {
     readTool,
     security: OAUTH_SECURITY,
+    writeTool,
+  });
+  registerNutritionTools(server, context, {
+    readTool,
+    security: OAUTH_SECURITY,
+    todayForState,
     writeTool,
   });
   registerParsitasksPrompts(server);

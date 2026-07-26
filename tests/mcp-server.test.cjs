@@ -8,8 +8,9 @@ module.exports = [
     fn() {
       const source = fs.readFileSync(path.resolve(__dirname, "../mcp/worker.mjs"), "utf8");
       const managementSource = fs.readFileSync(path.resolve(__dirname, "../mcp/management-tools.mjs"), "utf8");
+      const nutritionSource = fs.readFileSync(path.resolve(__dirname, "../mcp/nutrition-tools.mjs"), "utf8");
       const promptsSource = fs.readFileSync(path.resolve(__dirname, "../mcp/prompts.mjs"), "utf8");
-      const toolNames = [...`${source}\n${managementSource}`.matchAll(/server\.registerTool\(\s*"([^"]+)"/g)]
+      const toolNames = [...`${source}\n${managementSource}\n${nutritionSource}`.matchAll(/server\.registerTool\(\s*"([^"]+)"/g)]
         .map((match) => match[1]);
 
       assert.deepEqual(toolNames, [
@@ -44,6 +45,25 @@ module.exports = [
         "acknowledge_overdue",
         "upsert_category",
         "delete_category",
+        "get_nutrition_week",
+        "get_nutrition_day",
+        "list_nutrition_foods",
+        "list_meal_templates",
+        "get_nutrition_targets",
+        "get_shopping_list",
+        "create_nutrition_meal",
+        "update_nutrition_meal",
+        "set_nutrition_meal_status",
+        "delete_nutrition_meal",
+        "upsert_nutrition_food",
+        "delete_nutrition_food",
+        "upsert_meal_template",
+        "delete_meal_template",
+        "set_nutrition_targets",
+        "set_nutrition_plan_paused",
+        "preview_nutrition_plan",
+        "apply_nutrition_plan",
+        "clear_nutrition_period",
       ]);
       assert.match(source, /securitySchemes:\s*OAUTH_SECURITY/g);
       assert.match(source, /annotations:\s*\{\s*readOnlyHint:\s*true,\s*openWorldHint:\s*false,\s*destructiveHint:\s*false\s*\}/);

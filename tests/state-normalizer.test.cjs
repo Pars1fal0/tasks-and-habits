@@ -195,4 +195,33 @@ module.exports = [
       assert.equal(normalized.goals[0].steps[0].done, true);
     },
   },
+  {
+    name: "normalizes nutrition records and drops malformed meals",
+    fn() {
+      const normalizer = createStateNormalizer();
+      const normalized = normalizer.normalizeState({
+        nutritionFoods: [
+          { id: "rice", name: " Рис ", unit: "г", calories: 350 },
+          { id: "rice", name: "Дубликат", unit: "г", calories: 100 },
+        ],
+        nutritionMeals: [
+          {
+            id: "lunch",
+            date: "2026-07-27",
+            title: " Обед ",
+            type: "lunch",
+            ingredients: [{ foodId: "rice", name: "Рис", quantity: 100, unit: "г" }],
+          },
+          { id: "broken", date: "", title: "" },
+        ],
+        nutritionSettings: { targets: { calories: 2200 }, paused: true },
+      });
+
+      assert.equal(normalized.nutritionFoods.length, 1);
+      assert.equal(normalized.nutritionMeals.length, 1);
+      assert.equal(normalized.nutritionMeals[0].title, "Обед");
+      assert.equal(normalized.nutritionSettings.targets.calories, 2200);
+      assert.equal(normalized.nutritionSettings.paused, true);
+    },
+  },
 ];

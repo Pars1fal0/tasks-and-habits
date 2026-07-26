@@ -423,14 +423,23 @@ function prepareState(state) {
   next.habits = Array.isArray(next.habits) ? next.habits : [];
   next.goals = Array.isArray(next.goals) ? next.goals : [];
   next.journalEntries = Array.isArray(next.journalEntries) ? next.journalEntries : [];
+  next.nutritionFoods = Array.isArray(next.nutritionFoods) ? next.nutritionFoods : [];
+  next.nutritionMeals = Array.isArray(next.nutritionMeals) ? next.nutritionMeals : [];
+  next.nutritionTemplates = Array.isArray(next.nutritionTemplates) ? next.nutritionTemplates : [];
   next.categories = Array.isArray(next.categories) ? next.categories : [];
   next.taskOrder = next.taskOrder && typeof next.taskOrder === "object" ? next.taskOrder : {};
   next.tombstones = next.tombstones && typeof next.tombstones === "object"
     ? next.tombstones
-    : { tasks: {}, habits: {}, goals: {}, journalEntries: {}, categories: {} };
+    : {
+      tasks: {}, habits: {}, goals: {}, journalEntries: {}, categories: {},
+      nutritionFoods: {}, nutritionMeals: {}, nutritionTemplates: {},
+    };
   next.tombstones.tasks ||= {};
   next.syncMeta = next.syncMeta && typeof next.syncMeta === "object" ? next.syncMeta : {};
-  next.syncMeta.entityFields ||= { tasks: {}, habits: {}, goals: {}, journalEntries: {}, categories: {} };
+  next.syncMeta.entityFields ||= {
+    tasks: {}, habits: {}, goals: {}, journalEntries: {}, categories: {},
+    nutritionFoods: {}, nutritionMeals: {}, nutritionTemplates: {},
+  };
   next.syncMeta.taskFields ||= {};
   next.syncMeta.habitLogs ||= {};
   next.syncMeta.taskOrder ||= {};

@@ -46,7 +46,7 @@ const { _electron: electron } = require("playwright-core");
     await page.reload();
     await page.waitForSelector("#pageTitle");
     await page.evaluate(fs.readFileSync(require.resolve("axe-core/axe.min.js"), "utf8"));
-    const views = ["tasks", "timeline", "habits", "goals", "overview", "journal", "archive", "settings"];
+    const views = ["tasks", "timeline", "habits", "goals", "overview", "nutrition", "journal", "archive", "settings"];
     for (const width of [390, 1440]) {
       await page.setViewportSize({ width, height: 800 });
       for (const view of views) {

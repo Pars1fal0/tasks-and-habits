@@ -15,10 +15,17 @@ export function createEmptyState() {
     habits: [],
     goals: [],
     journalEntries: [],
+    nutritionFoods: [],
+    nutritionMeals: [],
+    nutritionTemplates: [],
+    nutritionSettings: { targets: { calories: 0, protein: 0, fat: 0, carbs: 0 }, paused: false, updatedAt: "" },
     categories: [],
     taskOrder: {},
     mcpActivity: [],
-    tombstones: { tasks: {}, habits: {}, goals: {}, journalEntries: {}, categories: {} },
+    tombstones: {
+      tasks: {}, habits: {}, goals: {}, journalEntries: {}, categories: {},
+      nutritionFoods: {}, nutritionMeals: {}, nutritionTemplates: {},
+    },
     syncMeta: emptySyncMeta(),
   };
 }
@@ -436,13 +443,25 @@ function ensureStateShape(state) {
   state.habits = Array.isArray(state.habits) ? state.habits : [];
   state.goals = Array.isArray(state.goals) ? state.goals : [];
   state.journalEntries = Array.isArray(state.journalEntries) ? state.journalEntries : [];
+  state.nutritionFoods = Array.isArray(state.nutritionFoods) ? state.nutritionFoods : [];
+  state.nutritionMeals = Array.isArray(state.nutritionMeals) ? state.nutritionMeals : [];
+  state.nutritionTemplates = Array.isArray(state.nutritionTemplates) ? state.nutritionTemplates : [];
+  state.nutritionSettings = state.nutritionSettings && typeof state.nutritionSettings === "object"
+    ? state.nutritionSettings
+    : { targets: { calories: 0, protein: 0, fat: 0, carbs: 0 }, paused: false, updatedAt: "" };
   state.categories = Array.isArray(state.categories) ? state.categories : [];
   state.taskOrder = state.taskOrder && typeof state.taskOrder === "object" ? state.taskOrder : {};
   state.mcpActivity = Array.isArray(state.mcpActivity) ? state.mcpActivity : [];
   state.tombstones = state.tombstones && typeof state.tombstones === "object"
     ? state.tombstones
-    : { tasks: {}, habits: {}, goals: {}, journalEntries: {}, categories: {} };
-  ["tasks", "habits", "goals", "journalEntries", "categories"].forEach((type) => {
+    : {
+      tasks: {}, habits: {}, goals: {}, journalEntries: {}, categories: {},
+      nutritionFoods: {}, nutritionMeals: {}, nutritionTemplates: {},
+    };
+  [
+    "tasks", "habits", "goals", "journalEntries", "categories",
+    "nutritionFoods", "nutritionMeals", "nutritionTemplates",
+  ].forEach((type) => {
     state.tombstones[type] ||= {};
   });
   state.syncMeta = normalizeSyncMeta(state.syncMeta);
@@ -463,7 +482,10 @@ function normalizeSyncMeta(value) {
   return {
     entityFields: source.entityFields && typeof source.entityFields === "object"
       ? source.entityFields
-      : { tasks: {}, habits: {}, goals: {}, journalEntries: {}, categories: {} },
+      : {
+        tasks: {}, habits: {}, goals: {}, journalEntries: {}, categories: {},
+        nutritionFoods: {}, nutritionMeals: {}, nutritionTemplates: {},
+      },
     taskFields: source.taskFields && typeof source.taskFields === "object" ? source.taskFields : {},
     habitLogs: source.habitLogs && typeof source.habitLogs === "object" ? source.habitLogs : {},
     taskOrder: source.taskOrder && typeof source.taskOrder === "object" ? source.taskOrder : {},

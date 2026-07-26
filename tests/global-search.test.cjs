@@ -39,4 +39,21 @@ module.exports = [
       assert.match(excerptAround(state.journalEntries[0].text, "важный"), /^\.\.\./);
     },
   },
+  {
+    name: "finds nutrition meals by ingredient and opens the nutrition week",
+    fn() {
+      const results = searchWorkspace({
+        nutritionMeals: [{
+          id: "meal",
+          title: "Завтрак",
+          date: "2026-07-27",
+          ingredients: [{ name: "Овсянка" }],
+        }],
+      }, "овсянка");
+
+      assert.equal(results[0].type, "nutrition");
+      assert.equal(results[0].view, "nutrition");
+      assert.equal(results[0].date, "2026-07-27");
+    },
+  },
 ];

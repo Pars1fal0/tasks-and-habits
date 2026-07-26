@@ -1,4 +1,7 @@
-const ENTITY_TYPES = ["tasks", "habits", "goals", "journalEntries", "categories"];
+const ENTITY_TYPES = [
+  "tasks", "habits", "goals", "journalEntries", "categories",
+  "nutritionFoods", "nutritionMeals", "nutritionTemplates",
+];
 const MAX_ACTIVITY = 100;
 
 export function recordMcpActivity(beforeState, nextState, details, now = new Date().toISOString()) {
@@ -165,7 +168,10 @@ function applyInversePatch(state, patch, now) {
 function touchUndoMetadata(state, patch, now, previousState) {
   const normalized = normalizeInversePatch(patch);
   state.syncMeta ||= {};
-  state.syncMeta.entityFields ||= { tasks: {}, habits: {}, goals: {}, journalEntries: {}, categories: {} };
+  state.syncMeta.entityFields ||= {
+    tasks: {}, habits: {}, goals: {}, journalEntries: {}, categories: {},
+    nutritionFoods: {}, nutritionMeals: {}, nutritionTemplates: {},
+  };
   state.syncMeta.taskFields ||= {};
   state.syncMeta.habitLogs ||= {};
   state.syncMeta.taskOrder ||= {};

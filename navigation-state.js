@@ -4,6 +4,7 @@
     goals: "goals",
     habits: "habits",
     journal: "journal",
+    nutrition: "nutrition",
     overview: "calendar",
     settings: "settings",
     tasks: "tasks",
