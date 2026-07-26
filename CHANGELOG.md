@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.21.0
+
+- Added automatic desktop update checks and background downloads for the installed Windows version.
+- Added a desktop update status, manual check, GitHub Releases link, and restart-to-install action in Settings.
+- Added a tag-driven GitHub Actions release pipeline that tests the app and publishes NSIS, portable, and updater metadata files.
+- Kept portable builds on an explicit manual-update path and disabled network update checks in development and automated tests.
+
 ## 0.20.1
 
 - Added emerald, blue, orange, and violet interface accents with accessible color swatches in Appearance settings.

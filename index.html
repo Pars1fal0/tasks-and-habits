@@ -9,7 +9,7 @@
     <link rel="icon" href="data:,">
     <link rel="manifest" href="manifest.webmanifest">
     <script src="shell-version.js?v=1"></script>
-    <link rel="stylesheet" href="styles.css?v=32">
+    <link rel="stylesheet" href="styles.css?v=33">
     <link rel="stylesheet" href="disclosure-menus.css?v=1">
   </head>
   <body>
@@ -200,8 +200,8 @@
 
         <div class="update-banner" id="updateBanner" role="status" aria-live="polite" hidden>
           <div>
-            <strong>Доступна новая версия</strong>
-            <span>Обновление уже загружено и займёт несколько секунд.</span>
+            <strong id="updateBannerTitle">Доступна новая версия</strong>
+            <span id="updateBannerMessage">Обновление уже загружено и займёт несколько секунд.</span>
           </div>
           <button class="primary-button compact-button" id="applyUpdateButton" type="button">Обновить</button>
         </div>
@@ -1176,6 +1176,26 @@
               </div>
               <p class="settings-status" id="settingsBackupStatus" aria-live="polite" aria-atomic="true">Авто-бэкап ожидает расписание</p>
             </details>
+            <details class="panel settings-panel settings-accordion" id="desktopUpdatePanel" aria-labelledby="desktopUpdateHeading" hidden>
+              <summary class="panel-heading compact settings-summary">
+                <div>
+                  <span class="metric-label">Приложение</span>
+                  <h2 id="desktopUpdateHeading">Обновления ParsiTasks</h2>
+                </div>
+              </summary>
+              <div class="settings-row">
+                <span>
+                  <strong id="desktopCurrentVersion">Версия определяется…</strong>
+                  <small>Установленная версия проверяет GitHub Releases и загружает обновления автоматически.</small>
+                </span>
+                <span class="desktop-update-indicator" aria-hidden="true"></span>
+              </div>
+              <p class="settings-status" id="desktopUpdateStatus" aria-live="polite" aria-atomic="true">Обновления ещё не проверялись</p>
+              <div class="settings-actions">
+                <button class="primary-button compact-button" id="desktopCheckUpdateButton" type="button">Проверить обновления</button>
+                <button class="ghost-button compact-button" id="desktopOpenReleasesButton" type="button">Открыть GitHub Releases</button>
+              </div>
+            </details>
             <details class="panel settings-panel settings-accordion categories-settings" aria-labelledby="categoriesHeading">
               <summary class="panel-heading compact settings-summary">
                 <div>
@@ -1440,6 +1460,7 @@
     <script src="mcp-activity.js?v=2" defer></script>
     <script src="mcp-activity-controller.js?v=1" defer></script>
     <script src="pwa-controller.js?v=1" defer></script>
+    <script src="desktop-update-controller.js?v=2" defer></script>
     <script src="state-normalizer.js?v=13" defer></script>
     <script src="state-controller.js?v=1" defer></script>
     <script src="state-merge.js?v=8" defer></script>

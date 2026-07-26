@@ -802,6 +802,32 @@ select:focus-visible {
   font-size: 13px;
 }
 
+.desktop-update-indicator {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 10px;
+  border-radius: 50%;
+  background: var(--teal);
+  box-shadow: 0 0 0 4px rgb(var(--accent-rgb) / 12%);
+}
+
+#desktopUpdatePanel[data-update-state="checking"] .desktop-update-indicator,
+#desktopUpdatePanel[data-update-state="downloading"] .desktop-update-indicator {
+  animation: update-status-pulse 1.4s ease-in-out infinite;
+}
+
+#desktopUpdatePanel[data-update-state="error"] .desktop-update-indicator {
+  background: var(--danger);
+  box-shadow: 0 0 0 4px rgba(255, 106, 94, 0.12);
+}
+
+@keyframes update-status-pulse {
+  50% {
+    opacity: 0.45;
+    transform: scale(0.82);
+  }
+}
+
 body:not([data-view="overview"]) .focus-board {
   display: none;
 }

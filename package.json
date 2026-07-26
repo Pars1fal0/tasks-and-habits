@@ -1,6 +1,6 @@
 {
   "name": "rhythm-day",
-  "version": "0.20.1",
+  "version": "0.21.0",
   "private": true,
   "description": "Локальный десктопный трекер задач и привычек",
   "main": "desktop/main.cjs",
@@ -15,9 +15,11 @@
     "build:worker": "wrangler deploy --dry-run --outdir .wrangler-build",
     "build:cloudflare": "npm test && npm run lint && npm run build:web && npm run build:worker",
     "mcp:dev": "npm run build:web && wrangler dev",
-    "build:win": "electron-builder --win portable nsis",
-    "pack:win": "electron-builder --win portable"
+    "build:win": "electron-builder --win portable nsis --publish never",
+    "pack:win": "electron-builder --win portable --publish never",
+    "release:win": "electron-builder --win portable nsis --publish always"
   },
+  "repository": "github:Pars1fal0/tasks-and-habits",
   "build": {
     "appId": "local.rhythm-day.tracker",
     "productName": "Ритм дня",
@@ -39,6 +41,7 @@
       "date-rollover.js",
       "data-normalizers.js",
       "device-sync-controller.js",
+      "desktop-update-controller.js",
       "disclosure-menus.css",
       "disclosure-menus.js",
       "desktop/**/*",
@@ -127,7 +130,19 @@
     "nsis": {
       "allowToChangeInstallationDirectory": true,
       "oneClick": false,
-      "perMachine": false
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "artifactName": "ParsiTasks-Setup-${version}-${arch}.${ext}"
+    },
+    "portable": {
+      "artifactName": "ParsiTasks-Portable-${version}-${arch}.${ext}"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "Pars1fal0",
+      "repo": "tasks-and-habits",
+      "releaseType": "release"
     }
   },
   "devDependencies": {
@@ -145,5 +160,8 @@
   "overrides": {
     "@hono/node-server": "2.0.11",
     "brace-expansion": "5.0.8"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
   }
 }

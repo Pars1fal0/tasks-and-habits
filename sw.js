@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "rhythm-day-";
-const CACHE_NAME = `${CACHE_PREFIX}app-v62-__BUILD_HASH__`;
+const CACHE_NAME = `${CACHE_PREFIX}app-v63-__BUILD_HASH__`;
 const APP_SHELL = [
   "./",
   "index.html",
@@ -26,6 +26,7 @@ const APP_SHELL = [
   "mcp-activity.js",
   "mcp-activity-controller.js",
   "pwa-controller.js",
+  "desktop-update-controller.js",
   "state-normalizer.js",
   "state-controller.js",
   "state-merge.js",

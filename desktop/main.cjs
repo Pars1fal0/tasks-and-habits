@@ -2,6 +2,7 @@ const { app, BrowserWindow, Menu, Notification, Tray, ipcMain, nativeImage, shel
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const { createUpdateManager } = require("./update-manager.cjs");
 
 const appRoot = path.join(__dirname, "..");
 const isSmokeTest = process.argv.includes("--smoke-test");
@@ -14,6 +15,7 @@ let isQuitting = false;
 let backgroundNoticeShown = false;
 let reminderSnapshot = [];
 let lastFileBackupAt = 0;
+let updateManager = null;
 const sentReminders = new Set();
 const FILE_BACKUP_INTERVAL_MS = 5 * 60 * 1000;
 const MAX_FILE_BACKUPS = 20;
@@ -786,7 +788,16 @@ function createWindow() {
               window.RhythmDateRollover &&
               window.RhythmToast,
           ),
-          desktopBridge: Boolean(window.rhythmDesktop?.syncReminders && window.rhythmDesktop?.writeFileBackup),
+          desktopBridge: Boolean(
+            window.rhythmDesktop?.syncReminders
+              && window.rhythmDesktop?.writeFileBackup
+              && window.rhythmDesktop?.getUpdateStatus
+              && window.rhythmDesktop?.checkForUpdates
+          ),
+          desktopUpdatesWork:
+            Boolean(window.RhythmDesktopUpdateController)
+            && Boolean(document.querySelector("#desktopUpdatePanel"))
+            && !document.querySelector("#desktopUpdatePanel").hidden,
           startsWithoutDemoData,
           formsStartCollapsed,
           overdueHideWorks,
@@ -1163,10 +1174,19 @@ function showNotification({ title, body }) {
 }
 
 app.whenReady().then(() => {
+  updateManager = createUpdateManager({
+    app,
+    ipcMain,
+    shell,
+    getMainWindow: () => mainWindow,
+    isAutomationTest,
+  });
+  updateManager.registerIpc();
   registerIpc();
   createMenu();
   createTray();
   createWindow();
+  updateManager.start();
   setInterval(checkReminders, 15000);
 
   app.on("activate", () => {
@@ -1180,6 +1200,7 @@ app.whenReady().then(() => {
 
 app.on("before-quit", () => {
   isQuitting = true;
+  updateManager?.stop();
 });
 
 app.on("window-all-closed", () => {
