@@ -77,16 +77,24 @@
 
     async function resolveBlob(item) {
       const local = await get(item.assetId).catch(() => null);
-      if (local?.blob) return local.blob;
+      if (isUsableImageBlob(local?.blob, local?.mime || item.mime)) {
+        return normalizeBlobType(local.blob, local?.mime || item.mime);
+      }
+      if (local) await remove(item.assetId).catch(() => {});
       if (!item.remotePath) return null;
       const config = await getRemoteConfig();
       if (!config || !fetchFn) return null;
       const response = await fetchFn(storageUrl(config.supabaseUrl, "object/authenticated", item.remotePath), {
         headers: storageHeaders(config),
       });
-      if (!response.ok) return null;
-      const blob = await response.blob();
-      await put(item.assetId, blob, { mime: item.mime, name: item.name });
+      if (!response.ok) throw new Error(await storageError(response, response.status));
+      const responseType = response.headers?.get?.("content-type") || "";
+      const downloaded = await response.blob();
+      const blob = normalizeBlobType(downloaded, responseType || item.mime);
+      if (!isUsableImageBlob(blob, responseType || item.mime)) {
+        throw new Error("Supabase вернул повреждённый или пустой файл изображения");
+      }
+      await put(item.assetId, blob, { mime: blob.type || item.mime, name: item.name }).catch(() => {});
       return blob;
     }
 
@@ -99,7 +107,9 @@
     }
 
     async function uploadPrepared(assetId, prepared) {
-      if (!prepared?.blob) throw new Error("Не удалось подготовить изображение");
+      if (!isUsableImageBlob(prepared?.blob, prepared?.mime)) {
+        throw new Error("Не удалось подготовить изображение");
+      }
       const config = await requireRemoteConfig();
       const path = await uploadBlob(config, assetId, prepared.blob, prepared.mime);
       await put(assetId, prepared.blob, prepared).catch(() => {});
@@ -209,6 +219,17 @@
     if (mime === "image/webp") return "webp";
     if (mime === "image/gif") return "gif";
     return "jpg";
+  }
+
+  function isUsableImageBlob(blob, fallbackMime = "") {
+    const mime = String(blob?.type || fallbackMime || "").toLowerCase();
+    return Boolean(blob && Number(blob.size) > 0 && /^image\/(jpeg|png|webp|gif)$/.test(mime));
+  }
+
+  function normalizeBlobType(blob, fallbackMime = "") {
+    const mime = String(blob?.type || fallbackMime || "").toLowerCase();
+    if (!blob || blob.type || !/^image\/(jpeg|png|webp|gif)$/.test(mime) || typeof Blob === "undefined") return blob;
+    return new Blob([blob], { type: mime });
   }
 
   async function storageError(response, status = 0) {

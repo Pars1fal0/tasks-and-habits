@@ -9,7 +9,7 @@
     <link rel="icon" href="data:,">
     <link rel="manifest" href="manifest.webmanifest">
     <script src="shell-version.js?v=1"></script>
-    <link rel="stylesheet" href="styles.css?v=35">
+    <link rel="stylesheet" href="styles.css?v=36">
     <link rel="stylesheet" href="disclosure-menus.css?v=1">
   </head>
   <body>
@@ -1033,8 +1033,23 @@
               <button class="icon-button board-bold-button" id="boardBold" type="button" aria-label="Полужирный текст" title="Полужирный текст" aria-pressed="false">
                 <strong aria-hidden="true">B</strong>
               </button>
+              <div class="board-color-presets" id="boardColorPresets" role="group" aria-label="Готовые цвета текста">
+                <button type="button" class="board-color-swatch" data-board-text-color="#17191d" style="--swatch: #17191d" aria-label="Графитовый" title="Графитовый"></button>
+                <button type="button" class="board-color-swatch" data-board-text-color="#ffffff" style="--swatch: #ffffff" aria-label="Белый" title="Белый"></button>
+                <button type="button" class="board-color-swatch" data-board-text-color="#ef5b5b" style="--swatch: #ef5b5b" aria-label="Красный" title="Красный"></button>
+                <button type="button" class="board-color-swatch" data-board-text-color="#f28c38" style="--swatch: #f28c38" aria-label="Оранжевый" title="Оранжевый"></button>
+                <button type="button" class="board-color-swatch" data-board-text-color="#e5bb32" style="--swatch: #e5bb32" aria-label="Жёлтый" title="Жёлтый"></button>
+                <button type="button" class="board-color-swatch" data-board-text-color="#179f83" style="--swatch: #179f83" aria-label="Зелёный" title="Зелёный"></button>
+                <button type="button" class="board-color-swatch" data-board-text-color="#397ee8" style="--swatch: #397ee8" aria-label="Синий" title="Синий"></button>
+                <button type="button" class="board-color-swatch" data-board-text-color="#8958d5" style="--swatch: #8958d5" aria-label="Фиолетовый" title="Фиолетовый"></button>
+              </div>
+              <label class="board-custom-color" title="Любой цвет текста">
+                <span class="sr-only">Любой цвет текста</span>
+                <input id="boardTextColor" type="color" value="#17191d" aria-label="Любой цвет текста">
+              </label>
             </div>
             <div class="board-world" id="boardWorld"></div>
+            <div class="board-marquee" id="boardMarquee" hidden aria-hidden="true"></div>
             <div class="board-empty" id="boardEmpty">
               <svg class="ui-icon"><use href="#icon-board"></use></svg>
               <strong>Доска пока пустая</strong>
@@ -1514,12 +1529,12 @@
     <script src="settings-state.js?v=3" defer></script>
     <script src="profile-settings.js?v=2" defer></script>
     <script src="hosted-config.js?v=1" defer></script>
-    <script src="board-model.js?v=2" defer></script>
-    <script src="board-assets.js?v=3" defer></script>
+    <script src="board-model.js?v=3" defer></script>
+    <script src="board-assets.js?v=4" defer></script>
     <script src="journal-model.js?v=3" defer></script>
     <script src="nutrition-model.js?v=1" defer></script>
     <script src="data-normalizers.js?v=1" defer></script>
-    <script src="sync-metadata.js?v=4" defer></script>
+    <script src="sync-metadata.js?v=5" defer></script>
     <script src="tombstone-retention.js?v=2" defer></script>
     <script src="habit-title-history.js?v=1" defer></script>
     <script src="habit-config-history.js?v=1" defer></script>
@@ -1533,7 +1548,7 @@
     <script src="date-rollover.js?v=1" defer></script>
     <script src="planning-history.js?v=1" defer></script>
     <script src="journal-view.js?v=2" defer></script>
-    <script src="board-view.js?v=3" defer></script>
+    <script src="board-view.js?v=4" defer></script>
     <script src="nutrition-controller.js?v=1" defer></script>
     <script src="nutrition-view.js?v=1" defer></script>
     <script src="storage.js?v=1" defer></script>
@@ -1572,6 +1587,6 @@
     <script src="view-renderer.js?v=2" defer></script>
     <script src="app-shell-controller.js?v=2" defer></script>
     <script src="toast.js?v=1" defer></script>
-    <script src="app.js?v=44" defer></script>
+    <script src="app.js?v=45" defer></script>
   </body>
 </html>

@@ -404,8 +404,8 @@ const els = {
 };
 
 [
-  "boardAddImage", "boardAddText", "boardBold", "boardEmpty", "boardFocus", "boardFontSize",
-  "boardImageInput", "boardSelectionToolbar", "boardStatus", "boardUndo", "boardViewport", "boardWorld", "boardZoomIn",
+  "boardAddImage", "boardAddText", "boardBold", "boardColorPresets", "boardEmpty", "boardFocus", "boardFontSize",
+  "boardImageInput", "boardMarquee", "boardSelectionToolbar", "boardStatus", "boardTextColor", "boardUndo", "boardViewport", "boardWorld", "boardZoomIn",
   "boardZoomLabel", "boardZoomOut",
   "nutritionAddMeal", "nutritionCaloriesMetric", "nutritionCarbsMetric", "nutritionCurrentWeek",
   "nutritionEmpty", "nutritionFatMetric", "nutritionFoodCalories", "nutritionFoodCarbs",

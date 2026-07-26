@@ -35,6 +35,7 @@
       text: type === "text" ? cleanText(value.text, MAX_TEXT_LENGTH, true) : "",
       fontSize: type === "text" ? Math.round(finiteNumber(value.fontSize, MIN_FONT_SIZE, MAX_FONT_SIZE, 32)) : 0,
       fontWeight: type === "text" && Number(value.fontWeight) >= 600 ? 700 : 400,
+      color: type === "text" ? normalizeColor(value.color) : "",
       assetId: type === "image" ? assetId : "",
       remotePath: type === "image" ? cleanText(value.remotePath, 500) : "",
       mime: type === "image" && /^image\/[a-z0-9.+-]+$/i.test(String(value.mime || "")) ? String(value.mime) : "",
@@ -56,6 +57,7 @@
       text: input.text || "",
       fontSize: input.fontSize || 32,
       fontWeight: input.fontWeight || 400,
+      color: input.color || "#17191d",
       createdAt: options.now,
       updatedAt: options.now,
     }, options);
@@ -97,6 +99,11 @@
     const number = Number(value);
     if (!Number.isFinite(number)) return fallback;
     return Math.min(max, Math.max(min, number));
+  }
+
+  function normalizeColor(value) {
+    const color = String(value || "").trim();
+    return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : "#17191d";
   }
 
   function validTimestamp(value) {

@@ -95,19 +95,104 @@ const { _electron: electron } = require("playwright-core");
     await page.locator("#boardFontSize").fill("88");
     await page.locator("#boardFontSize").dispatchEvent("change");
     await page.locator("#boardBold").click();
+    await page.locator(".board-text-content").dblclick();
+    assert.notEqual(await page.locator(".board-text-content").getAttribute("contenteditable"), "false");
+    await page.locator(".board-text-content").fill("Отредактированная идея");
+    await page.keyboard.press("Escape");
     assert.equal(
       await page.evaluate(() => {
         const item = JSON.parse(localStorage.getItem("rhythm-day-state-v1")).boardItems[0];
-        return item.fontSize === 88 && item.fontWeight === 700 && item.height > 140;
+        return item.text === "Отредактированная идея"
+          && item.fontSize === 88
+          && item.fontWeight === 700
+          && item.height > 140;
       }),
       true,
     );
+    await page.locator("#boardAddText").click();
+    await page.locator(".board-text-content").last().fill("Второй объект");
+    await page.keyboard.press("Escape");
+    const boardBox = await page.locator("#boardViewport").boundingBox();
+    const itemBoxes = await page.locator(".board-item").evaluateAll((items) =>
+      items.map((item) => {
+        const rect = item.getBoundingClientRect();
+        return { bottom: rect.bottom, left: rect.left, right: rect.right, top: rect.top };
+      }));
+    const marquee = {
+      left: Math.max(boardBox.x + 2, Math.min(...itemBoxes.map((box) => box.left)) - 10),
+      top: Math.max(boardBox.y + 2, Math.min(...itemBoxes.map((box) => box.top)) - 10),
+      right: Math.min(boardBox.x + boardBox.width - 2, Math.max(...itemBoxes.map((box) => box.right)) + 10),
+      bottom: Math.min(boardBox.y + boardBox.height - 2, Math.max(...itemBoxes.map((box) => box.bottom)) + 10),
+    };
+    await page.mouse.move(marquee.left, marquee.top);
+    await page.mouse.down();
+    await page.mouse.move(marquee.right, marquee.bottom, { steps: 8 });
+    await page.mouse.up();
+    assert.equal(await page.locator(".board-item.is-selected").count(), 2);
+    await page.locator('[data-board-text-color="#397ee8"]').click();
+    assert.equal(
+      await page.evaluate(() =>
+        JSON.parse(localStorage.getItem("rhythm-day-state-v1")).boardItems
+          .every((item) => item.type !== "text" || item.color === "#397ee8")),
+      true,
+    );
+    await page.keyboard.press("Delete");
+    assert.equal(await page.locator(".board-item").count(), 0);
+    await page.locator("#boardUndo").click();
+    assert.equal(await page.locator(".board-item").count(), 2);
     assert.equal(await page.locator(".board-item-handle").count(), 0);
     assert.equal(await page.locator(".board-item-delete").count(), 0);
     await page.locator("#boardImageInput").setInputFiles(path.resolve(__dirname, "..", "icon-192.png"));
     await page.waitForFunction(() => /Supabase|синхронизац/i.test(document.querySelector("#boardStatus")?.textContent || ""));
     assert.equal(await page.locator(".board-image").count(), 0);
-    const boardBox = await page.locator("#boardViewport").boundingBox();
+    await page.evaluate(async () => {
+      const assetId = "e2e-cached-board-image";
+      const blob = await fetch("icon-192.png").then((response) => response.blob());
+      const db = await new Promise((resolve, reject) => {
+        const request = indexedDB.open("rhythm-board-assets-v1", 1);
+        request.onupgradeneeded = () => {
+          if (!request.result.objectStoreNames.contains("assets")) {
+            request.result.createObjectStore("assets", { keyPath: "id" });
+          }
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      await new Promise((resolve, reject) => {
+        const transaction = db.transaction("assets", "readwrite");
+        transaction.objectStore("assets").put({
+          id: assetId,
+          blob,
+          mime: "image/png",
+          name: "icon-192.png",
+          updatedAt: new Date().toISOString(),
+        });
+        transaction.oncomplete = resolve;
+        transaction.onerror = () => reject(transaction.error);
+      });
+      db.close();
+      const state = JSON.parse(localStorage.getItem("rhythm-day-state-v1"));
+      const now = new Date().toISOString();
+      state.boardItems.push(window.RhythmBoardModel.createImageItem({
+        assetId,
+        height: 192,
+        mime: "image/png",
+        name: "icon-192.png",
+        remotePath: "test-user/e2e-cached-board-image.png",
+        width: 192,
+        x: 30,
+        y: 30,
+        z: 20,
+      }, { createId: () => "e2e-image-item", now }));
+      localStorage.setItem("rhythm-day-state-v1", JSON.stringify(state));
+    });
+    await page.reload();
+    await page.waitForSelector('body[data-view="board"]');
+    await page.waitForFunction(() => {
+      const image = document.querySelector(".board-image-content");
+      return image?.complete && image.naturalWidth > 0;
+    });
+    assert.equal(await page.locator(".board-image-placeholder").getAttribute("hidden"), "");
     await page.mouse.move(boardBox.x + boardBox.width / 2, boardBox.y + boardBox.height / 2);
     await page.mouse.wheel(0, 10000);
     await page.waitForTimeout(80);

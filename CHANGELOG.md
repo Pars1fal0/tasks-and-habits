@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.22.2
+
+- Fixed private Supabase Storage images rendering as broken immediately after a successful board upload.
+- Added reliable double-click editing for existing board text without interfering with drag gestures.
+- Added eight text color presets and a full color picker, synchronized across devices with board metadata.
+- Added drag-marquee multi-selection, grouped movement, formatting, deletion, keyboard movement, and Undo.
+- Applied the selected app accent to board tools, selection outlines, resize handles, and interaction states.
+- Added storage, model, normalization, desktop interaction, multi-selection, and text-editing regression coverage.
+
 ## 0.22.1
 
 - Rebuilt the freeform board around direct Figma-style object selection, movement, eight-direction resizing, and keyboard-only deletion.

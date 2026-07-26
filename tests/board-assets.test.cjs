@@ -82,4 +82,73 @@ module.exports = [
       );
     },
   },
+  {
+    name: "downloads a private board image with auth headers and preserves its image type",
+    async fn() {
+      const calls = [];
+      const source = new Blob(["remote-image"], { type: "image/png" });
+      const store = createBoardAssetStore({
+        fetchFn: async (url, options) => {
+          calls.push({ url, options });
+          return {
+            ok: true,
+            status: 200,
+            headers: { get: () => "image/png" },
+            blob: async () => source,
+          };
+        },
+        getRemoteConfig: async () => ({
+          accessToken: "access-token",
+          anonKey: "anon-key",
+          enabled: true,
+          supabaseUrl: "https://project.supabase.co",
+          userId: "user-id",
+        }),
+      });
+
+      const blob = await store.resolveBlob({
+        assetId: "asset-id",
+        remotePath: "user-id/asset-id.png",
+        mime: "image/png",
+        name: "image.png",
+      });
+
+      assert.equal(blob.type, "image/png");
+      assert.equal(blob.size, source.size);
+      assert.equal(
+        calls[0].url,
+        "https://project.supabase.co/storage/v1/object/authenticated/board-images/user-id/asset-id.png",
+      );
+      assert.equal(calls[0].options.headers.Authorization, "Bearer access-token");
+    },
+  },
+  {
+    name: "rejects an empty successful response instead of rendering a broken image",
+    async fn() {
+      const store = createBoardAssetStore({
+        fetchFn: async () => ({
+          ok: true,
+          status: 200,
+          headers: { get: () => "image/png" },
+          blob: async () => new Blob([], { type: "image/png" }),
+        }),
+        getRemoteConfig: async () => ({
+          accessToken: "access-token",
+          anonKey: "anon-key",
+          enabled: true,
+          supabaseUrl: "https://project.supabase.co",
+          userId: "user-id",
+        }),
+      });
+
+      await assert.rejects(
+        store.resolveBlob({
+          assetId: "asset-id",
+          remotePath: "user-id/asset-id.png",
+          mime: "image/png",
+        }),
+        /пустой файл/i,
+      );
+    },
+  },
 ];

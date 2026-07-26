@@ -9,6 +9,7 @@
     let camera = loadCamera();
     let cameraReady = false;
     let selectedId = "";
+    let selectedIds = new Set();
     let editingId = "";
     let gesture = null;
     let textBeforeEdit = null;
@@ -16,6 +17,7 @@
     let undoStack = [];
     let viewportSize = null;
     let imageUploadBusy = false;
+    let spacePressed = false;
     const objectUrls = new Map();
     const pendingUploadAttempts = new Map();
 
@@ -33,7 +35,19 @@
       ctx.els.boardZoomIn?.addEventListener("click", () => zoomAt(1.3));
       ctx.els.boardZoomOut?.addEventListener("click", () => zoomAt(1 / 1.3));
       ctx.els.boardFocus?.addEventListener("click", focusContent);
-      ctx.els.boardBold?.addEventListener("click", toggleBold);
+      ctx.els.boardBold?.addEventListener("click", () => {
+        toggleBold();
+        focusPrimarySelection();
+      });
+      ctx.els.boardColorPresets?.addEventListener("click", (event) => {
+        const swatch = event.target.closest("[data-board-text-color]");
+        if (swatch) {
+          applyTextColor(swatch.dataset.boardTextColor);
+          focusPrimarySelection();
+        }
+      });
+      ctx.els.boardTextColor?.addEventListener("input", () => applyTextColor(ctx.els.boardTextColor.value));
+      ctx.els.boardTextColor?.addEventListener("change", focusPrimarySelection);
       ctx.els.boardFontSize?.addEventListener("change", applyFontSize);
       ctx.els.boardFontSize?.addEventListener("keydown", (event) => {
         if (event.key === "Enter") {
@@ -52,6 +66,7 @@
       global.addEventListener("pointerup", finishGesture);
       global.addEventListener("pointercancel", cancelGesture);
       global.addEventListener("keydown", handleKeyDown, true);
+      global.addEventListener("keyup", handleKeyUp, true);
       global.addEventListener("paste", handlePaste);
       if (global.ResizeObserver && ctx.els.boardViewport) {
         const resizeObserver = new global.ResizeObserver(handleViewportResize);
@@ -65,7 +80,9 @@
       if (!ctx.els.boardWorld || !ctx.els.boardViewport) return;
       initializeCamera();
       const items = ctx.getItems();
-      if (selectedId && !items.some((item) => item.id === selectedId)) selectedId = "";
+      const liveIds = new Set(items.map((item) => item.id));
+      selectedIds = new Set([...selectedIds].filter((id) => liveIds.has(id)));
+      if (selectedId && !liveIds.has(selectedId)) selectedId = [...selectedIds].at(-1) || "";
       if (editingId && !items.some((item) => item.id === editingId)) editingId = "";
       releaseUnusedObjectUrls(items);
 
@@ -96,8 +113,17 @@
 
       node.addEventListener("pointerdown", (event) => {
         if (event.button !== 0) return;
+        if (spacePressed) return;
+        if (event.detail >= 2 && item.type === "text" && event.target.closest(".board-text-content")) {
+          event.preventDefault();
+          event.stopPropagation();
+          setSelection([item.id], item.id);
+          startTextEdit(item.id, node);
+          return;
+        }
         const resizeHandle = event.target.closest("[data-board-resize]");
-        selectItem(item.id, node);
+        const remainsSelected = selectItem(item.id, node, { additive: event.shiftKey, toggle: event.shiftKey });
+        if (!remainsSelected) return;
         if (resizeHandle) {
           startItemGesture(event, item, "resize", node, resizeHandle.dataset.boardResize);
           return;
@@ -105,7 +131,9 @@
         if (editingId === item.id && event.target.closest(".board-text-content")) return;
         startItemGesture(event, item, "move", node);
       });
-      node.addEventListener("focus", () => selectItem(item.id, node));
+      node.addEventListener("focus", () => {
+        if (!selectedIds.has(item.id)) selectItem(item.id, node);
+      });
       return node;
     }
 
@@ -117,6 +145,7 @@
       content.dataset.placeholder = "Введите текст";
       content.style.fontSize = `${item.fontSize}px`;
       content.style.fontWeight = String(item.fontWeight);
+      content.style.color = item.color;
       content.setAttribute("aria-label", "Текстовый объект");
       content.addEventListener("dblclick", (event) => {
         event.preventDefault();
@@ -167,6 +196,7 @@
         now: new Date().toISOString(),
       });
       selectedId = item.id;
+      selectedIds = new Set([item.id]);
       commit([...ctx.getItems(), item]);
       requestAnimationFrame(() => {
         const node = findItemNode(item.id);
@@ -241,6 +271,7 @@
             const prepared = await ctx.assets.prepareImage(images[index]);
             const assetId = ctx.createId();
             const remotePath = await ctx.assets.uploadPrepared(assetId, prepared);
+            cacheImageUrl(assetId, prepared.blob);
             const fit = fitImage(prepared.width, prepared.height);
             const item = ctx.model.createImageItem({
               assetId,
@@ -265,6 +296,7 @@
           undoStack.push(before);
           trimUndo();
           selectedId = added.at(-1).id;
+          selectedIds = new Set([selectedId]);
           commit([...before, ...added]);
           setStatus(
             added.length === 1
@@ -280,31 +312,38 @@
     }
 
     function startPan(event) {
+      const shouldPan = event.pointerType === "touch" || event.button === 1 || (event.button === 0 && spacePressed);
       if (
-        event.button !== 0
-        || event.target.closest(".board-item")
+        (!shouldPan && event.button !== 0)
+        || (!shouldPan && event.target.closest(".board-item"))
         || event.target.closest(".board-toolbar")
         || event.target.closest(".board-selection-toolbar")
         || event.target.closest(".board-zoom-controls")
       ) return;
+      event.preventDefault();
       finishActiveTextEdit();
-      selectedId = "";
-      updateSelection();
+      if (!shouldPan && !event.shiftKey) setSelection([]);
       gesture = {
-        type: "pan",
+        type: shouldPan ? "pan" : "marquee",
         pointerId: event.pointerId,
         startX: event.clientX,
         startY: event.clientY,
+        extendSelection: event.shiftKey,
+        initialSelection: new Set(selectedIds),
         cameraX: camera.x,
         cameraY: camera.y,
       };
       ctx.els.boardViewport.setPointerCapture?.(event.pointerId);
-      ctx.els.boardViewport.classList.add("is-panning");
+      ctx.els.boardViewport.classList.add(shouldPan ? "is-panning" : "is-selecting");
+      if (!shouldPan) updateMarquee(event.clientX, event.clientY);
     }
 
     function startItemGesture(event, item, type, node, direction = "") {
-      event.preventDefault();
+      if (type === "resize") event.preventDefault();
       event.stopPropagation();
+      const movingItems = type === "move"
+        ? ctx.getItems().filter((candidate) => selectedIds.has(candidate.id))
+        : [item];
       gesture = {
         type,
         direction,
@@ -314,11 +353,12 @@
         startX: event.clientX,
         startY: event.clientY,
         original: { ...item },
+        originals: new Map(movingItems.map((candidate) => [candidate.id, { ...candidate }])),
+        nodes: movingItems.map((candidate) => findItemNode(candidate.id)).filter(Boolean),
         before: cloneItems(ctx.getItems()),
         moved: false,
       };
-      node.setPointerCapture?.(event.pointerId);
-      node.classList.add(type === "move" ? "is-dragging" : "is-resizing");
+      gesture.nodes.forEach((itemNode) => itemNode.classList.add(type === "move" ? "is-dragging" : "is-resizing"));
     }
 
     function handlePointerMove(event) {
@@ -331,18 +371,37 @@
         applyCamera();
         return;
       }
+      if (gesture.type === "marquee") {
+        gesture.moved ||= Math.abs(dx) + Math.abs(dy) > 3;
+        updateMarquee(event.clientX, event.clientY);
+        previewMarqueeSelection();
+        return;
+      }
       const worldDx = dx / camera.zoom;
       const worldDy = dy / camera.zoom;
       gesture.moved ||= Math.abs(dx) + Math.abs(dy) > 3;
       if (!gesture.moved) return;
-      gesture.preview = gesture.type === "move"
-        ? {
-            x: gesture.original.x + worldDx,
-            y: gesture.original.y + worldDy,
-            width: gesture.original.width,
-            height: gesture.original.height,
-          }
-        : resizeGeometry(gesture.original, worldDx, worldDy, gesture.direction);
+      event.preventDefault();
+      if (!gesture.pointerCaptured) {
+        gesture.node?.setPointerCapture?.(gesture.pointerId);
+        gesture.pointerCaptured = true;
+      }
+      if (gesture.type === "move") {
+        gesture.previews = new Map();
+        gesture.originals.forEach((original, id) => {
+          const preview = {
+            x: original.x + worldDx,
+            y: original.y + worldDy,
+            width: original.width,
+            height: original.height,
+          };
+          gesture.previews.set(id, preview);
+          const itemNode = findItemNode(id);
+          if (itemNode) applyNodeGeometry(itemNode, { ...original, ...preview });
+        });
+        return;
+      }
+      gesture.preview = resizeGeometry(gesture.original, worldDx, worldDy, gesture.direction);
       applyNodeGeometry(gesture.node, { ...gesture.original, ...gesture.preview });
     }
 
@@ -350,32 +409,91 @@
       if (!gesture || event.pointerId !== gesture.pointerId) return;
       const current = gesture;
       gesture = null;
-      ctx.els.boardViewport.classList.remove("is-panning");
+      ctx.els.boardViewport.classList.remove("is-panning", "is-selecting");
+      current.nodes?.forEach((itemNode) => itemNode.classList.remove("is-dragging", "is-resizing"));
       current.node?.classList.remove("is-dragging", "is-resizing");
       if (current.type === "pan") {
         saveCamera();
         return;
       }
-      if (!current.moved || !current.preview) {
+      if (current.type === "marquee") {
+        hideMarquee();
+        if (!current.moved && !current.extendSelection) setSelection([]);
+        return;
+      }
+      if (!current.moved || (current.type === "move" ? !current.previews : !current.preview)) {
         current.node?.focus({ preventScroll: true });
         return;
       }
       undoStack.push(current.before);
       trimUndo();
       const now = new Date().toISOString();
-      const next = ctx.getItems().map((item) => item.id === current.itemId
-        ? { ...item, ...current.preview, z: nextZ(), updatedAt: now }
-        : item);
+      const topZ = nextZ();
+      const movedOrder = new Map(
+        [...(current.previews?.keys() || [])].map((id, index) => [id, topZ + index]),
+      );
+      const next = ctx.getItems().map((item) => {
+        if (current.type === "move" && current.previews.has(item.id)) {
+          return { ...item, ...current.previews.get(item.id), z: movedOrder.get(item.id), updatedAt: now };
+        }
+        if (current.type === "resize" && item.id === current.itemId) {
+          return { ...item, ...current.preview, z: topZ, updatedAt: now };
+        }
+        return item;
+      });
       commit(next);
     }
 
     function cancelGesture() {
       if (!gesture) return;
+      gesture.nodes?.forEach((itemNode) => itemNode.classList.remove("is-dragging", "is-resizing"));
       gesture.node?.classList.remove("is-dragging", "is-resizing");
-      ctx.els.boardViewport.classList.remove("is-panning");
+      ctx.els.boardViewport.classList.remove("is-panning", "is-selecting");
+      hideMarquee();
       gesture = null;
       applyCamera();
       render();
+    }
+
+    function updateMarquee(clientX, clientY) {
+      if (!gesture || gesture.type !== "marquee" || !ctx.els.boardMarquee) return;
+      const viewport = ctx.els.boardViewport.getBoundingClientRect();
+      const left = clamp(Math.min(gesture.startX, clientX) - viewport.left, 0, viewport.width);
+      const top = clamp(Math.min(gesture.startY, clientY) - viewport.top, 0, viewport.height);
+      const right = clamp(Math.max(gesture.startX, clientX) - viewport.left, 0, viewport.width);
+      const bottom = clamp(Math.max(gesture.startY, clientY) - viewport.top, 0, viewport.height);
+      gesture.marquee = { left, top, right, bottom };
+      ctx.els.boardMarquee.hidden = false;
+      Object.assign(ctx.els.boardMarquee.style, {
+        left: `${left}px`,
+        top: `${top}px`,
+        width: `${right - left}px`,
+        height: `${bottom - top}px`,
+      });
+    }
+
+    function previewMarqueeSelection() {
+      if (!gesture?.marquee) return;
+      const viewport = ctx.els.boardViewport.getBoundingClientRect();
+      const topLeft = screenToWorld(viewport.left + gesture.marquee.left, viewport.top + gesture.marquee.top);
+      const bottomRight = screenToWorld(viewport.left + gesture.marquee.right, viewport.top + gesture.marquee.bottom);
+      const ids = ctx.getItems()
+        .filter((item) =>
+          item.x < bottomRight.x
+          && item.x + item.width > topLeft.x
+          && item.y < bottomRight.y
+          && item.y + item.height > topLeft.y)
+        .map((item) => item.id);
+      const next = gesture.extendSelection
+        ? [...new Set([...gesture.initialSelection, ...ids])]
+        : ids;
+      setSelection(next, ids.at(-1) || [...gesture.initialSelection].at(-1) || "");
+    }
+
+    function hideMarquee() {
+      if (!ctx.els.boardMarquee) return;
+      ctx.els.boardMarquee.hidden = true;
+      ctx.els.boardMarquee.removeAttribute("style");
     }
 
     function handleWheel(event) {
@@ -476,34 +594,39 @@
     function handleKeyDown(event) {
       if (!isBoardActive()) return;
       const formControl = event.target.closest?.("input, textarea, select, button");
+      if (event.code === "Space" && !editingId && !formControl) {
+        spacePressed = true;
+        ctx.els.boardViewport.classList.add("is-space-pan");
+        event.preventDefault();
+        return;
+      }
       const focusedItemId = document.activeElement?.closest?.(".board-item")?.dataset.id;
-      if (!editingId && focusedItemId && selectedId !== focusedItemId) {
-        selectedId = focusedItemId;
-        updateSelection();
+      if (!editingId && focusedItemId && !selectedIds.has(focusedItemId)) {
+        setSelection([focusedItemId], focusedItemId);
       }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z" && !editingId && !formControl) {
         event.preventDefault();
         undo();
         return;
       }
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "b" && selectedText() && !editingId) {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "b" && selectedTexts().length && !editingId) {
         event.preventDefault();
         toggleBold();
         return;
       }
-      if (event.key === "Delete" && selectedId && !editingId && !formControl) {
+      if (event.key === "Delete" && selectedIds.size && !editingId && !formControl) {
         event.preventDefault();
         event.stopPropagation();
         deleteSelected();
         return;
       }
-      if (event.key === "Enter" && selectedText() && !editingId && !formControl) {
+      if (event.key === "Enter" && selectedIds.size === 1 && selectedText() && !editingId && !formControl) {
         event.preventDefault();
         const node = findItemNode(selectedId);
         if (node) startTextEdit(selectedId, node);
         return;
       }
-      if (event.key.startsWith("Arrow") && selectedId && !editingId && !formControl) {
+      if (event.key.startsWith("Arrow") && selectedIds.size && !editingId && !formControl) {
         event.preventDefault();
         moveSelectedWithKeyboard(event.key, event.shiftKey ? 10 : 1);
         return;
@@ -514,26 +637,31 @@
           finishActiveTextEdit();
           findItemNode(selectedId)?.focus({ preventScroll: true });
         } else {
-          selectedId = "";
-          updateSelection();
+          setSelection([]);
         }
       }
     }
 
+    function handleKeyUp(event) {
+      if (event.code !== "Space") return;
+      spacePressed = false;
+      ctx.els.boardViewport?.classList.remove("is-space-pan");
+    }
+
     function deleteSelected() {
-      const id = selectedId;
-      if (!id || !ctx.getItems().some((item) => item.id === id)) return;
+      const ids = new Set(selectedIds);
+      if (!ids.size) return;
       pushUndo();
-      selectedId = "";
+      setSelection([]);
       editingId = "";
-      commit(ctx.getItems().filter((item) => item.id !== id), { deletedIds: [id] });
+      commit(ctx.getItems().filter((item) => !ids.has(item.id)), { deletedIds: [...ids] });
       ctx.showToast("Объект удалён · отмена доступна на панели доски");
     }
 
     function undo() {
       const snapshot = undoStack.pop();
       if (!snapshot) return;
-      selectedId = "";
+      setSelection([]);
       editingId = "";
       ctx.commitItems(snapshot, { restoreDeleted: true });
       render();
@@ -545,7 +673,7 @@
       const content = node?.querySelector(".board-text-content");
       if (!item || !content) return;
       finishActiveTextEdit();
-      selectedId = id;
+      setSelection([id], id);
       editingId = id;
       textBeforeEdit = { items: cloneItems(ctx.getItems()), value: item.text };
       node.classList.add("is-selected", "is-editing");
@@ -609,61 +737,91 @@
       global.document.execCommand("insertText", false, text);
     }
 
-    function selectItem(id, node = findItemNode(id)) {
+    function selectItem(id, node = findItemNode(id), options = {}) {
       if (editingId && editingId !== id) finishActiveTextEdit();
-      selectedId = id;
+      const preserveGroup = !options.additive && selectedIds.size > 1 && selectedIds.has(id);
+      const next = new Set(options.additive || preserveGroup ? selectedIds : []);
+      if (options.toggle && next.has(id)) next.delete(id);
+      else next.add(id);
+      setSelection([...next], next.has(id) ? id : [...next].at(-1) || "");
+      if (next.has(id)) node?.focus({ preventScroll: true });
+      return next.has(id);
+    }
+
+    function setSelection(ids, primaryId = "") {
+      selectedIds = new Set((ids || []).filter(Boolean));
+      selectedId = selectedIds.has(primaryId) ? primaryId : [...selectedIds].at(-1) || "";
       updateSelection();
-      node?.focus({ preventScroll: true });
     }
 
     function updateSelection() {
       const selected = ctx.getItems().find((item) => item.id === selectedId);
+      const textItems = selectedTexts();
       ctx.els.boardWorld.querySelectorAll(".board-item").forEach((node) => {
-        const active = node.dataset.id === selectedId;
+        const active = selectedIds.has(node.dataset.id);
         node.classList.toggle("is-selected", active);
         node.classList.toggle("is-editing", active && node.dataset.id === editingId);
+        node.classList.toggle("is-multi-selected", active && selectedIds.size > 1);
         node.setAttribute("aria-selected", String(active));
       });
-      const showTextTools = selected?.type === "text";
+      const showTextTools = textItems.length > 0;
       if (ctx.els.boardSelectionToolbar) ctx.els.boardSelectionToolbar.hidden = !showTextTools;
       if (showTextTools) {
-        ctx.els.boardFontSize.value = String(selected.fontSize);
-        ctx.els.boardBold.setAttribute("aria-pressed", String(selected.fontWeight >= 600));
-        ctx.els.boardBold.classList.toggle("is-active", selected.fontWeight >= 600);
+        const reference = selected?.type === "text" ? selected : textItems[0];
+        const allBold = textItems.every((item) => item.fontWeight >= 600);
+        ctx.els.boardFontSize.value = String(reference.fontSize);
+        ctx.els.boardBold.setAttribute("aria-pressed", String(allBold));
+        ctx.els.boardBold.classList.toggle("is-active", allBold);
+        ctx.els.boardTextColor.value = reference.color;
+        ctx.els.boardColorPresets?.querySelectorAll("[data-board-text-color]").forEach((swatch) => {
+          swatch.classList.toggle("is-active", swatch.dataset.boardTextColor === reference.color);
+        });
       }
     }
 
     function applyFontSize() {
-      const item = selectedText();
+      const item = selectedText() || selectedTexts()[0];
       if (!item) return;
       const fontSize = clamp(
         Math.round(Number(ctx.els.boardFontSize.value) || item.fontSize),
         ctx.model.MIN_FONT_SIZE,
         ctx.model.MAX_FONT_SIZE,
       );
-      const content = findItemNode(item.id)?.querySelector(".board-text-content");
-      let height = item.height;
-      if (content) {
-        const previousSize = content.style.fontSize;
-        content.style.fontSize = `${fontSize}px`;
-        height = Math.max(height, Math.ceil(content.scrollHeight));
-        content.style.fontSize = previousSize;
-      }
-      updateSelectedText({ fontSize, height });
+      updateSelectedText((candidate) => {
+        const content = findItemNode(candidate.id)?.querySelector(".board-text-content");
+        let height = candidate.height;
+        if (content) {
+          const previousSize = content.style.fontSize;
+          content.style.fontSize = `${fontSize}px`;
+          height = Math.max(height, Math.ceil(content.scrollHeight));
+          content.style.fontSize = previousSize;
+        }
+        return { fontSize, height };
+      });
     }
 
     function toggleBold() {
-      const item = selectedText();
-      if (!item) return;
-      updateSelectedText({ fontWeight: item.fontWeight >= 600 ? 400 : 700 });
+      const items = selectedTexts();
+      if (!items.length) return;
+      const fontWeight = items.every((item) => item.fontWeight >= 600) ? 400 : 700;
+      updateSelectedText({ fontWeight });
+    }
+
+    function applyTextColor(color) {
+      if (!/^#[0-9a-f]{6}$/i.test(String(color || ""))) return;
+      updateSelectedText({ color: String(color).toLowerCase() });
     }
 
     function updateSelectedText(patch) {
-      const item = selectedText();
-      if (!item) return;
+      const ids = new Set(selectedTexts().map((item) => item.id));
+      if (!ids.size) return;
       pushUndo();
-      commit(ctx.getItems().map((candidate) => candidate.id === item.id
-        ? { ...candidate, ...patch, updatedAt: new Date().toISOString() }
+      commit(ctx.getItems().map((candidate) => ids.has(candidate.id)
+        ? {
+            ...candidate,
+            ...(typeof patch === "function" ? patch(candidate) : patch),
+            updatedAt: new Date().toISOString(),
+          }
         : candidate));
     }
 
@@ -672,9 +830,16 @@
       return item?.type === "text" ? item : null;
     }
 
+    function selectedTexts() {
+      return ctx.getItems().filter((item) => selectedIds.has(item.id) && item.type === "text");
+    }
+
+    function focusPrimarySelection() {
+      findItemNode(selectedId)?.focus({ preventScroll: true });
+    }
+
     function moveSelectedWithKeyboard(key, distance) {
-      const item = ctx.getItems().find((candidate) => candidate.id === selectedId);
-      if (!item) return;
+      if (!selectedIds.size) return;
       const delta = {
         ArrowLeft: { x: -distance, y: 0 },
         ArrowRight: { x: distance, y: 0 },
@@ -683,7 +848,7 @@
       }[key];
       if (!delta) return;
       pushUndo();
-      commit(ctx.getItems().map((candidate) => candidate.id === item.id
+      commit(ctx.getItems().map((candidate) => selectedIds.has(candidate.id)
         ? {
             ...candidate,
             x: candidate.x + delta.x,
@@ -704,31 +869,50 @@
       const placeholder = node?.querySelector(".board-image-placeholder");
       if (!image) return;
       let url = objectUrls.get(item.assetId);
-      if (!url) {
-        const blob = await ctx.assets.resolveBlob(item).catch(() => null);
-        if (!blob || !image.isConnected) {
-          if (placeholder) {
-            placeholder.textContent = item.remotePath
-              ? "Не удалось загрузить фото из Supabase"
-              : "Фото ещё не перенесено в Supabase";
-            placeholder.dataset.state = "error";
-          }
-          return;
+      try {
+        if (!url) {
+          const blob = await ctx.assets.resolveBlob(item);
+          if (!blob) throw new Error(item.remotePath
+            ? "Не удалось загрузить фото из Supabase"
+            : "Фото ещё не перенесено в Supabase");
+          if (!image.isConnected) return;
+          url = cacheImageUrl(item.assetId, blob);
         }
-        url = URL.createObjectURL(blob);
-        objectUrls.set(item.assetId, url);
+      } catch (error) {
+        showBrokenImage(placeholder, error?.message);
+        return;
       }
-      image.src = url;
+
       image.addEventListener("load", () => {
-        if (placeholder) placeholder.hidden = true;
+        if (placeholder) {
+          placeholder.hidden = true;
+          delete placeholder.dataset.state;
+        }
       }, { once: true });
       image.addEventListener("error", () => {
-        if (placeholder) {
-          placeholder.hidden = false;
-          placeholder.textContent = "Файл изображения повреждён или недоступен";
-          placeholder.dataset.state = "error";
+        const cachedUrl = objectUrls.get(item.assetId);
+        if (cachedUrl === url) {
+          URL.revokeObjectURL(cachedUrl);
+          objectUrls.delete(item.assetId);
         }
+        showBrokenImage(placeholder, "Файл изображения повреждён или недоступен");
       }, { once: true });
+      image.src = url;
+    }
+
+    function cacheImageUrl(assetId, blob) {
+      const previous = objectUrls.get(assetId);
+      if (previous) URL.revokeObjectURL(previous);
+      const url = URL.createObjectURL(blob);
+      objectUrls.set(assetId, url);
+      return url;
+    }
+
+    function showBrokenImage(placeholder, message) {
+      if (!placeholder) return;
+      placeholder.hidden = false;
+      placeholder.textContent = message || "Не удалось отобразить изображение";
+      placeholder.dataset.state = "error";
     }
 
     function syncLegacyImages(items) {

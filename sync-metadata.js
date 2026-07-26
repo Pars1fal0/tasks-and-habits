@@ -8,7 +8,7 @@
     habits: ["startDate", "archived", "archivedAt", "archivedFromDate"],
     goals: ["title", "dueDate", "why"],
     boardItems: [
-      "type", "x", "y", "width", "height", "z", "text", "fontSize", "fontWeight",
+      "type", "x", "y", "width", "height", "z", "text", "fontSize", "fontWeight", "color",
       "assetId", "remotePath", "mime", "name",
     ],
     journalEntries: ["date", "text", "revisions"],

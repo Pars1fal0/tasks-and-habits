@@ -16,6 +16,7 @@ module.exports = [
           height: 10,
           fontSize: 96,
           fontWeight: 700,
+          color: "#ABCDEF",
         },
         {
           id: "image-1",
@@ -34,6 +35,7 @@ module.exports = [
       assert.equal(items[0].height, 24);
       assert.equal(items[0].fontSize, 96);
       assert.equal(items[0].fontWeight, 700);
+      assert.equal(items[0].color, "#abcdef");
       assert.equal(items[1].assetId, "asset-1");
       assert.equal("dataUrl" in items[1], false);
     },
