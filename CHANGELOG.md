@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.21.0
+## 0.21.1
 
 - Added automatic desktop update checks and background downloads for the installed Windows version.
 - Added a desktop update status, manual check, GitHub Releases link, and restart-to-install action in Settings.
