@@ -493,6 +493,12 @@ function createWindow() {
         themeSelect.dispatchEvent(new Event("change", { bubbles: true }));
         const switchedDark = document.documentElement.dataset.theme === "dark";
         const themeSwitchWorks = switchedLight && switchedDark;
+        const blueAccent = document.querySelector('input[name="accentPreference"][value="blue"]');
+        blueAccent.checked = true;
+        blueAccent.dispatchEvent(new Event("change", { bubbles: true }));
+        const accentSwitchWorks =
+          document.documentElement.dataset.accent === "blue" &&
+          getComputedStyle(document.documentElement).getPropertyValue("--teal").trim() === "#5aa7ff";
         const firstDaySelect = document.querySelector("#firstDayOfWeek");
         firstDaySelect.value = "sunday";
         firstDaySelect.dispatchEvent(new Event("change", { bubbles: true }));
@@ -713,6 +719,7 @@ function createWindow() {
           mobileHeatmapGrid.scrollWidth <= mobileHeatmapGrid.clientWidth + 1;
 
         return {
+          accentSwitchWorks,
           title: document.title,
           hasTaskForm: Boolean(document.querySelector("#taskForm")),
           hasHabitList: Boolean(document.querySelector("#habitList")),

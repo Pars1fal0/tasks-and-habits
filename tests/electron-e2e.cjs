@@ -81,7 +81,17 @@ const { _electron: electron } = require("playwright-core");
     assert.equal(await page.locator(".settings-accordion").first().getAttribute("open"), null);
     assert.equal(await page.locator("#remoteSyncPushButton").isDisabled(), true);
     assert.equal(await page.locator("#remoteSyncPullButton").isDisabled(), true);
-    await page.locator("#timeZoneSetting").evaluate((node) => node.closest("details")?.querySelector("summary")?.click());
+    await page.locator(".settings-accordion").first().locator("summary").click();
+    await page.locator('.accent-option:has(input[value="blue"])').click();
+    assert.equal(await page.evaluate(() => document.documentElement.dataset.accent), "blue");
+    assert.equal(
+      await page.evaluate(() => JSON.parse(localStorage.getItem("rhythm-day-ui-v1")).accentPreference),
+      "blue",
+    );
+    assert.equal(
+      await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--teal").trim()),
+      "#5aa7ff",
+    );
     await page.locator("#timeZoneSetting").fill("Asia/Yekaterinburg");
     await page.locator("#timeZoneSetting").dispatchEvent("change");
     assert.equal(

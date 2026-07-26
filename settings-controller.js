@@ -14,6 +14,11 @@
       ctx.els.settingsResetButton?.addEventListener("click", ctx.resetInterfaceSettings);
       settingsSync.bindEvents();
 
+      ctx.els.accentPreferences?.forEach((input) => {
+        input.addEventListener("change", () => {
+          if (input.checked) ctx.updateSetting("accentPreference", input.value);
+        });
+      });
       ctx.els.themePreference?.addEventListener("change", () => ctx.updateSetting("themePreference", ctx.els.themePreference.value));
       ctx.els.notificationSetting?.addEventListener("change", () => ctx.updateSetting("notificationSetting", ctx.els.notificationSetting.value));
       ctx.els.backupSchedule?.addEventListener("change", () => ctx.updateSetting("backupSchedule", ctx.els.backupSchedule.value));
@@ -26,6 +31,9 @@
     }
 
     function syncControls(settings = ctx.getSettings()) {
+      ctx.els.accentPreferences?.forEach((input) => {
+        input.checked = input.value === settings.accentPreference;
+      });
       setValue(ctx.els.themePreference, settings.themePreference);
       setValue(ctx.els.notificationSetting, settings.notificationSetting);
       setValue(ctx.els.backupSchedule, settings.backupSchedule);

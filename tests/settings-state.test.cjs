@@ -11,6 +11,7 @@ module.exports = [
       });
 
       const normalized = settingsState.normalizeImportedSettings({
+        accentPreference: "pink-neon",
         backupSchedule: "999",
         remoteSyncAnonKey: " secret ",
         remoteSyncPending: true,
@@ -20,12 +21,14 @@ module.exports = [
       const remoteSafe = settingsState.createRemoteUiSettings(normalized, { remoteSyncLastPushedAt: "2026-07-02T10:00:00.000Z" });
 
       assert.equal(normalized.backupSchedule, "5");
+      assert.equal(normalized.accentPreference, "emerald");
       assert.equal(normalized.themePreference, "dark");
       assert.equal(normalized.remoteSyncAnonKey, "secret");
       assert.equal(normalized.remoteSyncPending, false);
       assert.deepEqual(remoteSafe, {});
       assert.equal(settingsState.isRemoteVersionNewer("2026-07-02T10:05:00.000Z", "2026-07-02T10:00:00.000Z"), true);
       assert.equal(settingsState.isRemoteVersionNewer("2026-07-02T09:55:00.000Z", "2026-07-02T10:00:00.000Z"), false);
+      assert.equal(settingsState.normalizeAccentPreference("orange"), "orange");
     },
   },
 ];

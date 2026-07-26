@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.20.1
+
+- Added emerald, blue, orange, and violet interface accents with accessible color swatches in Appearance settings.
+- Applied the selected accent consistently to buttons, active states, focus rings, shadows, heatmap activity, and ambient highlights in dark and light themes.
+- Kept semantic danger and warning colors independent from personalization, persisted the choice locally, and included it in settings import/export and reset.
+
 ## 0.20.0
 
 - Added a responsive weekly nutrition planner with meals, ingredients, calories/macros, daily targets, a personal food library, and an aggregated shopping list.

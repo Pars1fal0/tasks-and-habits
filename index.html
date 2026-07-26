@@ -9,7 +9,7 @@
     <link rel="icon" href="data:,">
     <link rel="manifest" href="manifest.webmanifest">
     <script src="shell-version.js?v=1"></script>
-    <link rel="stylesheet" href="styles.css?v=31">
+    <link rel="stylesheet" href="styles.css?v=32">
     <link rel="stylesheet" href="disclosure-menus.css?v=1">
   </head>
   <body>
@@ -1067,6 +1067,35 @@
                   <option value="system">Как в системе</option>
                 </select>
               </label>
+              <fieldset class="settings-row accent-settings-row">
+                <legend class="sr-only">Акцентный цвет интерфейса</legend>
+                <span>
+                  <strong>Цвет интерфейса</strong>
+                  <small>Меняет основные кнопки, активные состояния, индикаторы и подсветку.</small>
+                </span>
+                <div class="accent-picker" role="radiogroup" aria-label="Цвет интерфейса">
+                  <label class="accent-option is-emerald">
+                    <input type="radio" name="accentPreference" value="emerald">
+                    <span class="accent-swatch" aria-hidden="true"></span>
+                    <span>Зелёный</span>
+                  </label>
+                  <label class="accent-option is-blue">
+                    <input type="radio" name="accentPreference" value="blue">
+                    <span class="accent-swatch" aria-hidden="true"></span>
+                    <span>Синий</span>
+                  </label>
+                  <label class="accent-option is-orange">
+                    <input type="radio" name="accentPreference" value="orange">
+                    <span class="accent-swatch" aria-hidden="true"></span>
+                    <span>Оранжевый</span>
+                  </label>
+                  <label class="accent-option is-violet">
+                    <input type="radio" name="accentPreference" value="violet">
+                    <span class="accent-swatch" aria-hidden="true"></span>
+                    <span>Фиолетовый</span>
+                  </label>
+                </div>
+              </fieldset>
               <label class="settings-row">
                 <span>
                   <strong>Плотность</strong>
@@ -1398,7 +1427,7 @@
     <script src="device-sync-controller.js?v=1" defer></script>
     <script src="sync-history.js?v=1" defer></script>
     <script src="sync-diagnostics.js?v=1" defer></script>
-    <script src="settings-state.js?v=2" defer></script>
+    <script src="settings-state.js?v=3" defer></script>
     <script src="profile-settings.js?v=2" defer></script>
     <script src="hosted-config.js?v=1" defer></script>
     <script src="journal-model.js?v=3" defer></script>
@@ -1446,7 +1475,7 @@
     <script src="settings-sync.js?v=1" defer></script>
     <script src="settings-transfer.js?v=1" defer></script>
     <script src="save-status.js?v=2" defer></script>
-    <script src="settings-controller.js?v=6" defer></script>
+    <script src="settings-controller.js?v=7" defer></script>
     <script src="timeline-layout.js?v=1" defer></script>
     <script src="timeline-menu.js?v=2" defer></script>
     <script src="timeline-drag.js?v=2" defer></script>
@@ -1455,6 +1484,6 @@
     <script src="view-renderer.js?v=2" defer></script>
     <script src="app-shell-controller.js?v=2" defer></script>
     <script src="toast.js?v=1" defer></script>
-    <script src="app.js?v=41" defer></script>
+    <script src="app.js?v=42" defer></script>
   </body>
 </html>

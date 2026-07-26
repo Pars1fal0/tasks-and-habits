@@ -113,6 +113,7 @@ let archivePeriod = ["all", "week", "month", "quarter"].includes(initialUiState.
   : "all";
 let overdueHidden = initialUiState.overdueHidden === true;
 let themePreference = normalizeThemePreference(initialUiState.themePreference);
+let accentPreference = normalizeAccentPreference(initialUiState.accentPreference);
 let notificationSetting = normalizeNotificationSetting(initialUiState.notificationSetting);
 let backupSchedule = normalizeBackupSchedule(initialUiState.backupSchedule);
 let firstDayOfWeek = normalizeFirstDayOfWeek(initialUiState.firstDayOfWeek);
@@ -162,6 +163,7 @@ const els = {
   archivePeriodFilter: document.querySelector("#archivePeriodFilter"),
   archiveSearch: document.querySelector("#archiveSearch"),
   archiveSelectAll: document.querySelector("#archiveSelectAll"),
+  accentPreferences: document.querySelectorAll('input[name="accentPreference"]'),
   backupStatus: document.querySelector("#backupStatus"),
   backupSchedule: document.querySelector("#backupSchedule"),
   categoryColor: document.querySelector("#categoryColor"),
@@ -2414,6 +2416,7 @@ function saveUiState() {
     storage.saveUiState({
       activeDate,
       activeView,
+      accentPreference,
       archiveCategoryFilter,
       archivePeriod,
       archiveSearchQuery,
@@ -2449,6 +2452,10 @@ function saveUiState() {
 
 function normalizeThemePreference(value) {
   return settingsState.normalizeThemePreference(value);
+}
+
+function normalizeAccentPreference(value) {
+  return settingsState.normalizeAccentPreference(value);
 }
 
 function normalizeNotificationSetting(value) {
@@ -2516,6 +2523,7 @@ function applyThemePreference() {
 }
 
 function applySettingsPreferences() {
+  document.documentElement.dataset.accent = accentPreference;
   document.documentElement.dataset.density = densityPreference;
   if (els.notificationSetting) els.notificationSetting.value = notificationSetting;
   if (els.backupSchedule) els.backupSchedule.value = backupSchedule;
@@ -2531,6 +2539,7 @@ function applySettingsPreferences() {
 
 function getUiSettings() {
   return {
+    accentPreference,
     backupSchedule,
     densityPreference,
     firstDayOfWeek,
@@ -2553,6 +2562,13 @@ function getRemoteUiSettings(overrides = {}) {
 
 function updateSetting(name, value) {
   switch (name) {
+    case "accentPreference":
+      accentPreference = normalizeAccentPreference(value);
+      applySettingsPreferences();
+      saveUiState();
+      settingsController.syncControls();
+      showToast("Цвет интерфейса обновлён");
+      break;
     case "themePreference":
       themePreference = normalizeThemePreference(value);
       applyThemePreference();
@@ -2632,6 +2648,7 @@ function updateSetting(name, value) {
 
 function resetInterfacePreferences() {
   themePreference = "dark";
+  accentPreference = "emerald";
   densityPreference = "comfortable";
   timeFormat = "24";
   firstDayOfWeek = "monday";
@@ -2646,6 +2663,7 @@ function resetInterfacePreferences() {
 function applyImportedSettings(settings = {}) {
   const normalized = settingsState.normalizeImportedSettings(settings);
   themePreference = normalized.themePreference;
+  accentPreference = normalized.accentPreference;
   notificationSetting = normalized.notificationSetting;
   backupSchedule = normalized.backupSchedule;
   firstDayOfWeek = normalized.firstDayOfWeek;

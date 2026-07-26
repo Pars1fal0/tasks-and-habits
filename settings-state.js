@@ -7,6 +7,10 @@
       return ["dark", "light", "system"].includes(value) ? value : "dark";
     }
 
+    function normalizeAccentPreference(value) {
+      return ["emerald", "blue", "orange", "violet"].includes(value) ? value : "emerald";
+    }
+
     function normalizeNotificationSetting(value) {
       return value === "off" ? "off" : "on";
     }
@@ -34,6 +38,7 @@
 
     function normalizeImportedSettings(settings = {}) {
       return {
+        accentPreference: normalizeAccentPreference(settings.accentPreference),
         backupSchedule: normalizeBackupSchedule(settings.backupSchedule),
         densityPreference: normalizeDensityPreference(settings.densityPreference),
         firstDayOfWeek: normalizeFirstDayOfWeek(settings.firstDayOfWeek),
@@ -65,6 +70,7 @@
       createRemoteUiSettings,
       isRemoteVersionNewer,
       normalizeBackupSchedule,
+      normalizeAccentPreference,
       normalizeDensityPreference,
       normalizeFirstDayOfWeek,
       normalizeImportedSettings,
