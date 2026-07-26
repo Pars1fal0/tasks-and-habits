@@ -227,6 +227,74 @@ module.exports = [
     },
   },
   {
+    name: "merges board edits and keeps a deleted board item deleted",
+    fn() {
+      const merged = mergeStates(
+        {
+          tasks: [], habits: [], goals: [], categories: [], taskOrder: {},
+          boardItems: [
+            {
+              id: "note",
+              type: "text",
+              text: "Локальный текст",
+              x: 10,
+              y: 20,
+              width: 280,
+              height: 180,
+              z: 1,
+              updatedAt: "2026-07-26T10:00:00.000Z",
+            },
+          ],
+          tombstones: { boardItems: { removed: "2026-07-26T12:00:00.000Z" } },
+          syncMeta: {
+            entityFields: {
+              boardItems: {
+                note: { text: "2026-07-26T11:00:00.000Z" },
+              },
+            },
+          },
+        },
+        {
+          tasks: [], habits: [], goals: [], categories: [], taskOrder: {},
+          boardItems: [
+            {
+              id: "note",
+              type: "text",
+              text: "Удалённый текст",
+              x: 120,
+              y: 20,
+              width: 280,
+              height: 180,
+              z: 1,
+              updatedAt: "2026-07-26T11:00:00.000Z",
+            },
+            {
+              id: "removed",
+              type: "text",
+              text: "Устаревший элемент",
+              updatedAt: "2026-07-25T10:00:00.000Z",
+            },
+          ],
+          syncMeta: {
+            entityFields: {
+              boardItems: {
+                note: {
+                  text: "2026-07-26T10:00:00.000Z",
+                  x: "2026-07-26T11:30:00.000Z",
+                },
+              },
+            },
+          },
+        },
+      );
+
+      assert.equal(merged.boardItems.length, 1);
+      assert.equal(merged.boardItems[0].text, "Локальный текст");
+      assert.equal(merged.boardItems[0].x, 120);
+      assert.equal(merged.tombstones.boardItems.removed, "2026-07-26T12:00:00.000Z");
+    },
+  },
+  {
     name: "merges nutrition edits and keeps remote meal deletion",
     fn() {
       const merged = mergeStates(

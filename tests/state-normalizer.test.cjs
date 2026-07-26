@@ -60,13 +60,36 @@ module.exports = [
             updatedAt: "2026-06-26T20:00:00.000Z",
           },
         ],
+        boardItems: [
+          {
+            id: "board-text",
+            type: "text",
+            x: "120",
+            y: 80,
+            width: 300,
+            height: 160,
+            text: "  Важная мысль  ",
+            z: 2,
+          },
+          {
+            id: "board-image",
+            type: "image",
+            x: 10,
+            y: 20,
+            assetId: "asset-1",
+            remotePath: "user/asset-1.webp",
+            mime: "image/webp",
+            name: "idea.webp",
+          },
+          { id: "broken-image", type: "image", assetId: "" },
+        ],
         taskOrder: { "2026-06-26": [123] },
         tombstones: {
           tasks: { "task-deleted": "2026-06-27T10:00:00.000Z", invalid: "yesterday" },
         },
       });
 
-      assert.equal(normalized.schemaVersion, 14);
+      assert.equal(normalized.schemaVersion, 15);
       assert.equal(normalized.categories[0].color, "#00a78e");
       assert.equal(normalized.categories[1].name, "Работа");
       assert.equal(normalized.tasks[0].title, "Задача");
@@ -90,6 +113,9 @@ module.exports = [
       assert.equal(normalized.goals[0].dueDate, "2026-06-26");
       assert.equal(normalized.goals[0].taskIds, undefined);
       assert.equal(normalized.journalEntries[0].text, "Первый абзац\n\nВторой абзац");
+      assert.equal(normalized.boardItems.length, 2);
+      assert.equal(normalized.boardItems.find((item) => item.id === "board-text").text, "  Важная мысль  ");
+      assert.equal(normalized.boardItems.find((item) => item.id === "board-image").remotePath, "user/asset-1.webp");
       assert.deepEqual(
         normalized.goals[0].steps.map((step) => ({ done: step.done, title: step.title })),
         [

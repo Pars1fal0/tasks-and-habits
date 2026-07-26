@@ -833,6 +833,7 @@ body:not([data-view="overview"]) .focus-board {
 }
 
 body[data-view="goals"] .date-control,
+body[data-view="board"] .date-control,
 body[data-view="archive"] .date-control,
 body[data-view="settings"] .date-control {
   display: none;
@@ -2137,6 +2138,291 @@ body.has-floating-task-form::before {
 .journal-save-status {
   color: var(--muted);
   font-size: 0.82rem;
+}
+
+.board-view {
+  min-width: 0;
+}
+
+.board-heading {
+  margin-bottom: 12px;
+}
+
+.board-save-status {
+  color: var(--text-soft);
+  font-size: 13px;
+}
+
+.board-stage {
+  position: relative;
+  height: clamp(560px, calc(100dvh - 205px), 920px);
+  min-height: 480px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  outline: none;
+  background-color: var(--surface-low);
+  background-image: radial-gradient(circle, var(--line-strong) 1px, transparent 1px);
+  background-position: 0 0;
+  background-size: 24px 24px;
+  cursor: grab;
+  touch-action: none;
+}
+
+.board-stage:focus-visible {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px rgb(var(--accent-rgb) / 16%);
+}
+
+.board-stage.is-panning {
+  cursor: grabbing;
+}
+
+.board-stage.is-drop-target {
+  border-color: var(--teal);
+  box-shadow: inset 0 0 0 2px rgb(var(--accent-rgb) / 30%);
+}
+
+.board-world {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+.board-toolbar,
+.board-zoom-controls {
+  position: absolute;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+  padding: 5px;
+}
+
+.board-toolbar {
+  top: 12px;
+  left: 12px;
+}
+
+.board-toolbar-separator {
+  width: 1px;
+  height: 22px;
+  margin: 0 3px;
+  background: var(--line);
+}
+
+.board-zoom-controls {
+  right: 12px;
+  bottom: 12px;
+}
+
+.board-zoom-controls > span {
+  width: 48px;
+  color: var(--text-soft);
+  font-size: 12px;
+  text-align: center;
+}
+
+.board-toolbar .icon-button,
+.board-zoom-controls .icon-button {
+  width: 36px;
+  height: 36px;
+}
+
+.board-empty {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 2;
+  display: grid;
+  justify-items: center;
+  gap: 7px;
+  width: min(320px, calc(100% - 32px));
+  color: var(--text-soft);
+  text-align: center;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.board-empty[hidden] {
+  display: none;
+}
+
+.board-empty .ui-icon {
+  width: 30px;
+  height: 30px;
+  color: var(--teal);
+}
+
+.board-empty strong {
+  color: var(--text-strong);
+  font-size: 16px;
+}
+
+.board-empty span {
+  font-size: 13px;
+}
+
+.board-item {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  grid-template-rows: 32px minmax(0, 1fr);
+  min-width: 100px;
+  min-height: 80px;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+  cursor: default;
+  will-change: transform, width, height;
+}
+
+.board-item.is-selected {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 2px rgb(var(--accent-rgb) / 20%), var(--shadow-lift);
+}
+
+.board-item.is-dragging,
+.board-item.is-resizing {
+  opacity: 0.94;
+  box-shadow: var(--shadow-lift);
+}
+
+.board-item-handle {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-raised);
+  padding: 0 5px 0 8px;
+  color: var(--text-soft);
+  cursor: grab;
+  user-select: none;
+}
+
+.board-item-handle:active {
+  cursor: grabbing;
+}
+
+.board-item-handle > .ui-icon {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+}
+
+.board-item-handle > span {
+  min-width: 0;
+  overflow: hidden;
+  flex: 1;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.board-item-delete {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  place-items: center;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-soft);
+  cursor: pointer;
+}
+
+.board-item-delete:hover,
+.board-item-delete:focus-visible {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.board-item-delete .ui-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.board-text-editor {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
+  resize: none;
+  border: 0;
+  border-radius: 0;
+  outline: 0;
+  background: transparent;
+  padding: 14px;
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.board-text-editor:focus {
+  box-shadow: none;
+}
+
+.board-image-content,
+.board-image-placeholder {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  grid-row: 2;
+}
+
+.board-image-content {
+  display: block;
+  object-fit: contain;
+  background: var(--surface-low);
+}
+
+.board-image-placeholder {
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  color: var(--text-soft);
+  font-size: 12px;
+  text-align: center;
+}
+
+.board-image-placeholder[hidden] {
+  display: none;
+}
+
+.board-resize-handle {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  background: transparent;
+  cursor: nwse-resize;
+}
+
+.board-resize-handle::after {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid var(--teal);
+  border-bottom: 2px solid var(--teal);
+  content: "";
 }
 
 .save-status[data-state="synced"] {
@@ -5462,6 +5748,7 @@ body.has-floating-task-form::before {
   .nav-tabs > .nav-tab[data-view="goals"],
   .nav-tabs > .nav-tab[data-view="nutrition"],
   .nav-tabs > .nav-tab[data-view="journal"],
+  .nav-tabs > .nav-tab[data-view="board"],
   .nav-tabs > .nav-tab[data-view="archive"],
   .nav-tabs > .nav-tab[data-view="settings"] {
     display: none;
@@ -5502,6 +5789,34 @@ body.has-floating-task-form::before {
 
   .journal-panel {
     min-height: calc(100dvh - 260px);
+  }
+
+  .board-heading .board-save-status {
+    display: none;
+  }
+
+  .board-stage {
+    height: calc(100dvh - 190px);
+    min-height: 520px;
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+  }
+
+  .board-toolbar {
+    top: 8px;
+    left: 8px;
+  }
+
+  .board-zoom-controls {
+    right: 8px;
+    bottom: 10px;
+  }
+
+  .board-toolbar .icon-button,
+  .board-zoom-controls .icon-button {
+    width: 40px;
+    height: 40px;
   }
 
   .journal-layout {

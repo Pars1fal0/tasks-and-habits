@@ -1,6 +1,7 @@
 (function (global) {
   const VIEW_TO_ROUTE = {
     archive: "archive",
+    board: "board",
     goals: "goals",
     habits: "habits",
     journal: "journal",

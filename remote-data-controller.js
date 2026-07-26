@@ -201,6 +201,7 @@
       Number.isFinite(Number(summary.tasks)) ? `${Number(summary.tasks)} задач` : "",
       Number.isFinite(Number(summary.habits)) ? `${Number(summary.habits)} привычек` : "",
       Number.isFinite(Number(summary.goals)) ? `${Number(summary.goals)} целей` : "",
+      Number.isFinite(Number(summary.boardItems)) ? `${Number(summary.boardItems)} элементов доски` : "",
       Number.isFinite(Number(summary.journalEntries)) ? `${Number(summary.journalEntries)} записей дневника` : "",
       Number.isFinite(Number(summary.nutritionMeals)) ? `${Number(summary.nutritionMeals)} блюд` : "",
     ].filter(Boolean);
@@ -212,6 +213,7 @@
       ["habits", "title"],
       ["goals", "title"],
       ["nutritionMeals", "title"],
+      ["boardItems", "text"],
     ];
     const counts = {};
     const examples = [];

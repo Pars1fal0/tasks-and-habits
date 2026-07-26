@@ -16,6 +16,11 @@ module.exports = [
       assert.match(sql, /jsonb_build_object\(/);
       assert.match(sql, /create trigger rhythm_states_snapshot/);
       assert.match(sql, /delete_parsitasks_account/);
+      assert.match(sql, /insert into storage\.buckets/);
+      assert.match(sql, /'board-images'/);
+      assert.match(sql, /board_images_select_own/);
+      assert.match(sql, /storage\.foldername\(name\).*auth\.uid\(\)/s);
+      assert.match(sql, /'boardItems'.*old\.state -> 'boardItems'/s);
     },
   },
 ];

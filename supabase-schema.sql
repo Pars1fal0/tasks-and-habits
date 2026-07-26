@@ -118,6 +118,7 @@ begin
         'tasks', jsonb_array_length(coalesce(old.state -> 'tasks', '[]'::jsonb)),
         'habits', jsonb_array_length(coalesce(old.state -> 'habits', '[]'::jsonb)),
         'goals', jsonb_array_length(coalesce(old.state -> 'goals', '[]'::jsonb)),
+        'boardItems', jsonb_array_length(coalesce(old.state -> 'boardItems', '[]'::jsonb)),
         'journalEntries', jsonb_array_length(coalesce(old.state -> 'journalEntries', '[]'::jsonb)),
         'nutritionMeals', jsonb_array_length(coalesce(old.state -> 'nutritionMeals', '[]'::jsonb))
       ),
@@ -155,9 +156,69 @@ begin
   if current_user_id is null then
     raise exception 'Authentication required';
   end if;
+  delete from storage.objects
+  where bucket_id = 'board-images'
+    and (storage.foldername(name))[1] = current_user_id::text;
   delete from auth.users where id = current_user_id;
 end;
 $$;
 
 revoke all on function public.delete_parsitasks_account() from public;
 grant execute on function public.delete_parsitasks_account() to authenticated;
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'board-images',
+  'board-images',
+  false,
+  12582912,
+  array['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+)
+on conflict (id) do update set
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "board_images_select_own" on storage.objects;
+create policy "board_images_select_own"
+on storage.objects
+for select
+to authenticated
+using (
+  bucket_id = 'board-images'
+  and (storage.foldername(name))[1] = (select auth.uid())::text
+);
+
+drop policy if exists "board_images_insert_own" on storage.objects;
+create policy "board_images_insert_own"
+on storage.objects
+for insert
+to authenticated
+with check (
+  bucket_id = 'board-images'
+  and (storage.foldername(name))[1] = (select auth.uid())::text
+);
+
+drop policy if exists "board_images_update_own" on storage.objects;
+create policy "board_images_update_own"
+on storage.objects
+for update
+to authenticated
+using (
+  bucket_id = 'board-images'
+  and (storage.foldername(name))[1] = (select auth.uid())::text
+)
+with check (
+  bucket_id = 'board-images'
+  and (storage.foldername(name))[1] = (select auth.uid())::text
+);
+
+drop policy if exists "board_images_delete_own" on storage.objects;
+create policy "board_images_delete_own"
+on storage.objects
+for delete
+to authenticated
+using (
+  bucket_id = 'board-images'
+  and (storage.foldername(name))[1] = (select auth.uid())::text
+);

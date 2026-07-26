@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.22.0
+
+- Added a focused freeform ideas board with movable and resizable text notes and images.
+- Added local IndexedDB image storage, private Supabase Storage synchronization, and authenticated RLS policies.
+- Added panning, zooming, fit-to-content, paste/drop image input, deletion, and a board-specific undo history.
+- Added responsive camera handling so board content stays in view when the window or device size changes.
+- Included board metadata in JSON state, cloud conflict resolution, tombstones, snapshot summaries, PWA caching, and Electron packaging.
+
 ## 0.21.1
 
 - Added automatic desktop update checks and background downloads for the installed Windows version.

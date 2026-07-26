@@ -10,6 +10,7 @@
         tasks: [],
         habits: [],
         goals: [],
+        boardItems: [],
         journalEntries: [],
         nutritionFoods: [],
         nutritionMeals: [],
@@ -207,6 +208,9 @@
           })
         : [];
 
+      normalized.boardItems = config.normalizeBoardItems?.(raw.boardItems, {
+        createId: config.createId,
+      }) || [];
       normalized.journalEntries = config.normalizeJournalEntries?.(raw.journalEntries, {
         createId: config.createId,
       }) || [];
@@ -270,7 +274,7 @@
 
   function normalizeTombstones(value) {
     const result = {
-      tasks: {}, habits: {}, goals: {}, journalEntries: {}, categories: {},
+      tasks: {}, habits: {}, goals: {}, boardItems: {}, journalEntries: {}, categories: {},
       nutritionFoods: {}, nutritionMeals: {}, nutritionTemplates: {},
     };
     Object.keys(result).forEach((type) => {

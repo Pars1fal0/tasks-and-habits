@@ -1,6 +1,7 @@
 (function (global) {
   const PAGE_TITLES = {
     archive: "Архив",
+    board: "Доска идей",
     goals: "Цели",
     habits: "Привычки",
     journal: "Дневник",
@@ -29,7 +30,7 @@
         if (isActive) button.setAttribute("aria-current", "page");
       });
 
-      const isMoreView = ["goals", "nutrition", "journal", "archive", "settings"].includes(activeView);
+      const isMoreView = ["goals", "nutrition", "journal", "board", "archive", "settings"].includes(activeView);
       ctx.els.navMoreSummary?.classList.toggle("is-active", isMoreView);
       if (isMoreView) ctx.els.navMoreSummary?.setAttribute("aria-current", "page");
       else ctx.els.navMoreSummary?.removeAttribute("aria-current");

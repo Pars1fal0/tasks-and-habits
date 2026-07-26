@@ -27,6 +27,9 @@
         case "nutrition":
           ctx.renderNutrition();
           break;
+        case "board":
+          ctx.renderBoard();
+          break;
         case "archive":
           ctx.renderCategories();
           ctx.renderArchive();

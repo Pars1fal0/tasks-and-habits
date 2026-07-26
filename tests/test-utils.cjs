@@ -9,6 +9,7 @@ const habitConfigHistory = require("../habit-config-history.js");
 const mcpActivity = require("../mcp-activity.js");
 const journalModel = require("../journal-model.js");
 const nutritionModel = require("../nutrition-model.js");
+const boardModel = require("../board-model.js");
 
 function normalizeDateKey(value, fallback = "") {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ""));
@@ -47,7 +48,7 @@ function createMemoryStorage() {
 
 function createStateNormalizer() {
   return stateNormalizerApi.createStateNormalizer({
-    schemaVersion: 14,
+    schemaVersion: 15,
     validPriorities: ["high", "medium", "low"],
     cleanText,
     cleanTimeValue: (value) => {
@@ -91,6 +92,7 @@ function createStateNormalizer() {
     normalizeNutritionMeal: nutritionModel.normalizeMeal,
     normalizeNutritionTemplate: nutritionModel.normalizeTemplate,
     normalizeNutritionSettings: nutritionModel.normalizeSettings,
+    normalizeBoardItems: boardModel.normalizeItems,
     pruneSyncMeta: syncMetadata.pruneSyncMeta,
     normalizeTaskFlags: (value) => {
       const flags = {};

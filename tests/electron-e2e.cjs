@@ -76,6 +76,15 @@ const { _electron: electron } = require("playwright-core");
     await page.waitForSelector('body[data-view="nutrition"]');
     assert.equal(await page.locator(".nutrition-meal-card").count(), 1);
 
+    await page.locator('.nav-tab[data-view="board"]:visible').click();
+    assert.equal(await page.evaluate(() => window.location.hash), "#board");
+    await page.locator("#boardAddText").click();
+    await page.locator(".board-text-editor").fill("Идея для проверки");
+    await page.locator("#boardImageInput").setInputFiles(path.resolve(__dirname, "..", "icon-192.png"));
+    await page.waitForFunction(() => document.querySelector(".board-image-content")?.naturalWidth > 0);
+    assert.equal(await page.locator(".board-item").count(), 2);
+    assert.match(await page.locator(".board-image-content").getAttribute("src"), /^blob:/);
+
     await page.locator('.nav-tab[data-view="settings"]:visible').click();
     assert.equal(await page.evaluate(() => window.location.hash), "#settings");
     assert.equal(await page.locator(".settings-accordion").first().getAttribute("open"), null);
@@ -128,6 +137,15 @@ const { _electron: electron } = require("playwright-core");
     assert.equal(await page.locator(".quick-task-disclosure").getAttribute("open"), null);
     assert.equal(await page.locator(".timeline-unscheduled-panel").getAttribute("open"), null);
 
+    await page.locator(".nav-more-summary").click();
+    await page.locator('.nav-more-menu .nav-tab[data-view="board"]').click();
+    await page.waitForTimeout(100);
+    const boardContentVisible = await page.locator(".board-item").first().evaluate((node) => {
+      const item = node.getBoundingClientRect();
+      const viewport = document.querySelector("#boardViewport").getBoundingClientRect();
+      return item.right > viewport.left && item.left < viewport.right && item.bottom > viewport.top && item.top < viewport.bottom;
+    });
+    assert.equal(boardContentVisible, true, "board content must stay in view after a mobile resize");
     await page.locator(".nav-more-summary").click();
     await page.locator('.nav-more-menu .nav-tab[data-view="archive"]').click();
     const archiveToolbarFits = await page.locator(".archive-toolbar").evaluate((node) => node.scrollWidth <= node.clientWidth + 1);

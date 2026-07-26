@@ -7,6 +7,7 @@
     ],
     habits: ["startDate", "archived", "archivedAt", "archivedFromDate"],
     goals: ["title", "dueDate", "why"],
+    boardItems: ["type", "x", "y", "width", "height", "z", "text", "assetId", "remotePath", "mime", "name"],
     journalEntries: ["date", "text", "revisions"],
     nutritionFoods: ["name", "unit", "calories", "protein", "fat", "carbs", "source", "approximate"],
     nutritionMeals: ["date", "type", "time", "title", "servings", "ingredients", "nutrition", "status", "notes"],
@@ -120,6 +121,7 @@
       tasks: new Set(idsOf(state.tasks)),
       habits: new Set(idsOf(state.habits)),
       goals: new Set(idsOf(state.goals)),
+      boardItems: new Set(idsOf(state.boardItems)),
       journalEntries: new Set(idsOf(state.journalEntries)),
       categories: new Set(idsOf(state.categories)),
     };

@@ -23,6 +23,14 @@
       mergeEntities(localState.goals, remoteState.goals, (local, remote) => mergeGoal(local, remote, localMeta, remoteMeta)),
       tombstones.goals,
     );
+    const boardItems = mergeSimpleEntities(
+      localState.boardItems,
+      remoteState.boardItems,
+      "boardItems",
+      localMeta,
+      remoteMeta,
+      tombstones.boardItems,
+    );
     const journalEntries = withoutDeleted(
       mergeEntities(localState.journalEntries, remoteState.journalEntries, (local, remote) =>
         mergeEntityFields(
@@ -80,6 +88,7 @@
       tasks,
       habits: applyEntityOrder(habits, localState.habits, remoteState.habits, localMeta.habitOrderUpdatedAt, remoteMeta.habitOrderUpdatedAt),
       goals,
+      boardItems,
       journalEntries: deduplicateJournalDates(journalEntries),
       nutritionFoods,
       nutritionMeals,
@@ -295,7 +304,7 @@
 
   function mergeTombstones(local = {}, remote = {}) {
     const result = {
-      tasks: {}, habits: {}, goals: {}, journalEntries: {}, categories: {},
+      tasks: {}, habits: {}, goals: {}, boardItems: {}, journalEntries: {}, categories: {},
       nutritionFoods: {}, nutritionMeals: {}, nutritionTemplates: {},
     };
     Object.keys(result).forEach((type) => {

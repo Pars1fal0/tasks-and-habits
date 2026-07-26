@@ -696,6 +696,25 @@ function createWindow() {
         const habitFormFits = habitFormRect.left >= 0 && habitFormRect.right <= window.innerWidth && habitFormControlsFit;
 
         document.querySelector("#closeHabitForm")?.click();
+        click('[data-view="board"]');
+        await new Promise((resolve) => setTimeout(resolve, 30));
+        document.querySelector("#boardAddText")?.click();
+        await new Promise((resolve) => setTimeout(resolve, 30));
+        const boardText = document.querySelector(".board-text-editor");
+        if (boardText) {
+          boardText.value = "Smoke board note";
+          boardText.dispatchEvent(new Event("input", { bubbles: true }));
+          boardText.dispatchEvent(new Event("blur", { bubbles: true }));
+        }
+        await new Promise((resolve) => setTimeout(resolve, 30));
+        const boardTextWorks =
+          state.boardItems.some((item) => item.type === "text" && item.text === "Smoke board note") &&
+          document.querySelectorAll(".board-item").length === state.boardItems.length;
+        document.querySelector(".board-item-delete")?.click();
+        const boardDeleteWorks = state.boardItems.every((item) => item.text !== "Smoke board note");
+        document.querySelector("#boardUndo")?.click();
+        const boardUndoWorks = state.boardItems.some((item) => item.text === "Smoke board note");
+
         window.resizeTo(390, 844);
         await new Promise((resolve) => setTimeout(resolve, 80));
         click('[data-view="tasks"]');
@@ -728,6 +747,14 @@ function createWindow() {
           hasGoals: Boolean(document.querySelector("#goalsView")) && Boolean(document.querySelector("#goalForm")),
           hasJournal: Boolean(document.querySelector("#journalView")) && Boolean(document.querySelector("#journalText")),
           hasNutrition: Boolean(document.querySelector("#nutritionView")) && Boolean(document.querySelector("#nutritionWeekBoard")),
+          hasBoard:
+            Boolean(document.querySelector("#boardView")) &&
+            Boolean(document.querySelector("#boardViewport")) &&
+            Boolean(document.querySelector("#boardAddText")) &&
+            Boolean(document.querySelector("#boardAddImage")),
+          boardTextWorks,
+          boardDeleteWorks,
+          boardUndoWorks,
           hasGlobalSearch: Boolean(document.querySelector("#globalSearchDialog")),
           hasArchive: Boolean(document.querySelector("#archiveView")),
           hasHeatmap:
@@ -750,6 +777,9 @@ function createWindow() {
             window.RhythmQuickInput &&
               window.RhythmAppEvents &&
               window.RhythmArchiveView &&
+              window.RhythmBoardAssets &&
+              window.RhythmBoardModel &&
+              window.RhythmBoardView &&
               window.RhythmCalendarDragController &&
               window.RhythmCalendarView &&
               window.RhythmCategories &&

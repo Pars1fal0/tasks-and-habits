@@ -178,6 +178,12 @@
         "tasks",
         "habits",
         "goals",
+        "boardItems",
+        "journalEntries",
+        "nutritionFoods",
+        "nutritionMeals",
+        "nutritionTemplates",
+        "nutritionSettings",
         "categories",
         "taskOrder",
         "tombstones",
@@ -186,7 +192,17 @@
         "defaultsSeeded",
       ];
       if (!recognizedKeys.some((key) => Object.hasOwn(candidate, key))) throw new Error("unrecognized-import");
-      ["tasks", "habits", "goals", "categories"].forEach((key) => {
+      [
+        "tasks",
+        "habits",
+        "goals",
+        "boardItems",
+        "journalEntries",
+        "nutritionFoods",
+        "nutritionMeals",
+        "nutritionTemplates",
+        "categories",
+      ].forEach((key) => {
         if (Object.hasOwn(candidate, key) && !Array.isArray(candidate[key])) throw new Error(`invalid-${key}`);
       });
       return candidate;

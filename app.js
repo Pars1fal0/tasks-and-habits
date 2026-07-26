@@ -1,9 +1,9 @@
-﻿const SCHEMA_VERSION = 14;
+﻿const SCHEMA_VERSION = 15;
 const VALID_PRIORITIES = ["high", "medium", "low"];
 const VALID_HABIT_REPEATS = ["daily", "every2days", "every3days", "weekdays", "weekends", "weekly", "custom"];
 const VALID_REMINDER_OFFSETS = ["none", "0", "5", "15", "30", "60", "1440"];
 const VALID_BACKUP_SCHEDULES = ["0", "5", "15", "30", "60"];
-const VALID_VIEWS = ["tasks", "timeline", "habits", "goals", "overview", "nutrition", "journal", "archive", "settings"];
+const VALID_VIEWS = ["tasks", "timeline", "habits", "goals", "overview", "nutrition", "journal", "board", "archive", "settings"];
 
 const appUtils = window.RhythmAppUtils.createAppUtils({
   getFirstDayOfWeek: () => firstDayOfWeek,
@@ -62,6 +62,7 @@ const stateNormalizer = window.RhythmStateNormalizer.createStateNormalizer({
   normalizeHabitTitleHistory: window.RhythmHabitTitleHistory.normalizeHabitTitleHistory,
   normalizeReminderOffset,
   normalizeMcpActivity: window.RhythmMcpActivity.normalizeActivity,
+  normalizeBoardItems: window.RhythmBoardModel.normalizeItems,
   normalizeJournalEntries: window.RhythmJournalModel.normalizeJournalEntries,
   normalizeNutritionFood: window.RhythmNutritionModel.normalizeFood,
   normalizeNutritionMeal: window.RhythmNutritionModel.normalizeMeal,
@@ -384,6 +385,7 @@ const els = {
   applyUpdateButton: document.querySelector("#applyUpdateButton"),
   views: {
     archive: document.querySelector("#archiveView"),
+    board: document.querySelector("#boardView"),
     goals: document.querySelector("#goalsView"),
     habits: document.querySelector("#habitsView"),
     journal: document.querySelector("#journalView"),
@@ -402,6 +404,9 @@ const els = {
 };
 
 [
+  "boardAddImage", "boardAddText", "boardEmpty", "boardFocus", "boardImageInput",
+  "boardStatus", "boardUndo", "boardViewport", "boardWorld", "boardZoomIn",
+  "boardZoomLabel", "boardZoomOut",
   "nutritionAddMeal", "nutritionCaloriesMetric", "nutritionCarbsMetric", "nutritionCurrentWeek",
   "nutritionEmpty", "nutritionFatMetric", "nutritionFoodCalories", "nutritionFoodCarbs",
   "nutritionFoodCount", "nutritionFoodFat", "nutritionFoodForm", "nutritionFoodId",
@@ -773,6 +778,38 @@ const journalView = window.RhythmJournalView.createJournalView({
     resetHabitForm({ open: false });
     render();
   },
+  showToast,
+});
+
+const boardAssets = window.RhythmBoardAssets.createBoardAssetStore({
+  getRemoteConfig: async () => {
+    const session = await remoteAuth.ensureFreshSession().catch(() => remoteAuth.getSession());
+    return {
+      accessToken: session?.access_token || "",
+      anonKey: remoteSyncAnonKey,
+      supabaseUrl: remoteSyncUrl,
+      userId: session?.user?.id || "",
+    };
+  },
+});
+const boardView = window.RhythmBoardView.createBoardView({
+  assets: boardAssets,
+  commitItems: (items, options = {}) => {
+    const normalized = window.RhythmBoardModel.normalizeItems(items, { createId });
+    state.boardItems = normalized;
+    state.tombstones.boardItems ||= {};
+    (options.deletedIds || []).forEach((id) => {
+      state.tombstones.boardItems[id] = new Date().toISOString();
+    });
+    normalized.forEach((item) => {
+      delete state.tombstones.boardItems[item.id];
+    });
+    saveState();
+  },
+  createId,
+  els,
+  getItems: () => state.boardItems,
+  model: window.RhythmBoardModel,
   showToast,
 });
 
@@ -1153,6 +1190,7 @@ const viewRenderer = window.RhythmViewRenderer.createViewRenderer({
   renderHabits,
   renderJournal: journalView.render,
   renderNutrition: nutritionView.render,
+  renderBoard: boardView.render,
   renderMcpActivity: mcpActivityController.render,
   renderOverview,
   renderRemoteSyncStatus,
@@ -1328,6 +1366,7 @@ async function init() {
   remoteDataController.bindEvents();
   journalView.bindEvents();
   nutritionView.bindEvents();
+  boardView.bindEvents();
   globalSearch.bindEvents();
   appEvents.bind();
   syncNavigationRoute({ replace: true });
