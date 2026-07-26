@@ -94,20 +94,36 @@
       if (item.remotePath || !fetchFn) return item.remotePath || "";
       const local = await get(item.assetId).catch(() => null);
       if (!local?.blob) return "";
-      const config = await getRemoteConfig();
-      if (!config) return "";
-      const extension = extensionForMime(local.mime || item.mime);
-      const path = `${config.userId}/${item.assetId}.${extension}`;
-      const response = await fetchFn(storageUrl(config.supabaseUrl, "object", path), {
-        method: "POST",
-        headers: {
-          ...storageHeaders(config),
-          "Content-Type": local.mime || item.mime || "image/jpeg",
-          "x-upsert": "true",
-        },
-        body: local.blob,
-      });
-      if (!response.ok) throw new Error(await storageError(response));
+      const config = await requireRemoteConfig();
+      return uploadBlob(config, item.assetId, local.blob, local.mime || item.mime);
+    }
+
+    async function uploadPrepared(assetId, prepared) {
+      if (!prepared?.blob) throw new Error("Не удалось подготовить изображение");
+      const config = await requireRemoteConfig();
+      const path = await uploadBlob(config, assetId, prepared.blob, prepared.mime);
+      await put(assetId, prepared.blob, prepared).catch(() => {});
+      return path;
+    }
+
+    async function uploadBlob(config, assetId, blob, mime) {
+      const extension = extensionForMime(mime);
+      const path = `${config.userId}/${assetId}.${extension}`;
+      let response;
+      try {
+        response = await fetchFn(storageUrl(config.supabaseUrl, "object", path), {
+          method: "POST",
+          headers: {
+            ...storageHeaders(config),
+            "Content-Type": mime || "image/jpeg",
+            "x-upsert": "true",
+          },
+          body: blob,
+        });
+      } catch {
+        throw new Error("Нет связи с Supabase — изображение не загружено");
+      }
+      if (!response.ok) throw new Error(await storageError(response, response.status));
       return path;
     }
 
@@ -119,6 +135,28 @@
         anonKey: String(config.anonKey),
         accessToken: String(config.accessToken),
         userId: String(config.userId),
+        enabled: config.enabled !== false,
+      };
+    }
+
+    async function requireRemoteConfig() {
+      if (!fetchFn) throw new Error("Сеть недоступна — изображение не загружено");
+      const raw = await options.getRemoteConfig?.();
+      if (!raw?.supabaseUrl || !raw?.anonKey) {
+        throw new Error("Сначала настрой Supabase в разделе «Настройки»");
+      }
+      if (raw.enabled === false) {
+        throw new Error("Включи синхронизацию устройств, чтобы загружать изображения");
+      }
+      if (!raw?.accessToken || !raw?.userId) {
+        throw new Error("Войди в аккаунт синхронизации, чтобы загружать изображения");
+      }
+      return {
+        supabaseUrl: String(raw.supabaseUrl).replace(/\/+$/, ""),
+        anonKey: String(raw.anonKey),
+        accessToken: String(raw.accessToken),
+        userId: String(raw.userId),
+        enabled: true,
       };
     }
 
@@ -128,6 +166,7 @@
       remove,
       resolveBlob,
       upload,
+      uploadPrepared,
     };
   }
 
@@ -172,12 +211,18 @@
     return "jpg";
   }
 
-  async function storageError(response) {
+  async function storageError(response, status = 0) {
     try {
       const body = await response.json();
-      return body.message || body.error || "Не удалось синхронизировать изображение";
+      const message = body.message || body.error || "";
+      if (status === 404 || /bucket.*not found|not found.*bucket/i.test(message)) {
+        return "Хранилище изображений не настроено. Выполни актуальный supabase-schema.sql";
+      }
+      return message || "Не удалось загрузить изображение в Supabase";
     } catch {
-      return "Не удалось синхронизировать изображение";
+      return status === 404
+        ? "Хранилище изображений не настроено. Выполни актуальный supabase-schema.sql"
+        : "Не удалось загрузить изображение в Supabase";
     }
   }
 

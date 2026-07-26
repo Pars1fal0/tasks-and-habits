@@ -9,7 +9,7 @@
     <link rel="icon" href="data:,">
     <link rel="manifest" href="manifest.webmanifest">
     <script src="shell-version.js?v=1"></script>
-    <link rel="stylesheet" href="styles.css?v=34">
+    <link rel="stylesheet" href="styles.css?v=35">
     <link rel="stylesheet" href="disclosure-menus.css?v=1">
   </head>
   <body>
@@ -1010,7 +1010,7 @@
               <h2 id="boardHeading">Доска идей</h2>
               <p class="muted">Свободное пространство для текста и изображений</p>
             </div>
-            <span class="board-save-status" id="boardStatus" role="status" aria-live="polite">Изменения сохраняются автоматически</span>
+            <span class="board-save-status" id="boardStatus" role="status" aria-live="polite">Фото хранятся в Supabase Storage</span>
           </div>
           <div class="board-stage" id="boardViewport" tabindex="0" aria-label="Свободная доска">
             <div class="board-toolbar" role="toolbar" aria-label="Инструменты доски">
@@ -1025,11 +1025,20 @@
                 <svg class="ui-icon"><use href="#icon-rotate"></use></svg>
               </button>
             </div>
+            <div class="board-selection-toolbar" id="boardSelectionToolbar" role="toolbar" aria-label="Форматирование текста" hidden>
+              <label class="board-font-size-control" title="Размер текста">
+                <span class="sr-only">Размер текста</span>
+                <input id="boardFontSize" type="number" min="8" max="512" step="1" value="32" inputmode="numeric" aria-label="Размер текста">
+              </label>
+              <button class="icon-button board-bold-button" id="boardBold" type="button" aria-label="Полужирный текст" title="Полужирный текст" aria-pressed="false">
+                <strong aria-hidden="true">B</strong>
+              </button>
+            </div>
             <div class="board-world" id="boardWorld"></div>
             <div class="board-empty" id="boardEmpty">
               <svg class="ui-icon"><use href="#icon-board"></use></svg>
               <strong>Доска пока пустая</strong>
-              <span>Дважды нажми на поле или добавь изображение</span>
+              <span>Дважды нажми для текста · выдели объект и нажми Delete, чтобы удалить</span>
             </div>
             <div class="board-zoom-controls" aria-label="Масштаб доски">
               <button class="icon-button" id="boardZoomOut" type="button" aria-label="Уменьшить масштаб" title="Уменьшить масштаб">
@@ -1043,7 +1052,7 @@
                 <svg class="ui-icon"><use href="#icon-target"></use></svg>
               </button>
             </div>
-            <input id="boardImageInput" type="file" accept="image/*" multiple hidden>
+            <input id="boardImageInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple hidden>
           </div>
         </section>
 
@@ -1505,12 +1514,12 @@
     <script src="settings-state.js?v=3" defer></script>
     <script src="profile-settings.js?v=2" defer></script>
     <script src="hosted-config.js?v=1" defer></script>
-    <script src="board-model.js?v=1" defer></script>
-    <script src="board-assets.js?v=2" defer></script>
+    <script src="board-model.js?v=2" defer></script>
+    <script src="board-assets.js?v=3" defer></script>
     <script src="journal-model.js?v=3" defer></script>
     <script src="nutrition-model.js?v=1" defer></script>
     <script src="data-normalizers.js?v=1" defer></script>
-    <script src="sync-metadata.js?v=3" defer></script>
+    <script src="sync-metadata.js?v=4" defer></script>
     <script src="tombstone-retention.js?v=2" defer></script>
     <script src="habit-title-history.js?v=1" defer></script>
     <script src="habit-config-history.js?v=1" defer></script>
@@ -1524,7 +1533,7 @@
     <script src="date-rollover.js?v=1" defer></script>
     <script src="planning-history.js?v=1" defer></script>
     <script src="journal-view.js?v=2" defer></script>
-    <script src="board-view.js?v=2" defer></script>
+    <script src="board-view.js?v=3" defer></script>
     <script src="nutrition-controller.js?v=1" defer></script>
     <script src="nutrition-view.js?v=1" defer></script>
     <script src="storage.js?v=1" defer></script>
@@ -1563,6 +1572,6 @@
     <script src="view-renderer.js?v=2" defer></script>
     <script src="app-shell-controller.js?v=2" defer></script>
     <script src="toast.js?v=1" defer></script>
-    <script src="app.js?v=43" defer></script>
+    <script src="app.js?v=44" defer></script>
   </body>
 </html>

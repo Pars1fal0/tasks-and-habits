@@ -69,6 +69,8 @@ module.exports = [
             width: 300,
             height: 160,
             text: "  Важная мысль  ",
+            fontSize: 72,
+            fontWeight: 700,
             z: 2,
           },
           {
@@ -115,6 +117,8 @@ module.exports = [
       assert.equal(normalized.journalEntries[0].text, "Первый абзац\n\nВторой абзац");
       assert.equal(normalized.boardItems.length, 2);
       assert.equal(normalized.boardItems.find((item) => item.id === "board-text").text, "  Важная мысль  ");
+      assert.equal(normalized.boardItems.find((item) => item.id === "board-text").fontSize, 72);
+      assert.equal(normalized.boardItems.find((item) => item.id === "board-text").fontWeight, 700);
       assert.equal(normalized.boardItems.find((item) => item.id === "board-image").remotePath, "user/asset-1.webp");
       assert.deepEqual(
         normalized.goals[0].steps.map((step) => ({ done: step.done, title: step.title })),

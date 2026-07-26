@@ -79,11 +79,39 @@ const { _electron: electron } = require("playwright-core");
     await page.locator('.nav-tab[data-view="board"]:visible').click();
     assert.equal(await page.evaluate(() => window.location.hash), "#board");
     await page.locator("#boardAddText").click();
-    await page.locator(".board-text-editor").fill("Идея для проверки");
+    await page.locator(".board-text-content").fill("Удаляемый объект");
+    await page.keyboard.press("Escape");
+    await page.locator(".board-text-content").click();
+    await page.keyboard.press("Delete");
+    assert.equal(await page.locator(".board-item").count(), 0);
+    assert.equal(
+      await page.evaluate(() => JSON.parse(localStorage.getItem("rhythm-day-state-v1")).boardItems.length),
+      0,
+    );
+
+    await page.locator("#boardAddText").click();
+    await page.locator(".board-text-content").fill("Идея для проверки");
+    await page.keyboard.press("Escape");
+    await page.locator("#boardFontSize").fill("88");
+    await page.locator("#boardFontSize").dispatchEvent("change");
+    await page.locator("#boardBold").click();
+    assert.equal(
+      await page.evaluate(() => {
+        const item = JSON.parse(localStorage.getItem("rhythm-day-state-v1")).boardItems[0];
+        return item.fontSize === 88 && item.fontWeight === 700 && item.height > 140;
+      }),
+      true,
+    );
+    assert.equal(await page.locator(".board-item-handle").count(), 0);
+    assert.equal(await page.locator(".board-item-delete").count(), 0);
     await page.locator("#boardImageInput").setInputFiles(path.resolve(__dirname, "..", "icon-192.png"));
-    await page.waitForFunction(() => document.querySelector(".board-image-content")?.naturalWidth > 0);
-    assert.equal(await page.locator(".board-item").count(), 2);
-    assert.match(await page.locator(".board-image-content").getAttribute("src"), /^blob:/);
+    await page.waitForFunction(() => /Supabase|синхронизац/i.test(document.querySelector("#boardStatus")?.textContent || ""));
+    assert.equal(await page.locator(".board-image").count(), 0);
+    const boardBox = await page.locator("#boardViewport").boundingBox();
+    await page.mouse.move(boardBox.x + boardBox.width / 2, boardBox.y + boardBox.height / 2);
+    await page.mouse.wheel(0, 10000);
+    await page.waitForTimeout(80);
+    assert.match(await page.locator("#boardZoomLabel").textContent(), /^2(?:\.0)?%$/);
 
     await page.locator('.nav-tab[data-view="settings"]:visible').click();
     assert.equal(await page.evaluate(() => window.location.hash), "#settings");

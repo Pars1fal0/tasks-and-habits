@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "rhythm-day-";
-const CACHE_NAME = `${CACHE_PREFIX}app-v65-__BUILD_HASH__`;
+const CACHE_NAME = `${CACHE_PREFIX}app-v66-__BUILD_HASH__`;
 const APP_SHELL = [
   "./",
   "index.html",

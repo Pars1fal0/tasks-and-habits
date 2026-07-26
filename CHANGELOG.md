@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.22.1
+
+- Rebuilt the freeform board around direct Figma-style object selection, movement, eight-direction resizing, and keyboard-only deletion.
+- Replaced note cards with bare editable text, contextual font size and bold controls, automatic text growth, and collision-free object placement.
+- Changed board images to cloud-first private Supabase Storage uploads, with IndexedDB used only as a local rendering cache.
+- Expanded the camera from 35% minimum zoom to a 2%-800% range and reset legacy board cameras into the new white infinite canvas.
+- Added authenticated storage, model, geometry, deletion, formatting, desktop, mobile, and accessibility regression coverage.
+
 ## 0.22.0
 
 - Added a focused freeform ideas board with movable and resizable text notes and images.

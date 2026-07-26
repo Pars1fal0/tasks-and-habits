@@ -404,8 +404,8 @@ const els = {
 };
 
 [
-  "boardAddImage", "boardAddText", "boardEmpty", "boardFocus", "boardImageInput",
-  "boardStatus", "boardUndo", "boardViewport", "boardWorld", "boardZoomIn",
+  "boardAddImage", "boardAddText", "boardBold", "boardEmpty", "boardFocus", "boardFontSize",
+  "boardImageInput", "boardSelectionToolbar", "boardStatus", "boardUndo", "boardViewport", "boardWorld", "boardZoomIn",
   "boardZoomLabel", "boardZoomOut",
   "nutritionAddMeal", "nutritionCaloriesMetric", "nutritionCarbsMetric", "nutritionCurrentWeek",
   "nutritionEmpty", "nutritionFatMetric", "nutritionFoodCalories", "nutritionFoodCarbs",
@@ -787,6 +787,7 @@ const boardAssets = window.RhythmBoardAssets.createBoardAssetStore({
     return {
       accessToken: session?.access_token || "",
       anonKey: remoteSyncAnonKey,
+      enabled: remoteSyncEnabled === "on",
       supabaseUrl: remoteSyncUrl,
       userId: session?.user?.id || "",
     };

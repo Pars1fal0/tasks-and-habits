@@ -700,20 +700,30 @@ function createWindow() {
         await new Promise((resolve) => setTimeout(resolve, 30));
         document.querySelector("#boardAddText")?.click();
         await new Promise((resolve) => setTimeout(resolve, 30));
-        const boardText = document.querySelector(".board-text-editor");
+        const boardCreatedId = state.boardItems.at(-1)?.id;
+        const boardText = document.querySelector(".board-text-content");
         if (boardText) {
-          boardText.value = "Smoke board note";
+          boardText.focus();
+          boardText.textContent = "Smoke board note";
           boardText.dispatchEvent(new Event("input", { bubbles: true }));
-          boardText.dispatchEvent(new Event("blur", { bubbles: true }));
+          window.dispatchEvent(new KeyboardEvent("keydown", {
+            key: "Escape",
+            bubbles: true,
+            cancelable: true
+          }));
         }
         await new Promise((resolve) => setTimeout(resolve, 30));
         const boardTextWorks =
-          state.boardItems.some((item) => item.type === "text" && item.text === "Smoke board note") &&
-          document.querySelectorAll(".board-item").length === state.boardItems.length;
-        document.querySelector(".board-item-delete")?.click();
-        const boardDeleteWorks = state.boardItems.every((item) => item.text !== "Smoke board note");
+          Boolean(boardCreatedId) &&
+          state.boardItems.some((item) => item.id === boardCreatedId && item.type === "text") &&
+          Boolean(document.querySelector('.board-item[data-id="' + boardCreatedId + '"]'));
+        const boardCreatedNode = document.querySelector('.board-item[data-id="' + boardCreatedId + '"]');
+        boardCreatedNode?.blur();
+        boardCreatedNode?.focus();
+        window.dispatchEvent(new KeyboardEvent("keydown", { key: "Delete", bubbles: true }));
+        const boardDeleteWorks = state.boardItems.every((item) => item.id !== boardCreatedId);
         document.querySelector("#boardUndo")?.click();
-        const boardUndoWorks = state.boardItems.some((item) => item.text === "Smoke board note");
+        const boardUndoWorks = state.boardItems.some((item) => item.id === boardCreatedId);
 
         window.resizeTo(390, 844);
         await new Promise((resolve) => setTimeout(resolve, 80));

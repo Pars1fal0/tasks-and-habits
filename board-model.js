@@ -1,6 +1,8 @@
 (function (global) {
   const ITEM_TYPES = new Set(["text", "image"]);
   const MAX_TEXT_LENGTH = 20000;
+  const MIN_FONT_SIZE = 8;
+  const MAX_FONT_SIZE = 512;
 
   function normalizeItems(value, options = {}) {
     const createId = options.createId || (() => `board-${Date.now().toString(36)}`);
@@ -25,12 +27,14 @@
     return {
       id: cleanText(value.id, 160) || options.createId?.() || `board-${Date.now().toString(36)}`,
       type,
-      x: finiteNumber(value.x, -100000, 100000, 0),
-      y: finiteNumber(value.y, -100000, 100000, 0),
-      width: finiteNumber(value.width, type === "image" ? 100 : 180, type === "image" ? 2400 : 1600, type === "image" ? 320 : 260),
-      height: finiteNumber(value.height, type === "image" ? 80 : 120, type === "image" ? 2400 : 1600, type === "image" ? 220 : 180),
-      z: Math.round(finiteNumber(value.z, 0, 1000000, options.index || 0)),
+      x: finiteNumber(value.x, -1000000000, 1000000000, 0),
+      y: finiteNumber(value.y, -1000000000, 1000000000, 0),
+      width: finiteNumber(value.width, type === "image" ? 40 : 40, 10000, type === "image" ? 400 : 360),
+      height: finiteNumber(value.height, type === "image" ? 40 : 24, 10000, type === "image" ? 280 : 140),
+      z: Math.round(finiteNumber(value.z, 0, 1000000000, options.index || 0)),
       text: type === "text" ? cleanText(value.text, MAX_TEXT_LENGTH, true) : "",
+      fontSize: type === "text" ? Math.round(finiteNumber(value.fontSize, MIN_FONT_SIZE, MAX_FONT_SIZE, 32)) : 0,
+      fontWeight: type === "text" && Number(value.fontWeight) >= 600 ? 700 : 400,
       assetId: type === "image" ? assetId : "",
       remotePath: type === "image" ? cleanText(value.remotePath, 500) : "",
       mime: type === "image" && /^image\/[a-z0-9.+-]+$/i.test(String(value.mime || "")) ? String(value.mime) : "",
@@ -46,10 +50,12 @@
       type: "text",
       x: input.x,
       y: input.y,
-      width: input.width || 280,
-      height: input.height || 180,
+      width: input.width || 360,
+      height: input.height || 140,
       z: input.z,
       text: input.text || "",
+      fontSize: input.fontSize || 32,
+      fontWeight: input.fontWeight || 400,
       createdAt: options.now,
       updatedAt: options.now,
     }, options);
@@ -99,6 +105,8 @@
 
   const api = {
     MAX_TEXT_LENGTH,
+    MAX_FONT_SIZE,
+    MIN_FONT_SIZE,
     bounds,
     createImageItem,
     createTextItem,

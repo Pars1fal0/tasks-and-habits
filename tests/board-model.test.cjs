@@ -6,7 +6,17 @@ module.exports = [
     name: "normalizes text and image items without embedding image data",
     fn() {
       const items = model.normalizeItems([
-        { id: "text-1", type: "text", x: 12, y: 20, text: "Совет", width: 20, height: 10 },
+        {
+          id: "text-1",
+          type: "text",
+          x: 12,
+          y: 20,
+          text: "Совет",
+          width: 20,
+          height: 10,
+          fontSize: 96,
+          fontWeight: 700,
+        },
         {
           id: "image-1",
           type: "image",
@@ -20,7 +30,10 @@ module.exports = [
       ]);
 
       assert.equal(items.length, 2);
-      assert.equal(items[0].width, 180);
+      assert.equal(items[0].width, 40);
+      assert.equal(items[0].height, 24);
+      assert.equal(items[0].fontSize, 96);
+      assert.equal(items[0].fontWeight, 700);
       assert.equal(items[1].assetId, "asset-1");
       assert.equal("dataUrl" in items[1], false);
     },
