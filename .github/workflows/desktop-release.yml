@@ -38,7 +38,16 @@ jobs:
           }
 
       - name: Run tests
-        run: npm test
+        shell: pwsh
+        run: |
+          npm test 2>&1 | Tee-Object -FilePath test-output.log
+          $testExit = $LASTEXITCODE
+          if ($testExit -ne 0) {
+            $tail = (Get-Content test-output.log -Tail 80) -join "`n"
+            $escaped = $tail.Replace("%", "%25").Replace("`r", "%0D").Replace("`n", "%0A")
+            Write-Output "::error title=Unit tests failed::$escaped"
+            exit $testExit
+          }
 
       - name: Run lint
         run: npm run lint
