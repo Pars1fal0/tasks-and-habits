@@ -9,6 +9,7 @@
     goals: ["title", "dueDate", "why"],
     boardItems: [
       "type", "x", "y", "width", "height", "z", "text", "fontSize", "fontWeight", "color",
+      "groupId", "locked",
       "assetId", "remotePath", "mime", "name",
     ],
     journalEntries: ["date", "text", "revisions"],

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.23.0
+
+- Added explicit Select and Hand modes with keyboard shortcuts and reliable canvas panning over objects.
+- Added copy, paste, duplicate, Undo, Redo, grouping, group resizing, locking, and front/back layer commands.
+- Added smart edge and center snapping with live alignment guides while objects move.
+- Added lightweight editable frames for structuring larger idea boards without introducing a full diagram editor.
+- Preserved image aspect ratios, object layer order, group metadata, and locks across local storage and device synchronization.
+- Added responsive contextual tools plus model, geometry, synchronization, desktop, mobile, and accessibility coverage.
+
 ## 0.22.2
 
 - Fixed private Supabase Storage images rendering as broken immediately after a successful board upload.

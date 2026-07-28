@@ -84,6 +84,13 @@ module.exports = [
             mime: "image/webp",
             name: "idea.webp",
           },
+          {
+            id: "board-frame",
+            type: "frame",
+            text: "План",
+            groupId: "group-1",
+            locked: true,
+          },
           { id: "broken-image", type: "image", assetId: "" },
         ],
         taskOrder: { "2026-06-26": [123] },
@@ -116,12 +123,14 @@ module.exports = [
       assert.equal(normalized.goals[0].dueDate, "2026-06-26");
       assert.equal(normalized.goals[0].taskIds, undefined);
       assert.equal(normalized.journalEntries[0].text, "Первый абзац\n\nВторой абзац");
-      assert.equal(normalized.boardItems.length, 2);
+      assert.equal(normalized.boardItems.length, 3);
       assert.equal(normalized.boardItems.find((item) => item.id === "board-text").text, "  Важная мысль  ");
       assert.equal(normalized.boardItems.find((item) => item.id === "board-text").fontSize, 72);
       assert.equal(normalized.boardItems.find((item) => item.id === "board-text").fontWeight, 700);
       assert.equal(normalized.boardItems.find((item) => item.id === "board-text").color, "#397ee8");
       assert.equal(normalized.boardItems.find((item) => item.id === "board-image").remotePath, "user/asset-1.webp");
+      assert.equal(normalized.boardItems.find((item) => item.id === "board-frame").groupId, "group-1");
+      assert.equal(normalized.boardItems.find((item) => item.id === "board-frame").locked, true);
       assert.deepEqual(
         normalized.goals[0].steps.map((step) => ({ done: step.done, title: step.title })),
         [

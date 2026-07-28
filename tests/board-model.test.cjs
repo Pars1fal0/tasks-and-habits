@@ -28,9 +28,18 @@ module.exports = [
           name: "screen.png",
           dataUrl: "data:image/png;base64,too-large-for-state",
         },
+        {
+          id: "frame-1",
+          type: "frame",
+          text: "План",
+          width: 100,
+          height: 80,
+          groupId: "group-1",
+          locked: true,
+        },
       ]);
 
-      assert.equal(items.length, 2);
+      assert.equal(items.length, 3);
       assert.equal(items[0].width, 40);
       assert.equal(items[0].height, 24);
       assert.equal(items[0].fontSize, 96);
@@ -38,6 +47,12 @@ module.exports = [
       assert.equal(items[0].color, "#abcdef");
       assert.equal(items[1].assetId, "asset-1");
       assert.equal("dataUrl" in items[1], false);
+      assert.equal(items[2].type, "frame");
+      assert.equal(items[2].text, "План");
+      assert.equal(items[2].width, 240);
+      assert.equal(items[2].height, 160);
+      assert.equal(items[2].groupId, "group-1");
+      assert.equal(items[2].locked, true);
     },
   },
   {

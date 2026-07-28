@@ -124,9 +124,9 @@ const { _electron: electron } = require("playwright-core");
       right: Math.min(boardBox.x + boardBox.width - 2, Math.max(...itemBoxes.map((box) => box.right)) + 10),
       bottom: Math.min(boardBox.y + boardBox.height - 2, Math.max(...itemBoxes.map((box) => box.bottom)) + 10),
     };
-    await page.mouse.move(marquee.left, marquee.top);
+    await page.mouse.move(marquee.right, marquee.bottom);
     await page.mouse.down();
-    await page.mouse.move(marquee.right, marquee.bottom, { steps: 8 });
+    await page.mouse.move(marquee.left, marquee.top, { steps: 8 });
     await page.mouse.up();
     assert.equal(await page.locator(".board-item.is-selected").count(), 2);
     await page.locator('[data-board-text-color="#397ee8"]').click();
@@ -140,6 +140,97 @@ const { _electron: electron } = require("playwright-core");
     assert.equal(await page.locator(".board-item").count(), 0);
     await page.locator("#boardUndo").click();
     assert.equal(await page.locator(".board-item").count(), 2);
+    await page.locator(".board-item").first().click({ position: { x: 4, y: 4 } });
+    await page.keyboard.press("Control+d");
+    assert.equal(await page.locator(".board-item").count(), 3);
+    const duplicatedBoardItemId = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("rhythm-day-state-v1")).boardItems.at(-1).id);
+    await page.keyboard.press("Control+z");
+    assert.equal(await page.locator(".board-item").count(), 2);
+    assert.equal(
+      await page.evaluate((id) =>
+        typeof JSON.parse(localStorage.getItem("rhythm-day-state-v1")).tombstones.boardItems[id] === "string",
+      duplicatedBoardItemId),
+      true,
+    );
+    await page.keyboard.press("Control+Shift+z");
+    assert.equal(await page.locator(".board-item").count(), 3);
+    assert.equal(
+      await page.evaluate((id) =>
+        Object.hasOwn(JSON.parse(localStorage.getItem("rhythm-day-state-v1")).tombstones.boardItems, id),
+      duplicatedBoardItemId),
+      false,
+    );
+    await page.locator(".board-item").first().click({ position: { x: 4, y: 4 } });
+    await page.locator(".board-item").nth(1).dispatchEvent("pointerdown", {
+      bubbles: true,
+      button: 0,
+      pointerId: 701,
+      shiftKey: true,
+    });
+    await page.evaluate(() => {
+      window.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, button: 0, pointerId: 701 }));
+    });
+    assert.equal(await page.locator(".board-item.is-selected").count(), 2);
+    await page.locator("#boardGroup").click();
+    assert.equal(
+      await page.evaluate(() => {
+        const grouped = JSON.parse(localStorage.getItem("rhythm-day-state-v1")).boardItems.filter((item) => item.groupId);
+        return grouped.length === 2 && grouped[0].groupId === grouped[1].groupId;
+      }),
+      true,
+    );
+    assert.equal(await page.locator(".board-item.is-selected").count(), 2);
+    const groupedWidthsBefore = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("rhythm-day-state-v1")).boardItems.filter((item) => item.groupId).map((item) => item.width));
+    await page.locator("#boardFocus").click();
+    const groupResizeHandle = await page.locator(".board-multi-bounds .board-resize-handle.is-sw").boundingBox();
+    await page.mouse.move(groupResizeHandle.x + groupResizeHandle.width / 2, groupResizeHandle.y + groupResizeHandle.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(groupResizeHandle.x - 84, groupResizeHandle.y + 20, { steps: 6 });
+    await page.mouse.up();
+    assert.equal(
+      await page.evaluate((before) => {
+        const widths = JSON.parse(localStorage.getItem("rhythm-day-state-v1")).boardItems
+          .filter((item) => item.groupId)
+          .map((item) => item.width);
+        return widths.every((width, index) => width > before[index]);
+      }, groupedWidthsBefore),
+      true,
+    );
+    await page.locator("#boardLock").click();
+    assert.equal(
+      await page.evaluate(() =>
+        JSON.parse(localStorage.getItem("rhythm-day-state-v1")).boardItems.filter((item) => item.groupId).every((item) => item.locked)),
+      true,
+    );
+    await page.locator("#boardLock").click();
+    await page.locator("#boardSendBack").click();
+    assert.deepEqual(
+      await page.evaluate(() =>
+        JSON.parse(localStorage.getItem("rhythm-day-state-v1")).boardItems.filter((item) => item.groupId).map((item) => item.z)),
+      [0, 1],
+    );
+    await page.locator("#boardBringFront").click();
+    assert.deepEqual(
+      await page.evaluate(() =>
+        JSON.parse(localStorage.getItem("rhythm-day-state-v1")).boardItems.filter((item) => item.groupId).map((item) => item.z)),
+      [1, 2],
+    );
+    await page.locator("#boardModePan").click();
+    assert.equal(await page.locator("#boardViewport").getAttribute("data-mode"), "pan");
+    await page.locator("#boardModeSelect").click();
+    assert.equal(await page.locator("#boardViewport").getAttribute("data-mode"), "select");
+    await page.locator("#boardAddFrame").click();
+    await page.locator(".board-frame-title").fill("План запуска");
+    await page.keyboard.press("Escape");
+    assert.equal(
+      await page.evaluate(() => {
+        const frame = JSON.parse(localStorage.getItem("rhythm-day-state-v1")).boardItems.find((item) => item.type === "frame");
+        return frame?.text === "План запуска" && frame.width >= 360 && frame.height >= 240;
+      }),
+      true,
+    );
     assert.equal(await page.locator(".board-item-handle").count(), 0);
     assert.equal(await page.locator(".board-item-delete").count(), 0);
     await page.locator("#boardImageInput").setInputFiles(path.resolve(__dirname, "..", "icon-192.png"));

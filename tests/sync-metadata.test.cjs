@@ -51,6 +51,7 @@ module.exports = [
         tasks: [{ id: "task", title: "Old", priority: "low" }],
         habits: [],
         goals: [{ id: "goal", title: "Goal", dueDate: "2026-08-01" }],
+        boardItems: [{ id: "board", type: "text", groupId: "", locked: false }],
         journalEntries: [{ id: "journal", date: "2026-07-13", text: "Old" }],
         categories: [{ id: "category", name: "Work", color: "#111111" }],
       };
@@ -58,6 +59,7 @@ module.exports = [
         tasks: [{ id: "task", title: "New", priority: "low" }],
         habits: [],
         goals: [{ id: "goal", title: "Goal", dueDate: "2026-08-15" }],
+        boardItems: [{ id: "board", type: "text", groupId: "group-1", locked: true }],
         journalEntries: [{ id: "journal", date: "2026-07-13", text: "New" }],
         categories: [{ id: "category", name: "Work", color: "#222222" }],
       };
@@ -67,6 +69,8 @@ module.exports = [
       assert.equal(next.syncMeta.entityFields.tasks.task.title, "2026-07-13T14:00:00.000Z");
       assert.equal(next.syncMeta.entityFields.tasks.task.priority, undefined);
       assert.equal(next.syncMeta.entityFields.goals.goal.dueDate, "2026-07-13T14:00:00.000Z");
+      assert.equal(next.syncMeta.entityFields.boardItems.board.groupId, "2026-07-13T14:00:00.000Z");
+      assert.equal(next.syncMeta.entityFields.boardItems.board.locked, "2026-07-13T14:00:00.000Z");
       assert.equal(next.syncMeta.entityFields.journalEntries.journal.text, "2026-07-13T14:00:00.000Z");
       assert.equal(next.syncMeta.entityFields.categories.category.color, "2026-07-13T14:00:00.000Z");
     },

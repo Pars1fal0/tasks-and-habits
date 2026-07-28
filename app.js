@@ -404,9 +404,10 @@ const els = {
 };
 
 [
-  "boardAddImage", "boardAddText", "boardBold", "boardColorPresets", "boardEmpty", "boardFocus", "boardFontSize",
-  "boardImageInput", "boardMarquee", "boardSelectionToolbar", "boardStatus", "boardTextColor", "boardUndo", "boardViewport", "boardWorld", "boardZoomIn",
-  "boardZoomLabel", "boardZoomOut",
+  "boardAddFrame", "boardAddImage", "boardAddText", "boardBold", "boardBringFront", "boardColorPresets", "boardDuplicate",
+  "boardEmpty", "boardFocus", "boardFontSize", "boardGroup", "boardImageInput", "boardLock", "boardMarquee",
+  "boardModePan", "boardModeSelect", "boardRedo", "boardSelectionToolbar", "boardSendBack", "boardStatus",
+  "boardTextColor", "boardTextControls", "boardUndo", "boardViewport", "boardWorld", "boardZoomIn", "boardZoomLabel", "boardZoomOut",
   "nutritionAddMeal", "nutritionCaloriesMetric", "nutritionCarbsMetric", "nutritionCurrentWeek",
   "nutritionEmpty", "nutritionFatMetric", "nutritionFoodCalories", "nutritionFoodCarbs",
   "nutritionFoodCount", "nutritionFoodFat", "nutritionFoodForm", "nutritionFoodId",

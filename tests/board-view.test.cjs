@@ -1,5 +1,5 @@
 const assert = require("node:assert/strict");
-const { MAX_ZOOM, MIN_ZOOM, resizeGeometry } = require("../board-view.js");
+const { MAX_ZOOM, MIN_ZOOM, resizeGeometry, snapMove } = require("../board-view.js");
 
 module.exports = [
   {
@@ -35,6 +35,21 @@ module.exports = [
           "sw",
         ),
         { x: 20, y: 80, width: 380, height: 170 },
+      );
+    },
+  },
+  {
+    name: "snaps a moving selection to nearby object centers",
+    fn() {
+      assert.deepEqual(
+        snapMove(
+          [{ x: 10, y: 20, width: 100, height: 80 }],
+          [{ x: 200, y: 200, width: 100, height: 80 }],
+          91,
+          179,
+          5,
+        ),
+        { dx: 90, dy: 180, vertical: 200, horizontal: 200 },
       );
     },
   },

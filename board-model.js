@@ -1,5 +1,5 @@
 (function (global) {
-  const ITEM_TYPES = new Set(["text", "image"]);
+  const ITEM_TYPES = new Set(["text", "image", "frame"]);
   const MAX_TEXT_LENGTH = 20000;
   const MIN_FONT_SIZE = 8;
   const MAX_FONT_SIZE = 512;
@@ -24,18 +24,26 @@
     const type = value.type;
     const assetId = cleanText(value.assetId, 160);
     if (type === "image" && !assetId) return null;
+    const minimumWidth = type === "frame" ? 240 : 40;
+    const minimumHeight = type === "frame" ? 160 : type === "image" ? 40 : 24;
+    const defaultWidth = type === "frame" ? 720 : type === "image" ? 400 : 360;
+    const defaultHeight = type === "frame" ? 480 : type === "image" ? 280 : 140;
     return {
       id: cleanText(value.id, 160) || options.createId?.() || `board-${Date.now().toString(36)}`,
       type,
       x: finiteNumber(value.x, -1000000000, 1000000000, 0),
       y: finiteNumber(value.y, -1000000000, 1000000000, 0),
-      width: finiteNumber(value.width, type === "image" ? 40 : 40, 10000, type === "image" ? 400 : 360),
-      height: finiteNumber(value.height, type === "image" ? 40 : 24, 10000, type === "image" ? 280 : 140),
+      width: finiteNumber(value.width, minimumWidth, 10000, defaultWidth),
+      height: finiteNumber(value.height, minimumHeight, 10000, defaultHeight),
       z: Math.round(finiteNumber(value.z, 0, 1000000000, options.index || 0)),
-      text: type === "text" ? cleanText(value.text, MAX_TEXT_LENGTH, true) : "",
+      text: type === "text" || type === "frame"
+        ? cleanText(value.text || (type === "frame" ? "Новый фрейм" : ""), MAX_TEXT_LENGTH, true)
+        : "",
       fontSize: type === "text" ? Math.round(finiteNumber(value.fontSize, MIN_FONT_SIZE, MAX_FONT_SIZE, 32)) : 0,
       fontWeight: type === "text" && Number(value.fontWeight) >= 600 ? 700 : 400,
       color: type === "text" ? normalizeColor(value.color) : "",
+      groupId: cleanText(value.groupId, 160),
+      locked: value.locked === true,
       assetId: type === "image" ? assetId : "",
       remotePath: type === "image" ? cleanText(value.remotePath, 500) : "",
       mime: type === "image" && /^image\/[a-z0-9.+-]+$/i.test(String(value.mime || "")) ? String(value.mime) : "",
@@ -81,6 +89,21 @@
     }, options);
   }
 
+  function createFrameItem(input = {}, options = {}) {
+    return normalizeItem({
+      id: options.createId?.(),
+      type: "frame",
+      x: input.x,
+      y: input.y,
+      width: input.width || 720,
+      height: input.height || 480,
+      z: input.z,
+      text: input.text || "Новый фрейм",
+      createdAt: options.now,
+      updatedAt: options.now,
+    }, options);
+  }
+
   function bounds(items = []) {
     if (!items.length) return null;
     const left = Math.min(...items.map((item) => item.x));
@@ -115,6 +138,7 @@
     MAX_FONT_SIZE,
     MIN_FONT_SIZE,
     bounds,
+    createFrameItem,
     createImageItem,
     createTextItem,
     normalizeItem,
