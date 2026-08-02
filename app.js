@@ -39,7 +39,7 @@ const { normalizeHabitLogs, normalizeTaskFlags, normalizeTaskOrder } = dataNorma
 const syncMetadataTracker = window.RhythmSyncMetadata.createSyncMetadataTracker();
 
 const storage = window.RhythmStorage.createLocalStorageAdapter({
-  appName: "Ритм дня",
+  appName: "Parsitasks",
   schemaVersion: SCHEMA_VERSION,
 });
 const initialStateLoad = storage.loadStateWithRecovery();

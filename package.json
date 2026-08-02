@@ -2,7 +2,7 @@
   "name": "rhythm-day",
   "version": "0.24.0",
   "private": true,
-  "description": "Локальный десктопный трекер задач и привычек",
+  "description": "Parsitasks — личное пространство для задач, времени и прогресса",
   "main": "desktop/main.cjs",
   "scripts": {
     "desktop": "electron .",
@@ -12,6 +12,8 @@
     "test": "node tests/run-tests.cjs",
     "test:security-live": "node tests/security-live.cjs",
     "test:sync-live": "node tests/remote-sync-live.cjs",
+    "capture:landing": "node scripts/capture-landing-product.cjs",
+    "generate:icons": "node scripts/generate-icons.cjs",
     "build:web": "node scripts/build-web.cjs",
     "build:worker": "wrangler deploy --dry-run --outdir .wrangler-build",
     "build:cloudflare": "npm test && npm run lint && npm run build:web && npm run build:worker",
@@ -23,7 +25,7 @@
   "repository": "github:Pars1fal0/tasks-and-habits",
   "build": {
     "appId": "local.rhythm-day.tracker",
-    "productName": "Ритм дня",
+    "productName": "Parsitasks",
     "directories": {
       "output": "dist"
     },

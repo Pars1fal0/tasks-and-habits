@@ -44,7 +44,7 @@ function createWindow() {
     minWidth: isAutomationTest ? 320 : 900,
     minHeight: isAutomationTest ? 600 : 640,
     show: !isSmokeTest,
-    title: "Ритм дня",
+    title: "Parsitasks",
     backgroundColor: "#090d10",
     icon: path.join(appRoot, "icon.svg"),
     webPreferences: {
@@ -981,11 +981,11 @@ function createTray() {
 
   const image = nativeImage.createFromPath(path.join(appRoot, "icon.svg"));
   tray = new Tray(image.resize({ width: 16, height: 16 }));
-  tray.setToolTip("Ритм дня");
+  tray.setToolTip("Parsitasks");
   tray.setContextMenu(
     Menu.buildFromTemplate([
       {
-        label: "Открыть Ритм дня",
+        label: "Открыть Parsitasks",
         click: showMainWindow,
       },
       {
@@ -1015,7 +1015,7 @@ function showBackgroundNotice() {
   if (backgroundNoticeShown || !Notification.isSupported()) return;
   backgroundNoticeShown = true;
   new Notification({
-    title: "Ритм дня работает в фоне",
+    title: "Parsitasks работает в фоне",
     body: "Окно закрыто, но напоминания останутся активными через трей.",
     silent: true,
   }).show();
@@ -1090,7 +1090,7 @@ function registerIpc() {
     showNotification({
       id: `test-${Date.now()}`,
       title: "Напоминания активны",
-      body: "Ритм дня сможет напоминать о задачах, пока приложение работает в фоне.",
+      body: "Parsitasks сможет напоминать о задачах, пока приложение работает в фоне.",
     });
     return true;
   });
@@ -1173,7 +1173,7 @@ async function writeFileBackup(payload) {
   }
 
   const backup = {
-    app: "Ритм дня",
+    app: "Parsitasks",
     schemaVersion: payload.schemaVersion || 1,
     exportedAt: new Date(now).toISOString(),
     state: payload.state,
@@ -1190,7 +1190,7 @@ async function writeFileBackup(payload) {
   }
 
   const backupDir = getFileBackupDir();
-  const fileName = `ritm-dnya-${new Date(now).toISOString().replace(/[:.]/g, "-")}.json`;
+  const fileName = `parsitasks-${new Date(now).toISOString().replace(/[:.]/g, "-")}.json`;
   const filePath = path.join(backupDir, fileName);
 
   await fs.promises.mkdir(backupDir, { recursive: true });
@@ -1202,34 +1202,41 @@ async function writeFileBackup(payload) {
 }
 
 function getFileBackupDir() {
+  return path.join(app.getPath("documents"), "Parsitasks", "backups");
+}
+
+function getLegacyFileBackupDir() {
   return path.join(app.getPath("documents"), "Ритм дня", "backups");
 }
 
 async function getFileBackupInfo() {
   const backupDir = getFileBackupDir();
-  try {
-    const entries = await fs.promises.readdir(backupDir, { withFileTypes: true });
-    const backups = await Promise.all(
-      entries
-        .filter((entry) => entry.isFile() && /^ritm-dnya-.*\.json$/i.test(entry.name))
-        .map(async (entry) => {
-          const filePath = path.join(backupDir, entry.name);
-          const stat = await fs.promises.stat(filePath);
-          return { name: entry.name, path: filePath, mtimeMs: stat.mtimeMs };
-        }),
-    );
-    const latest = backups.sort((a, b) => b.mtimeMs - a.mtimeMs)[0] || null;
-    return { ok: true, path: backupDir, latest };
-  } catch {
-    return { ok: true, path: backupDir, latest: null };
-  }
+  const backupDirs = [...new Set([backupDir, getLegacyFileBackupDir()])];
+  const backups = (await Promise.all(backupDirs.map(async (directory) => {
+    try {
+      const entries = await fs.promises.readdir(directory, { withFileTypes: true });
+      return Promise.all(
+        entries
+          .filter((entry) => entry.isFile() && /^(?:ritm-dnya|parsitasks)-.*\.json$/i.test(entry.name))
+          .map(async (entry) => {
+            const filePath = path.join(directory, entry.name);
+            const stat = await fs.promises.stat(filePath);
+            return { name: entry.name, path: filePath, mtimeMs: stat.mtimeMs };
+          }),
+      );
+    } catch {
+      return [];
+    }
+  }))).flat();
+  const latest = backups.sort((a, b) => b.mtimeMs - a.mtimeMs)[0] || null;
+  return { ok: true, path: backupDir, latest };
 }
 
 async function pruneFileBackups(backupDir) {
   const entries = await fs.promises.readdir(backupDir, { withFileTypes: true });
   const backups = await Promise.all(
     entries
-      .filter((entry) => entry.isFile() && /^ritm-dnya-.*\.json$/i.test(entry.name))
+      .filter((entry) => entry.isFile() && /^(?:ritm-dnya|parsitasks)-.*\.json$/i.test(entry.name))
       .map(async (entry) => {
         const filePath = path.join(backupDir, entry.name);
         const stat = await fs.promises.stat(filePath);

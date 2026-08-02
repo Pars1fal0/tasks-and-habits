@@ -37,6 +37,8 @@
     const protocol = String(locationRef?.protocol || "");
     if (protocol === "file:") return DEFAULT_HOSTED_CONFIG_URL;
     if (!/^https?:$/.test(protocol)) return "";
+    const hostname = String(locationRef?.hostname || "").toLowerCase();
+    if (["127.0.0.1", "::1", "localhost"].includes(hostname)) return DEFAULT_HOSTED_CONFIG_URL;
     const origin = String(locationRef?.origin || "");
     return origin && origin !== "null" ? `${origin.replace(/\/+$/, "")}/api/public-config` : "/api/public-config";
   }

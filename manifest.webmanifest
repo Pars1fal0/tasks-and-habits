@@ -1,6 +1,6 @@
 {
-  "name": "Ритм дня",
-  "short_name": "Ритм",
+  "name": "Parsitasks",
+  "short_name": "Parsitasks",
   "description": "Планировщик задач, привычек и целей с синхронизацией устройств",
   "start_url": "/app",
   "scope": "/",

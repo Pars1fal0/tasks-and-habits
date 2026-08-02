@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Rebuilt the landing and account pages around a responsive Parsitasks design system with a real populated product timeline, stronger hierarchy, and zero horizontal overflow at mobile and desktop widths.
+- Renamed all user-facing web, PWA, notification, export, backup, tray, and desktop surfaces to Parsitasks while preserving legacy storage keys and old backup discovery.
+- Replaced the old Rhythm monogram with a consistent Parsitasks application icon and added reproducible scripts for product screenshots and icon assets.
 - Added a dedicated public landing page at `/`, a focused sign-in and registration page at `/auth`, and the authenticated workspace at `/app`.
 - Protected the web and Electron application shells with a shared session gate while preserving password recovery fragments and the requested destination after sign-in.
 - Simplified Settings account controls to the current account identity and one sign-out button.
@@ -372,7 +375,7 @@
 - Removed unreachable legacy render code from `app.js`.
 - Added `state-normalizer.js` for import/save normalization.
 - Added unit tests for quick input, recurrence rules, storage, task moves, and state normalization.
-- Added Electron file backups to `Documents/Ритм дня/backups`.
+- Added Electron file backups to the application documents folder.
 - Added sidebar UI for file backup status and opening the backup folder.
 
 ## 0.4.0

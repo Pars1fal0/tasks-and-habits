@@ -2,7 +2,7 @@
   function createImportExport(ctx) {
     function exportData() {
       const payload = {
-        app: "Ритм дня",
+        app: "Parsitasks",
         schemaVersion: ctx.schemaVersion,
         exportedAt: new Date().toISOString(),
         state: ctx.getState(),
@@ -12,7 +12,7 @@
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `ritm-dnya-${ctx.toDateKey(new Date())}.json`;
+      link.download = `parsitasks-${ctx.toDateKey(new Date())}.json`;
       document.body.appendChild(link);
       link.click();
       link.remove();

@@ -10,7 +10,7 @@
   function createLocalStorageAdapter(options = {}) {
     const storage = options.storage || global.localStorage;
     const keys = { ...DEFAULT_KEYS, ...(options.keys || {}) };
-    const appName = options.appName || "Ритм дня";
+    const appName = options.appName || "Parsitasks";
     const schemaVersion = options.schemaVersion || 1;
     let lastBackupAt = 0;
 

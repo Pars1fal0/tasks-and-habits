@@ -19,7 +19,7 @@
   function createSettingsTransfer(ctx) {
     function exportSettings() {
       const payload = {
-        app: "Ритм дня",
+        app: "Parsitasks",
         exportedAt: new Date().toISOString(),
         schemaVersion: ctx.schemaVersion,
         settings: exportableSettings(ctx.getSettings()),
@@ -29,7 +29,7 @@
       const url = global.URL.createObjectURL(blob);
       const link = ctx.document.createElement("a");
       link.href = url;
-      link.download = `ritm-dnya-settings-${ctx.toDateKey(new Date())}.json`;
+      link.download = `parsitasks-settings-${ctx.toDateKey(new Date())}.json`;
       ctx.document.body.appendChild(link);
       link.click();
       link.remove();

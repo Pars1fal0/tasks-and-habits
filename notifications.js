@@ -11,7 +11,7 @@
           const reminderAt = getReminderDate(task, dateKey);
           if (!reminderAt || reminderAt > now || ctx.isTaskDone(task, dateKey) || task.notified?.[dateKey]) return;
           try {
-            new Notification("Ритм дня", {
+            new Notification("Parsitasks", {
               body: task.title,
               tag: `${task.id}-${dateKey}`,
             });
