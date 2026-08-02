@@ -70,6 +70,12 @@ module.exports = [
       assert.match(source, /annotations:\s*\{\s*readOnlyHint:\s*false,\s*openWorldHint:\s*false,\s*destructiveHint:\s*false\s*\}/);
       assert.match(source, /"delete_task"[\s\S]*confirm:\s*z\.boolean/);
       assert.match(source, /destructiveHint:\s*true/);
+      assert.match(source, /SUPABASE_PUBLISHABLE_KEY \|\| env\.SUPABASE_ANON_KEY/);
+      assert.match(source, /payload\?\.role === "service_role"/);
+      assert.match(source, /\^sb_secret_/);
+      assert.match(source, /Access-Control-Allow-Origin": "\*"/);
+      assert.match(source, /Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'"/);
+      assert.match(source, /methodNotAllowed\(\["GET", "POST", "DELETE"\]\)/);
       assert.deepEqual(
         [...promptsSource.matchAll(/server\.registerPrompt\(\s*"([^"]+)"/g)].map((match) => match[1]),
         ["plan_week", "review_backlog", "monthly_review", "journal_weekly_reflection"],

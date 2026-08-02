@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.24.0
+
+- Connected web and desktop builds to one managed Parsitasks Supabase project, so users only need to register or sign in.
+- Enabled synchronization automatically after authentication and protected account changes from cross-account local data uploads.
+- Hardened RLS with owner-bound legacy keys, least-privilege grants, and revoked access to internal database functions.
+- Prevented settings files from exporting or replacing database endpoints and synchronization identity.
+- Hardened Electron with denied browser permissions, validated IPC senders, bounded backup/reminder payloads, and restricted external navigation.
+- Rejected accidentally configured Supabase secret/service-role keys, added API security headers and method allowlists, and pinned privileged GitHub Actions.
+- Added a production security checklist and automated security regression coverage.
+
 ## 0.23.0
 
 - Added explicit Select and Hand modes with keyboard shortcuts and reliable canvas panning over objects.

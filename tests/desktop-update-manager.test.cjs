@@ -4,6 +4,23 @@ const { createUpdateManager, readableUpdateError } = require("../desktop/update-
 
 module.exports = [
   {
+    name: "rejects update IPC from an untrusted renderer",
+    async fn() {
+      const handlers = new Map();
+      const manager = createUpdateManager({
+        app: { getVersion: () => "1.2.3", isPackaged: false },
+        ipcMain: { handle: (name, handler) => handlers.set(name, handler) },
+        shell: { openExternal: async () => {} },
+        getMainWindow: () => null,
+        validateSender: () => false,
+      });
+
+      manager.registerIpc();
+      assert.deepEqual(await handlers.get("updates:get-status")({}), { ok: false, reason: "untrusted-sender" });
+      assert.deepEqual(await handlers.get("updates:open-releases")({}), { ok: false, reason: "untrusted-sender" });
+    },
+  },
+  {
     name: "keeps update checks offline in development builds",
     async fn() {
       const handlers = new Map();

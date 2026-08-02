@@ -13,6 +13,20 @@ function createStorage() {
 
 module.exports = [
   {
+    name: "rejects weak new account passwords before contacting Supabase",
+    async fn() {
+      let called = false;
+      const auth = createRemoteAuth({
+        fetch: async () => { called = true; },
+        getConfig: () => ({ anonKey: "anon", supabaseUrl: "https://demo.supabase.co" }),
+        storage: createStorage(),
+      });
+
+      await assert.rejects(() => auth.signUp("me@example.com", "short"), /8 символов/);
+      assert.equal(called, false);
+    },
+  },
+  {
     name: "stores an authenticated session separately after sign in",
     async fn() {
       const storage = createStorage();

@@ -34,6 +34,15 @@
       lastError = "";
     }
 
+    function resetQueue() {
+      if (timerId) clearTimeout(timerId);
+      timerId = null;
+      queuedPush = false;
+      pendingVersion += 1;
+      setPending(false);
+      clearError();
+    }
+
     function renderStatus() {
       if (!ctx.statusElement) return;
       const settings = ctx.getSettings();
@@ -312,7 +321,7 @@
       return { inFlight, lastError, pending };
     }
 
-    return { check, clearError, getConfig, getStatus, isReady, pull, push, renderStatus, resumePending, schedulePush, syncLatest };
+    return { check, clearError, getConfig, getStatus, isReady, pull, push, renderStatus, resetQueue, resumePending, schedulePush, syncLatest };
   }
 
   const api = { createRemoteSyncWorkflow };

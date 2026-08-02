@@ -1,15 +1,21 @@
 (function (global) {
+  const DEFAULT_HOSTED_CONFIG_URL = "https://parsitasks.ru/api/public-config";
+
   async function loadHostedConfig(options = {}) {
     const locationRef = options.location || global.location;
     const fetchFn = options.fetchFn || global.fetch?.bind(global);
-    if (!fetchFn || !/^https?:$/.test(String(locationRef?.protocol || ""))) {
+    const endpoint = hostedConfigEndpoint(locationRef, options.endpoint);
+    if (!fetchFn || !endpoint) {
       return { managed: false };
     }
 
+    const controller = typeof global.AbortController === "function" ? new global.AbortController() : null;
+    const timeoutId = controller ? global.setTimeout(() => controller.abort(), 5000) : null;
     try {
-      const response = await fetchFn("/api/public-config", {
+      const response = await fetchFn(endpoint, {
         cache: "no-store",
         headers: { Accept: "application/json" },
+        ...(controller ? { signal: controller.signal } : {}),
       });
       if (!response.ok) return { managed: false };
       const value = await response.json();
@@ -21,10 +27,21 @@
       return { anonKey, managed: true, supabaseUrl };
     } catch {
       return { managed: false };
+    } finally {
+      if (timeoutId) global.clearTimeout(timeoutId);
     }
   }
 
-  const api = { loadHostedConfig };
+  function hostedConfigEndpoint(locationRef, override) {
+    if (override) return String(override);
+    const protocol = String(locationRef?.protocol || "");
+    if (protocol === "file:") return DEFAULT_HOSTED_CONFIG_URL;
+    if (!/^https?:$/.test(protocol)) return "";
+    const origin = String(locationRef?.origin || "");
+    return origin && origin !== "null" ? `${origin.replace(/\/+$/, "")}/api/public-config` : "/api/public-config";
+  }
+
+  const api = { DEFAULT_HOSTED_CONFIG_URL, hostedConfigEndpoint, loadHostedConfig };
   global.RhythmHostedConfig = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

@@ -228,6 +228,36 @@ module.exports = [
     },
   },
   {
+    name: "cancels pending uploads before switching accounts",
+    async fn() {
+      let pending = false;
+      let pushes = 0;
+      const workflow = createRemoteSyncWorkflow({
+        getSettings: () => ({ accessToken: "jwt", enabled: true, anonKey: "anon", supabaseUrl: "url", userId: "user" }),
+        getSyncMeta: () => ({ pending }),
+        remoteSync: {
+          normalizeConfig: (config) => config,
+          isConfigured: () => true,
+          pushState: async () => { pushes += 1; },
+        },
+        saveUiState() {},
+        setSyncMeta: (meta) => {
+          if (typeof meta.pending === "boolean") pending = meta.pending;
+        },
+        statusElement: { textContent: "" },
+        syncControls() {},
+      });
+
+      workflow.schedulePush();
+      workflow.resetQueue();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+
+      assert.equal(pushes, 0);
+      assert.equal(pending, false);
+      assert.equal(workflow.getStatus().pending, false);
+    },
+  },
+  {
     name: "flushes a queued local change after another sync operation finishes",
     async fn() {
       let pending = false;

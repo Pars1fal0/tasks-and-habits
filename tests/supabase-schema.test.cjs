@@ -9,8 +9,14 @@ module.exports = [
       const sql = fs.readFileSync(path.join(__dirname, "..", "supabase-schema.sql"), "utf8");
       assert.match(sql, /to authenticated/);
       assert.match(sql, /auth\.uid\(\).*user_id/s);
+      assert.match(sql, /user_key = 'auth:' \|\| \(select auth\.uid\(\)\)::text/);
       assert.doesNotMatch(sql, /to anon/);
       assert.doesNotMatch(sql, /x-rhythm-user-key/);
+      assert.match(sql, /revoke all on table public\.rhythm_states from anon/);
+      assert.match(sql, /grant select, insert, update, delete on table public\.rhythm_states to authenticated/);
+      assert.match(sql, /grant select, delete on table public\.rhythm_state_snapshots to authenticated/);
+      assert.match(sql, /set search_path = ''/);
+      assert.match(sql, /revoke all on function public\.delete_parsitasks_account\(\) from public, anon, authenticated/);
       assert.match(sql, /create table if not exists public\.rhythm_state_snapshots/);
       assert.match(sql, /summary jsonb not null default '\{\}'::jsonb/);
       assert.match(sql, /jsonb_build_object\(/);

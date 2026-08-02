@@ -1,11 +1,28 @@
 (function (global) {
+  const PRIVATE_SETTING_KEYS = new Set([
+    "localStateUpdatedAt",
+    "remoteSyncAnonKey",
+    "remoteSyncAccountId",
+    "remoteSyncEnabled",
+    "remoteSyncLastPulledAt",
+    "remoteSyncLastPushedAt",
+    "remoteSyncPending",
+    "remoteSyncUrl",
+  ]);
+
+  function exportableSettings(settings = {}) {
+    return Object.fromEntries(
+      Object.entries(settings).filter(([key]) => !PRIVATE_SETTING_KEYS.has(key)),
+    );
+  }
+
   function createSettingsTransfer(ctx) {
     function exportSettings() {
       const payload = {
         app: "Ритм дня",
         exportedAt: new Date().toISOString(),
         schemaVersion: ctx.schemaVersion,
-        settings: ctx.getSettings(),
+        settings: exportableSettings(ctx.getSettings()),
         type: "settings",
       };
       const blob = new global.Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
@@ -51,7 +68,7 @@
     return { exportSettings, importSettings, resetInterfaceSettings };
   }
 
-  const api = { createSettingsTransfer };
+  const api = { createSettingsTransfer, exportableSettings };
   global.RhythmSettingsTransfer = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

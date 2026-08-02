@@ -23,8 +23,8 @@ module.exports = [
       assert.equal(normalized.backupSchedule, "5");
       assert.equal(normalized.accentPreference, "emerald");
       assert.equal(normalized.themePreference, "dark");
-      assert.equal(normalized.remoteSyncAnonKey, "secret");
-      assert.equal(normalized.remoteSyncPending, false);
+      assert.equal(Object.hasOwn(normalized, "remoteSyncAnonKey"), false);
+      assert.equal(Object.hasOwn(normalized, "remoteSyncUrl"), false);
       assert.deepEqual(remoteSafe, {});
       assert.equal(settingsState.isRemoteVersionNewer("2026-07-02T10:05:00.000Z", "2026-07-02T10:00:00.000Z"), true);
       assert.equal(settingsState.isRemoteVersionNewer("2026-07-02T09:55:00.000Z", "2026-07-02T10:00:00.000Z"), false);

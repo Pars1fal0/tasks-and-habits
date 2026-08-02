@@ -123,9 +123,11 @@ let timeFormat = normalizeTimeFormat(initialUiState.timeFormat);
 let remoteSyncEnabled = normalizeRemoteSyncEnabled(initialUiState.remoteSyncEnabled);
 let remoteSyncUrl = cleanText(initialUiState.remoteSyncUrl || "");
 let remoteSyncAnonKey = cleanText(initialUiState.remoteSyncAnonKey || "");
+let remoteSyncAccountId = cleanText(initialUiState.remoteSyncAccountId || "");
 let remoteSyncLastPushedAt = initialUiState.remoteSyncLastPushedAt || "";
 let remoteSyncLastPulledAt = initialUiState.remoteSyncLastPulledAt || "";
 let remoteSyncPending = initialUiState.remoteSyncPending === true;
+let managedRemoteConfig = false;
 let localStateUpdatedAt = initialUiState.localStateUpdatedAt || "";
 let autoBackupTimerId = null;
 let lastAutoBackupAt = typeof initialUiState.lastAutoBackupAt === "string"
@@ -1080,6 +1082,7 @@ const remoteAuthController = window.RhythmRemoteAuthController.createRemoteAuthC
   auth: remoteAuth,
   els,
   isProjectConfigured: () => Boolean(remoteSyncUrl && remoteSyncAnonKey),
+  onAuthenticated: synchronizeAuthenticatedAccount,
   renderSyncStatus: () => remoteSyncWorkflow.renderStatus(),
   showToast,
   syncCloudControls: () => queueMicrotask(() => remoteDataController.syncControls()),
@@ -1397,16 +1400,53 @@ async function init() {
 async function initializeHostedConfig() {
   const result = await window.RhythmHostedConfig.loadHostedConfig();
   if (!result.managed) return;
+  managedRemoteConfig = true;
   remoteSyncUrl = result.supabaseUrl;
   remoteSyncAnonKey = result.anonKey;
+  remoteSyncEnabled = "on";
   saveUiState();
   if (els.remoteSyncUrl) els.remoteSyncUrl.value = remoteSyncUrl;
   if (els.remoteSyncAnonKey) els.remoteSyncAnonKey.value = remoteSyncAnonKey;
   if (els.syncTechnicalSettings) els.syncTechnicalSettings.hidden = true;
-  if (els.syncProjectStep) els.syncProjectStep.textContent = "Настроен автоматически для parsitasks.ru.";
+  if (els.syncProjectStep) els.syncProjectStep.textContent = "Общая база Parsitasks уже настроена.";
   settingsController.syncControls();
   remoteAuthController.render();
   renderRemoteSyncStatus();
+  if (remoteAuth.getSession()?.access_token) await synchronizeAuthenticatedAccount();
+}
+
+async function synchronizeAuthenticatedAccount() {
+  const session = remoteAuth.getSession();
+  const userId = cleanText(session?.user?.id || "");
+  if (!userId) return;
+  remoteSyncEnabled = "on";
+  if (remoteSyncAccountId && remoteSyncAccountId !== userId) {
+    remoteSyncWorkflow.resetQueue();
+    const undo = createUndoSnapshot();
+    const safetyBackup = createImportSafetyBackup(undo);
+    if (safetyBackup?.ok === false) throw new Error("Не удалось создать safety backup перед сменой аккаунта");
+    const pulled = await remoteSync.pullState(remoteSync.normalizeConfig({
+      accessToken: session.access_token,
+      anonKey: remoteSyncAnonKey,
+      enabled: true,
+      supabaseUrl: remoteSyncUrl,
+      userId,
+    }));
+    replaceState(pulled.found && pulled.state ? pulled.state : null);
+    remoteSyncLastPulledAt = pulled.updatedAt || pulled.clientUpdatedAt || "";
+    remoteSyncLastPushedAt = "";
+    remoteSyncPending = false;
+    saveState({ skipBackup: true, skipChangeTracking: true, skipRemote: true });
+    render();
+    showToast("Загружены данные выбранного аккаунта");
+  }
+  remoteSyncAccountId = userId;
+  saveUiState();
+  settingsController.syncControls();
+  renderRemoteSyncStatus();
+  await remoteSyncWorkflow.syncLatest({ silent: true });
+  await remoteSyncWorkflow.push({ silent: true });
+  await remoteSyncWorkflow.resumePending();
 }
 
 function handleDateRollover() {
@@ -2471,6 +2511,7 @@ function saveUiState() {
       overviewMode,
       overdueHidden,
       remoteSyncAnonKey,
+      remoteSyncAccountId,
       remoteSyncEnabled,
       remoteSyncLastPulledAt,
       remoteSyncLastPushedAt,
@@ -2587,6 +2628,7 @@ function getUiSettings() {
     localStateUpdatedAt,
     notificationSetting,
     remoteSyncAnonKey,
+    remoteSyncAccountId,
     remoteSyncEnabled,
     remoteSyncLastPulledAt,
     remoteSyncLastPushedAt,
@@ -2667,6 +2709,10 @@ function updateSetting(name, value) {
       showToast(remoteSyncEnabled === "on" ? "Синхронизация с БД включена" : "Синхронизация с БД выключена");
       break;
     case "remoteSyncUrl":
+      if (managedRemoteConfig) {
+        settingsController.syncControls();
+        return;
+      }
       remoteSyncUrl = cleanText(value);
       remoteSyncWorkflow.clearError();
       applySettingsPreferences();
@@ -2676,6 +2722,10 @@ function updateSetting(name, value) {
       remoteAuthController.render();
       break;
     case "remoteSyncAnonKey":
+      if (managedRemoteConfig) {
+        settingsController.syncControls();
+        return;
+      }
       remoteSyncAnonKey = cleanText(value);
       remoteSyncWorkflow.clearError();
       applySettingsPreferences();
@@ -2710,13 +2760,6 @@ function applyImportedSettings(settings = {}) {
   firstDayOfWeek = normalized.firstDayOfWeek;
   densityPreference = normalized.densityPreference;
   timeFormat = normalized.timeFormat;
-  remoteSyncEnabled = normalized.remoteSyncEnabled;
-  remoteSyncUrl = normalized.remoteSyncUrl;
-  remoteSyncAnonKey = normalized.remoteSyncAnonKey;
-  remoteSyncLastPulledAt = normalized.remoteSyncLastPulledAt;
-  remoteSyncLastPushedAt = normalized.remoteSyncLastPushedAt;
-  remoteSyncPending = normalized.remoteSyncPending;
-  localStateUpdatedAt = normalized.localStateUpdatedAt || localStateUpdatedAt;
   remoteSyncWorkflow.clearError();
   applyThemePreference();
   applySettingsPreferences();

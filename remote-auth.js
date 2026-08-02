@@ -30,6 +30,7 @@
     }
 
     async function signUp(email, password) {
+      requireStrongPassword(password);
       return authenticate("signup", { email: cleanEmail(email), password });
     }
 
@@ -99,6 +100,7 @@
     }
 
     async function updatePassword(password) {
+      requireStrongPassword(password);
       if (!session?.access_token) throw new Error("Ссылка восстановления недействительна или устарела");
       const config = requireConfig();
       const response = await fetchFn(`${config.supabaseUrl}/auth/v1/user`, {
@@ -145,6 +147,9 @@
         supabaseUrl: String(raw.supabaseUrl || "").trim().replace(/\/+$/, ""),
       };
       if (!config.supabaseUrl || !config.anonKey) throw new Error("Сначала заполни URL и публичный ключ Supabase");
+      if (!/^https:\/\/[^/]+\.supabase\.co$/i.test(config.supabaseUrl)) {
+        throw new Error("Некорректный адрес проекта Supabase");
+      }
       return config;
     }
 
@@ -195,6 +200,12 @@
 
   function cleanEmail(value) {
     return String(value || "").trim().toLowerCase();
+  }
+
+  function requireStrongPassword(value) {
+    if (String(value || "").length < 8) {
+      throw new Error("Пароль должен содержать не меньше 8 символов");
+    }
   }
 
   function userFromAccessToken(token) {

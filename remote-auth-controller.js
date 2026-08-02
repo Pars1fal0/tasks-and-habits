@@ -12,8 +12,9 @@
       if (busy) return;
       const email = ctx.els.remoteAuthEmail?.value.trim();
       const password = ctx.els.remoteAuthPassword?.value || "";
-      if (!email || password.length < 6) {
-        ctx.showToast("Укажи email и пароль не короче 6 символов");
+      const minimumLength = method === "signUp" ? 8 : 6;
+      if (!email || password.length < minimumLength) {
+        ctx.showToast(`Укажи email и пароль не короче ${minimumLength} символов`);
         return;
       }
       busy = true;
@@ -23,7 +24,8 @@
         ctx.els.remoteAuthPassword.value = "";
         if (result.access_token) {
           ctx.showToast(method === "signUp" ? "Аккаунт создан" : "Вход выполнен");
-          await ctx.syncLatest?.({ silent: true });
+          if (ctx.onAuthenticated) await ctx.onAuthenticated();
+          else await ctx.syncLatest?.({ silent: true });
         } else {
           ctx.showToast("Проверь почту и подтверди регистрацию");
         }
@@ -70,8 +72,8 @@
     async function updatePassword() {
       if (busy) return;
       const password = ctx.els.remoteAuthPassword?.value || "";
-      if (password.length < 6) {
-        ctx.showToast("Новый пароль должен содержать не меньше 6 символов");
+      if (password.length < 8) {
+        ctx.showToast("Новый пароль должен содержать не меньше 8 символов");
         ctx.els.remoteAuthPassword?.focus();
         return;
       }

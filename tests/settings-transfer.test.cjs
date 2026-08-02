@@ -1,7 +1,23 @@
 const assert = require("node:assert/strict");
-const { createSettingsTransfer } = require("../settings-transfer.js");
+const { createSettingsTransfer, exportableSettings } = require("../settings-transfer.js");
 
 module.exports = [
+  {
+    name: "never exports database endpoints or synchronization state",
+    fn() {
+      assert.deepEqual(exportableSettings({
+        accentPreference: "blue",
+        remoteSyncAccountId: "user-id",
+        remoteSyncAnonKey: "public-key",
+        remoteSyncEnabled: "on",
+        remoteSyncUrl: "https://attacker.supabase.co",
+        themePreference: "dark",
+      }), {
+        accentPreference: "blue",
+        themePreference: "dark",
+      });
+    },
+  },
   {
     name: "imports settings and clears the selected file",
     async fn() {

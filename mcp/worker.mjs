@@ -36,14 +36,25 @@ export default {
     try {
       if (request.method === "OPTIONS") return corsResponse();
       if (isProtectedResourceMetadataPath(url.pathname)) {
+        if (request.method !== "GET") return methodNotAllowed(["GET"]);
         return jsonResponse(protectedResourceMetadata(url, env));
       }
-      if (url.pathname === "/api/public-config") return publicConfigResponse(env);
-      if (url.pathname === "/oauth/consent") return consentPage(request, env);
+      if (url.pathname === "/api/public-config") {
+        if (request.method !== "GET") return methodNotAllowed(["GET"]);
+        return publicConfigResponse(env);
+      }
+      if (url.pathname === "/oauth/consent") {
+        if (request.method !== "GET") return methodNotAllowed(["GET"]);
+        return consentPage(request, env);
+      }
       if (url.pathname === "/mcp/health") {
+        if (request.method !== "GET") return methodNotAllowed(["GET"]);
         return jsonResponse({ ok: true, service: "Parsitasks MCP", authConfigured: hasSupabaseConfig(env) });
       }
-      if (url.pathname === "/mcp") return handleMcp(request, env, ctx);
+      if (url.pathname === "/mcp") {
+        if (!["GET", "POST", "DELETE"].includes(request.method)) return methodNotAllowed(["GET", "POST", "DELETE"]);
+        return handleMcp(request, env, ctx);
+      }
       return env.ASSETS.fetch(request);
     } catch (error) {
       console.error("MCP worker error", error);
@@ -58,14 +69,14 @@ export default {
 async function handleMcp(request, env, ctx) {
   if (!hasSupabaseConfig(env)) {
     return jsonResponse(
-      { error: "server_not_configured", message: "Для Worker не заданы SUPABASE_URL и SUPABASE_ANON_KEY" },
+      { error: "server_not_configured", message: "Для Worker не заданы SUPABASE_URL и SUPABASE_PUBLISHABLE_KEY" },
       { status: 503 },
     );
   }
 
   const auth = await authenticateSupabaseRequest(request, {
     supabaseUrl: env.SUPABASE_URL,
-    anonKey: env.SUPABASE_ANON_KEY,
+    anonKey: supabasePublicKey(env),
   });
   if (!auth) return unauthorizedResponse(request);
   if (request.method === "POST" && !allowMcpRequest(auth.user.id)) {
@@ -77,7 +88,7 @@ async function handleMcp(request, env, ctx) {
 
   const store = createSupabaseStateStore({
     supabaseUrl: env.SUPABASE_URL,
-    anonKey: env.SUPABASE_ANON_KEY,
+    anonKey: supabasePublicKey(env),
     accessToken: auth.accessToken,
     userId: auth.user.id,
   });
@@ -726,9 +737,12 @@ function publicConfigResponse(env) {
   }
   return jsonResponse({
     supabaseUrl: String(env.SUPABASE_URL),
-    anonKey: String(env.SUPABASE_ANON_KEY),
+    anonKey: supabasePublicKey(env),
   }, {
-    headers: { "Cache-Control": "public, max-age=300" },
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Cache-Control": "public, max-age=300",
+    },
   });
 }
 
@@ -743,7 +757,26 @@ function isProtectedResourceMetadataPath(pathname) {
 }
 
 function hasSupabaseConfig(env) {
-  return Boolean(String(env.SUPABASE_URL || "").trim() && String(env.SUPABASE_ANON_KEY || "").trim());
+  return Boolean(String(env.SUPABASE_URL || "").trim() && supabasePublicKey(env));
+}
+
+function supabasePublicKey(env) {
+  const key = String(env.SUPABASE_PUBLISHABLE_KEY || env.SUPABASE_ANON_KEY || "").trim();
+  if (!key || /^sb_secret_/i.test(key)) return "";
+  const payload = decodeJwtPayload(key);
+  if (payload?.role === "service_role") return "";
+  return key;
+}
+
+function decodeJwtPayload(value) {
+  try {
+    const encoded = String(value).split(".")[1];
+    if (!encoded) return null;
+    const normalized = encoded.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(encoded.length / 4) * 4, "=");
+    return JSON.parse(atob(normalized));
+  } catch {
+    return null;
+  }
 }
 
 function corsResponse() {
@@ -753,14 +786,26 @@ function corsResponse() {
       "Access-Control-Allow-Headers": "authorization, content-type, mcp-protocol-version",
       "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
       "Access-Control-Allow-Origin": "*",
+      "Access-Control-Max-Age": "86400",
     },
   });
+}
+
+function methodNotAllowed(methods) {
+  return jsonResponse(
+    { error: "method_not_allowed" },
+    { status: 405, headers: { Allow: methods.join(", ") } },
+  );
 }
 
 function jsonResponse(value, options = {}) {
   const headers = new Headers(options.headers || {});
   headers.set("Content-Type", "application/json; charset=utf-8");
   headers.set("Cache-Control", headers.get("Cache-Control") || "no-store");
+  headers.set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'");
+  headers.set("Permissions-Policy", "camera=(), geolocation=(), microphone=()");
+  headers.set("Referrer-Policy", "no-referrer");
   headers.set("X-Content-Type-Options", "nosniff");
+  headers.set("X-Frame-Options", "DENY");
   return new Response(JSON.stringify(value), { ...options, headers });
 }

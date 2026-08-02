@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, Notification, Tray, ipcMain, nativeImage, shell } = require("electron");
+const { app, BrowserWindow, Menu, Notification, Tray, ipcMain, nativeImage, session, shell } = require("electron");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
@@ -19,6 +19,8 @@ let updateManager = null;
 const sentReminders = new Set();
 const FILE_BACKUP_INTERVAL_MS = 5 * 60 * 1000;
 const MAX_FILE_BACKUPS = 20;
+const MAX_FILE_BACKUP_BYTES = 25 * 1024 * 1024;
+const MAX_REMINDERS = 5000;
 
 if (isAutomationTest) {
   app.disableHardwareAcceleration();
@@ -1061,12 +1063,14 @@ function createMenu() {
 }
 
 function registerIpc() {
-  ipcMain.on("reminders:sync", (_event, payload) => {
-    reminderSnapshot = Array.isArray(payload?.reminders) ? payload.reminders : [];
+  ipcMain.on("reminders:sync", (event, payload) => {
+    if (!isTrustedIpcEvent(event)) return;
+    reminderSnapshot = normalizeReminderSnapshot(payload);
     checkReminders();
   });
 
-  ipcMain.handle("reminders:test", () => {
+  ipcMain.handle("reminders:test", (event) => {
+    if (!isTrustedIpcEvent(event)) return { ok: false, reason: "untrusted-sender" };
     showNotification({
       id: `test-${Date.now()}`,
       title: "Напоминания активны",
@@ -1075,15 +1079,18 @@ function registerIpc() {
     return true;
   });
 
-  ipcMain.handle("backups:write-file", async (_event, payload) => {
+  ipcMain.handle("backups:write-file", async (event, payload) => {
+    if (!isTrustedIpcEvent(event)) return { ok: false, reason: "untrusted-sender" };
     return writeFileBackup(payload);
   });
 
-  ipcMain.handle("backups:info", async () => {
+  ipcMain.handle("backups:info", async (event) => {
+    if (!isTrustedIpcEvent(event)) return { ok: false, reason: "untrusted-sender" };
     return getFileBackupInfo();
   });
 
-  ipcMain.handle("backups:open-folder", async () => {
+  ipcMain.handle("backups:open-folder", async (event) => {
+    if (!isTrustedIpcEvent(event)) return { ok: false, reason: "untrusted-sender" };
     const backupDir = getFileBackupDir();
     await fs.promises.mkdir(backupDir, { recursive: true });
     if (isSmokeTest) return { ok: true, path: backupDir, smoke: true };
@@ -1100,10 +1107,43 @@ function registerIpc() {
 
 function isAllowedExternalUrl(value) {
   try {
-    return ["https:", "mailto:"].includes(new URL(value).protocol);
+    const url = new URL(value);
+    return url.protocol === "https:" && ["github.com", "parsitasks.ru", "www.parsitasks.ru"].includes(url.hostname);
   } catch {
     return false;
   }
+}
+
+function isTrustedIpcEvent(event) {
+  return Boolean(
+    mainWindow
+    && !mainWindow.isDestroyed()
+    && event?.sender === mainWindow.webContents
+    && event?.senderFrame === mainWindow.webContents.mainFrame
+  );
+}
+
+function configureSessionSecurity() {
+  session.defaultSession.setPermissionCheckHandler(() => false);
+  session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
+}
+
+function normalizeReminderSnapshot(payload) {
+  if (!Array.isArray(payload?.reminders)) return [];
+  return payload.reminders.slice(0, MAX_REMINDERS).flatMap((reminder) => {
+    const id = String(reminder?.id || "").slice(0, 240);
+    const title = String(reminder?.title || "").slice(0, 240);
+    const reminderAt = String(reminder?.reminderAt || "");
+    const dueAt = String(reminder?.dueAt || "");
+    if (!id || !title || !Number.isFinite(Date.parse(reminderAt)) || !Number.isFinite(Date.parse(dueAt))) return [];
+    return [{
+      id,
+      title,
+      category: String(reminder?.category || "").slice(0, 120),
+      reminderAt,
+      dueAt,
+    }];
+  });
 }
 
 async function writeFileBackup(payload) {
@@ -1123,12 +1163,22 @@ async function writeFileBackup(payload) {
     state: payload.state,
   };
 
+  let serialized;
+  try {
+    serialized = JSON.stringify(backup, null, 2);
+  } catch {
+    return { ok: false, reason: "invalid-payload" };
+  }
+  if (Buffer.byteLength(serialized, "utf8") > MAX_FILE_BACKUP_BYTES) {
+    return { ok: false, reason: "payload-too-large" };
+  }
+
   const backupDir = getFileBackupDir();
   const fileName = `ritm-dnya-${new Date(now).toISOString().replace(/[:.]/g, "-")}.json`;
   const filePath = path.join(backupDir, fileName);
 
   await fs.promises.mkdir(backupDir, { recursive: true });
-  await fs.promises.writeFile(filePath, JSON.stringify(backup, null, 2), "utf8");
+  await fs.promises.writeFile(filePath, serialized, "utf8");
   lastFileBackupAt = now;
   await pruneFileBackups(backupDir);
 
@@ -1214,12 +1264,14 @@ function showNotification({ title, body }) {
 }
 
 app.whenReady().then(() => {
+  configureSessionSecurity();
   updateManager = createUpdateManager({
     app,
     ipcMain,
     shell,
     getMainWindow: () => mainWindow,
     isAutomationTest,
+    validateSender: isTrustedIpcEvent,
   });
   updateManager.registerIpc();
   registerIpc();

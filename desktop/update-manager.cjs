@@ -2,7 +2,15 @@ const RELEASES_URL = "https://github.com/Pars1fal0/tasks-and-habits/releases/lat
 const CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
 const STARTUP_CHECK_DELAY_MS = 12 * 1000;
 
-function createUpdateManager({ app, ipcMain, shell, getMainWindow, isAutomationTest = false, updater = null }) {
+function createUpdateManager({
+  app,
+  ipcMain,
+  shell,
+  getMainWindow,
+  isAutomationTest = false,
+  updater = null,
+  validateSender = () => true,
+}) {
   let checkTimer = null;
   let startupTimer = null;
   let status = {
@@ -69,14 +77,16 @@ function createUpdateManager({ app, ipcMain, shell, getMainWindow, isAutomationT
   }
 
   function registerIpc() {
-    ipcMain.handle("updates:get-status", () => status);
-    ipcMain.handle("updates:check", () => checkForUpdates({ manual: true }));
-    ipcMain.handle("updates:install", () => {
+    ipcMain.handle("updates:get-status", (event) => validateSender(event) ? status : untrustedSender());
+    ipcMain.handle("updates:check", (event) => validateSender(event) ? checkForUpdates({ manual: true }) : untrustedSender());
+    ipcMain.handle("updates:install", (event) => {
+      if (!validateSender(event)) return untrustedSender();
       if (status.state !== "downloaded") return { ok: false, reason: "not-downloaded" };
       setImmediate(() => getUpdater().quitAndInstall(false, true));
       return { ok: true };
     });
-    ipcMain.handle("updates:open-releases", async () => {
+    ipcMain.handle("updates:open-releases", async (event) => {
+      if (!validateSender(event)) return untrustedSender();
       await shell.openExternal(RELEASES_URL);
       return { ok: true };
     });
@@ -164,6 +174,10 @@ function createUpdateManager({ app, ipcMain, shell, getMainWindow, isAutomationT
     start,
     stop,
   };
+}
+
+function untrustedSender() {
+  return { ok: false, reason: "untrusted-sender" };
 }
 
 function readableUpdateError(error) {
