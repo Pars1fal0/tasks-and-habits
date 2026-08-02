@@ -68,6 +68,52 @@ module.exports = [
     },
   },
   {
+    name: "validates a stored session with Supabase before opening the app",
+    async fn() {
+      const storage = createStorage();
+      storage.setItem(SESSION_KEY, JSON.stringify({
+        access_token: "jwt",
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
+        user: { id: "u1", email: "old@example.com" },
+      }));
+      const calls = [];
+      const auth = createRemoteAuth({
+        fetch: async (url, options) => {
+          calls.push({ options, url });
+          return { ok: true, status: 200, text: async () => JSON.stringify({ id: "u1", email: "new@example.com" }) };
+        },
+        getConfig: () => ({ anonKey: "anon", supabaseUrl: "https://demo.supabase.co" }),
+        storage,
+      });
+
+      const session = await auth.validateSession();
+
+      assert.match(calls[0].url, /auth\/v1\/user$/);
+      assert.equal(calls[0].options.headers.Authorization, "Bearer jwt");
+      assert.equal(session.user.email, "new@example.com");
+    },
+  },
+  {
+    name: "drops an invalid stored session after server validation",
+    async fn() {
+      const storage = createStorage();
+      storage.setItem(SESSION_KEY, JSON.stringify({
+        access_token: "expired",
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
+        user: { id: "u1" },
+      }));
+      const auth = createRemoteAuth({
+        fetch: async () => ({ ok: false, status: 401, statusText: "Unauthorized", text: async () => "{}" }),
+        getConfig: () => ({ anonKey: "anon", supabaseUrl: "https://demo.supabase.co" }),
+        storage,
+      });
+
+      await assert.rejects(() => auth.validateSession(), /Unauthorized/);
+      assert.equal(auth.getSession(), null);
+      assert.equal(storage.getItem(SESSION_KEY), null);
+    },
+  },
+  {
     name: "still signs out locally after project settings are removed",
     async fn() {
       const storage = createStorage();

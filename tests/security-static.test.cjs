@@ -9,14 +9,21 @@ module.exports = [
     name: "keeps the web and Electron shells on restrictive security boundaries",
     fn() {
       const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
+      const authHtml = fs.readFileSync(path.join(root, "auth.html"), "utf8");
+      const landingHtml = fs.readFileSync(path.join(root, "landing.html"), "utf8");
       const main = fs.readFileSync(path.join(root, "desktop", "main.cjs"), "utf8");
       assert.match(html, /script-src 'self'/);
       assert.doesNotMatch(html, /script-src[^;]*'unsafe-inline'/);
+      [authHtml, landingHtml].forEach((page) => {
+        assert.match(page, /script-src 'self'/);
+        assert.doesNotMatch(page, /script-src[^;]*'unsafe-inline'/);
+      });
       assert.match(main, /contextIsolation:\s*true/);
       assert.match(main, /nodeIntegration:\s*false/);
       assert.match(main, /sandbox:\s*true/);
       assert.match(main, /setPermissionRequestHandler/);
       assert.match(main, /isTrustedIpcEvent/);
+      assert.match(main, /isInternalAppNavigation/);
     },
   },
   {

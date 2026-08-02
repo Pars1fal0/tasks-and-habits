@@ -48,6 +48,10 @@
   font-family: var(--font-sans);
 }
 
+html:not([data-auth-ready]) body {
+  visibility: hidden;
+}
+
 :root[data-theme="light"] {
   color-scheme: light;
   --bg: #f5f7f8;
@@ -5041,10 +5045,39 @@ body.has-floating-task-form::before {
   line-height: 1.5;
 }
 
-.sync-account-fields {
+.sync-account-session {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: var(--space-2);
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.sync-account-avatar {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+  color: var(--teal-bright);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.sync-account-identity {
+  min-width: 0;
+}
+
+.sync-account-identity small {
+  margin: 0;
+}
+
+.sync-account-identity strong {
+  overflow: hidden;
+  color: var(--text-strong);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sync-history {
@@ -5220,8 +5253,13 @@ body.has-floating-task-form::before {
     grid-template-columns: 1fr;
   }
 
-  .sync-account-fields {
-    grid-template-columns: 1fr;
+  .sync-account-session {
+    grid-template-columns: 38px minmax(0, 1fr);
+  }
+
+  .sync-account-session .compact-button {
+    grid-column: 1 / -1;
+    justify-self: start;
   }
 }
 

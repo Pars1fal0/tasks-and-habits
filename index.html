@@ -8,6 +8,7 @@
     <title>Ритм дня</title>
     <link rel="icon" href="data:,">
     <link rel="manifest" href="manifest.webmanifest">
+    <script src="auth-gate.js?v=1"></script>
     <script src="shell-version.js?v=1"></script>
     <link rel="stylesheet" href="styles.css?v=38">
     <link rel="stylesheet" href="disclosure-menus.css?v=1">
@@ -1343,10 +1344,6 @@
                   <h2 id="syncSettingsHeading">Синхронизация устройств</h2>
                 </div>
               </summary>
-              <ol class="sync-wizard-steps" aria-label="Шаги подключения">
-                <li><span>1</span><strong>Аккаунт</strong><small id="syncProjectStep">Зарегистрируйся или войди по email.</small></li>
-                <li><span>2</span><strong>Устройства</strong><small>Войди в тот же аккаунт на остальных устройствах.</small></li>
-              </ol>
               <label class="settings-row">
                 <span>
                   <strong>Синхронизация устройств</strong>
@@ -1377,21 +1374,17 @@
               </details>
               <div class="sync-account" aria-labelledby="remoteAuthHeading">
                 <div>
-                  <strong id="remoteAuthHeading">Аккаунт синхронизации</strong>
-                  <small>Пароль и сессия не попадают в экспорт приложения или удаленные настройки.</small>
+                  <strong id="remoteAuthHeading">Аккаунт</strong>
+                  <small>Данные этого пространства синхронизируются только с вашим аккаунтом.</small>
                 </div>
-                <div class="sync-account-fields">
-                  <input id="remoteAuthEmail" type="email" autocomplete="email" placeholder="name@example.com" aria-label="Email аккаунта синхронизации">
-                  <input id="remoteAuthPassword" type="password" minlength="6" autocomplete="current-password" placeholder="Пароль" aria-label="Пароль аккаунта синхронизации">
+                <div class="sync-account-session">
+                  <span class="sync-account-avatar" aria-hidden="true">P</span>
+                  <span class="sync-account-identity">
+                    <small>Текущий аккаунт</small>
+                    <strong id="remoteAuthStatus" aria-live="polite">Проверяем сессию...</strong>
+                  </span>
+                  <button class="ghost-button compact-button" id="remoteAuthSignOutButton" type="button">Выйти</button>
                 </div>
-                <div class="settings-actions">
-                  <button class="primary-button compact-button" id="remoteAuthSignInButton" type="button">Войти</button>
-                  <button class="ghost-button compact-button" id="remoteAuthSignUpButton" type="button">Создать аккаунт</button>
-                  <button class="ghost-button compact-button" id="remoteAuthResetButton" type="button">Сбросить пароль</button>
-                  <button class="primary-button compact-button" id="remoteAuthUpdatePasswordButton" type="button" hidden>Сохранить новый пароль</button>
-                  <button class="ghost-button compact-button" id="remoteAuthSignOutButton" type="button" hidden>Выйти</button>
-                </div>
-                <p class="settings-status" id="remoteAuthStatus" aria-live="polite">Вход не выполнен</p>
               </div>
               <p class="settings-status" id="remoteSyncStatus" aria-live="polite" aria-atomic="true">Облачная синхронизация не настроена</p>
               <div class="sync-diagnostics" id="syncDiagnostics" aria-label="Диагностика синхронизации"></div>

@@ -1,8 +1,16 @@
 const CACHE_PREFIX = "rhythm-day-";
-const CACHE_NAME = `${CACHE_PREFIX}app-v69-__BUILD_HASH__`;
+const CACHE_NAME = `${CACHE_PREFIX}app-v70-__BUILD_HASH__`;
 const APP_SHELL = [
   "./",
+  "landing.html",
+  "landing.css",
+  "landing.js",
+  "landing-product.png",
+  "auth.html",
+  "auth.css",
+  "auth-page.js",
   "index.html",
+  "auth-gate.js",
   "shell-version.js",
   "styles.css",
   "disclosure-menus.css",
@@ -117,8 +125,14 @@ self.addEventListener("fetch", (event) => {
   if (new URL(event.request.url).origin !== self.location.origin) return;
 
   if (event.request.mode === "navigate") {
+    const pathname = new URL(event.request.url).pathname.replace(/\/$/, "") || "/";
+    const fallback = pathname === "/"
+      ? "landing.html"
+      : pathname === "/auth"
+        ? "auth.html"
+        : "index.html";
     event.respondWith(
-      fetch(event.request).catch(() => caches.match("index.html", { ignoreSearch: true })),
+      fetch(event.request).catch(() => caches.match(fallback, { ignoreSearch: true })),
     );
     return;
   }

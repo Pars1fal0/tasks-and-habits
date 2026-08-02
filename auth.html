@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#090d0c">
+    <meta name="robots" content="noindex">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://parsitasks.ru https://*.supabase.co; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'">
+    <title>Вход — Parsitasks</title>
+    <link rel="icon" href="icon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="auth.css?v=1">
+    <script src="hosted-config.js?v=2" defer></script>
+    <script src="remote-auth.js?v=3" defer></script>
+    <script src="auth-page.js?v=1" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#authPanel">Перейти к форме</a>
+    <header class="auth-header">
+      <a class="brand" href="/" id="authHomeLink">
+        <span class="brand-mark" aria-hidden="true">P</span>
+        <span>Parsitasks</span>
+      </a>
+      <a class="back-link" href="/" id="authBackLink">На главную</a>
+    </header>
+
+    <main class="auth-layout">
+      <section class="auth-intro" aria-labelledby="authIntroTitle">
+        <p class="eyebrow">Ваше пространство</p>
+        <h1 id="authIntroTitle">Продолжайте с того места, где остановились</h1>
+        <p>Один аккаунт хранит задачи, календарь, привычки, цели и дневник синхронно на всех устройствах.</p>
+        <div class="intro-proof" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </div>
+      </section>
+
+      <section class="auth-panel" id="authPanel" aria-labelledby="authTitle">
+        <div id="authStandardFlow">
+          <div class="auth-heading">
+            <p class="eyebrow">Аккаунт Parsitasks</p>
+            <h2 id="authTitle">Вход</h2>
+            <p id="authDescription">Введите данные, чтобы открыть своё пространство.</p>
+          </div>
+
+          <div class="auth-mode" role="tablist" aria-label="Способ продолжения">
+            <button id="authSignInMode" type="button" role="tab" aria-selected="true" data-auth-mode="signin">Вход</button>
+            <button id="authSignUpMode" type="button" role="tab" aria-selected="false" data-auth-mode="signup">Регистрация</button>
+          </div>
+
+          <form id="authForm" novalidate>
+            <label>
+              <span>Email</span>
+              <input id="authEmail" type="email" autocomplete="email" placeholder="name@example.com" required>
+            </label>
+            <label>
+              <span>Пароль</span>
+              <input id="authPassword" type="password" autocomplete="current-password" minlength="8" placeholder="Не менее 8 символов" required>
+            </label>
+            <label id="authConfirmField" hidden>
+              <span>Повторите пароль</span>
+              <input id="authPasswordConfirm" type="password" autocomplete="new-password" minlength="8" placeholder="Повторите пароль">
+            </label>
+            <button class="primary-button" id="authSubmit" type="submit">Войти</button>
+            <button class="link-button" id="authResetPassword" type="button">Не помню пароль</button>
+          </form>
+        </div>
+
+        <div id="authRecoveryFlow" hidden>
+          <div class="auth-heading">
+            <p class="eyebrow">Восстановление доступа</p>
+            <h2>Новый пароль</h2>
+            <p>Придумайте новый пароль длиной не менее 8 символов.</p>
+          </div>
+          <form id="authRecoveryForm" novalidate>
+            <label>
+              <span>Новый пароль</span>
+              <input id="authNewPassword" type="password" autocomplete="new-password" minlength="8" required>
+            </label>
+            <label>
+              <span>Повторите пароль</span>
+              <input id="authNewPasswordConfirm" type="password" autocomplete="new-password" minlength="8" required>
+            </label>
+            <button class="primary-button" type="submit">Сохранить пароль</button>
+          </form>
+        </div>
+
+        <p class="auth-status" id="authStatus" role="status" aria-live="polite"></p>
+      </section>
+    </main>
+  </body>
+</html>

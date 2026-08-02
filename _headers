@@ -8,3 +8,9 @@
 
 /oauth-consent.html
   Cache-Control: no-store
+
+/auth
+  Cache-Control: no-store
+
+/auth.html
+  Cache-Control: no-store

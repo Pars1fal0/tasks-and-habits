@@ -7,7 +7,9 @@ module.exports = [
     name: "pre-caches every script required by the application shell",
     fn() {
       const root = path.resolve(__dirname, "..");
-      const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
+      const html = ["index.html", "auth.html", "landing.html"]
+        .map((file) => fs.readFileSync(path.join(root, file), "utf8"))
+        .join("\n");
       const serviceWorker = fs.readFileSync(path.join(root, "sw.js"), "utf8");
       const scripts = [...html.matchAll(/<script src="([^"?]+)(?:\?[^" ]*)?"/g)].map((match) => match[1]);
       scripts.forEach((script) => assert.match(serviceWorker, new RegExp(`"${script.replace(".", "\\.")}"`), `${script} is missing from APP_SHELL`));

@@ -67,6 +67,28 @@
       return saveSession(data);
     }
 
+    async function validateSession() {
+      const current = await ensureFreshSession();
+      if (!current?.access_token) return null;
+      const config = requireConfig();
+      const response = await fetchFn(`${config.supabaseUrl}/auth/v1/user`, {
+        headers: { ...authHeaders(config), Authorization: `Bearer ${current.access_token}` },
+      });
+      const data = await readResponse(response);
+      if (!response.ok) {
+        if ([401, 403].includes(response.status)) saveSession(null);
+        throw createAuthError(response, data);
+      }
+      if (!data?.id) {
+        saveSession(null);
+        throw new Error("Сессия аккаунта недействительна");
+      }
+      return saveSession({
+        ...current,
+        user: { ...current.user, id: String(data.id), email: String(data.email || current.user?.email || "") },
+      });
+    }
+
     async function signOut() {
       const current = session;
       saveSession(null);
@@ -165,6 +187,7 @@
       signOut,
       signUp,
       updatePassword,
+      validateSession,
     };
 
     function restoreRecoverySession() {
@@ -190,7 +213,7 @@
 
     function clearRecoveryHash() {
       if (!global.history?.replaceState || !global.location) return;
-      global.history.replaceState(null, "", `${global.location.pathname}${global.location.search}#settings`);
+      global.history.replaceState(null, "", `${global.location.pathname}${global.location.search}`);
     }
   }
 

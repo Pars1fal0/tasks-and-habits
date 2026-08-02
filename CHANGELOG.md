@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Added a dedicated public landing page at `/`, a focused sign-in and registration page at `/auth`, and the authenticated workspace at `/app`.
+- Protected the web and Electron application shells with a shared session gate while preserving password recovery fragments and the requested destination after sign-in.
+- Simplified Settings account controls to the current account identity and one sign-out button.
+- Added server validation for restored sessions plus route, CSP, desktop navigation, and cross-device auth regression coverage.
+
 ## 0.24.0
 
 - Connected web and desktop builds to one managed Parsitasks Supabase project, so users only need to register or sign in.

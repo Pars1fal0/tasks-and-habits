@@ -295,13 +295,7 @@ const els = {
   quickInputHints: document.querySelector("#quickInputHints"),
   quickTaskPreview: document.querySelector("#quickTaskPreview"),
   remoteSyncAnonKey: document.querySelector("#remoteSyncAnonKey"),
-  remoteAuthEmail: document.querySelector("#remoteAuthEmail"),
-  remoteAuthPassword: document.querySelector("#remoteAuthPassword"),
-  remoteAuthResetButton: document.querySelector("#remoteAuthResetButton"),
-  remoteAuthUpdatePasswordButton: document.querySelector("#remoteAuthUpdatePasswordButton"),
-  remoteAuthSignInButton: document.querySelector("#remoteAuthSignInButton"),
   remoteAuthSignOutButton: document.querySelector("#remoteAuthSignOutButton"),
-  remoteAuthSignUpButton: document.querySelector("#remoteAuthSignUpButton"),
   remoteAuthStatus: document.querySelector("#remoteAuthStatus"),
   remoteSyncCheckButton: document.querySelector("#remoteSyncCheckButton"),
   remoteAccountDeleteButton: document.querySelector("#remoteAccountDeleteButton"),
@@ -316,7 +310,6 @@ const els = {
   remoteSnapshotsLoadButton: document.querySelector("#remoteSnapshotsLoadButton"),
   remoteSnapshotsStatus: document.querySelector("#remoteSnapshotsStatus"),
   syncDiagnostics: document.querySelector("#syncDiagnostics"),
-  syncProjectStep: document.querySelector("#syncProjectStep"),
   syncTechnicalSettings: document.querySelector("#syncTechnicalSettings"),
   remoteSyncStatus: document.querySelector("#remoteSyncStatus"),
   remoteSyncUrl: document.querySelector("#remoteSyncUrl"),
@@ -457,6 +450,10 @@ window.RhythmFormDialog.createFormDialogManager({
 const remoteSync = window.RhythmRemoteSync.createRemoteSync();
 const remoteAuth = window.RhythmRemoteAuth.createRemoteAuth({
   getConfig: () => ({ anonKey: remoteSyncAnonKey, supabaseUrl: remoteSyncUrl }),
+  onSessionChange: (session) => {
+    if (session || window.RhythmAuthGate.isAutomationLocation()) return;
+    queueMicrotask(() => window.RhythmAuthGate.redirectAfterSignOut());
+  },
 });
 const syncHistory = window.RhythmSyncHistory.createSyncHistory();
 let syncDiagnosticsController = null;
@@ -1081,8 +1078,6 @@ const remoteSyncWorkflow = window.RhythmRemoteSyncController.createRemoteSyncWor
 const remoteAuthController = window.RhythmRemoteAuthController.createRemoteAuthController({
   auth: remoteAuth,
   els,
-  isProjectConfigured: () => Boolean(remoteSyncUrl && remoteSyncAnonKey),
-  onAuthenticated: synchronizeAuthenticatedAccount,
   renderSyncStatus: () => remoteSyncWorkflow.renderStatus(),
   showToast,
   syncCloudControls: () => queueMicrotask(() => remoteDataController.syncControls()),
@@ -1408,11 +1403,13 @@ async function initializeHostedConfig() {
   if (els.remoteSyncUrl) els.remoteSyncUrl.value = remoteSyncUrl;
   if (els.remoteSyncAnonKey) els.remoteSyncAnonKey.value = remoteSyncAnonKey;
   if (els.syncTechnicalSettings) els.syncTechnicalSettings.hidden = true;
-  if (els.syncProjectStep) els.syncProjectStep.textContent = "Общая база Parsitasks уже настроена.";
   settingsController.syncControls();
   remoteAuthController.render();
   renderRemoteSyncStatus();
-  if (remoteAuth.getSession()?.access_token) await synchronizeAuthenticatedAccount();
+  if (remoteAuth.getSession()?.access_token) {
+    await remoteAuth.validateSession().catch(() => null);
+    if (remoteAuth.getSession()?.access_token) await synchronizeAuthenticatedAccount();
+  }
 }
 
 async function synchronizeAuthenticatedAccount() {

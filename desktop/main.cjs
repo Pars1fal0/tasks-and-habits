@@ -2,6 +2,7 @@ const { app, BrowserWindow, Menu, Notification, Tray, ipcMain, nativeImage, sess
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const { fileURLToPath } = require("node:url");
 const { createUpdateManager } = require("./update-manager.cjs");
 
 const appRoot = path.join(__dirname, "..");
@@ -952,12 +953,27 @@ function createWindow() {
     return { action: "deny" };
   });
   mainWindow.webContents.on("will-navigate", (event, url) => {
-    if (url === mainWindow.webContents.getURL()) return;
+    if (url === mainWindow.webContents.getURL() || isInternalAppNavigation(url)) return;
     event.preventDefault();
     if (isAllowedExternalUrl(url)) shell.openExternal(url).catch(() => {});
   });
 
-  mainWindow.loadFile(path.join(appRoot, "index.html"));
+  mainWindow.loadFile(
+    path.join(appRoot, "index.html"),
+    isAutomationTest ? { query: { automation: "1" } } : undefined,
+  );
+}
+
+function isInternalAppNavigation(url) {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "file:") return false;
+    const target = path.resolve(fileURLToPath(parsed));
+    const relative = path.relative(appRoot, target).replaceAll("\\", "/");
+    return ["auth.html", "index.html", "landing.html"].includes(relative);
+  } catch {
+    return false;
+  }
 }
 
 function createTray() {

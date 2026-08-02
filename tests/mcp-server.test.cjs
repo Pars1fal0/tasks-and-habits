@@ -76,6 +76,9 @@ module.exports = [
       assert.match(source, /Access-Control-Allow-Origin": "\*"/);
       assert.match(source, /Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'"/);
       assert.match(source, /methodNotAllowed\(\["GET", "POST", "DELETE"\]\)/);
+      assert.match(source, /url\.pathname === "\/"[\s\S]*assetPage\(request, env, "\/landing\.html"\)/);
+      assert.match(source, /url\.pathname === "\/app"[\s\S]*assetPage\(request, env, "\/index\.html"\)/);
+      assert.match(source, /url\.pathname === "\/auth"[\s\S]*assetPage\(request, env, "\/auth\.html"\)/);
       assert.deepEqual(
         [...promptsSource.matchAll(/server\.registerPrompt\(\s*"([^"]+)"/g)].map((match) => match[1]),
         ["plan_week", "review_backlog", "monthly_review", "journal_weekly_reflection"],

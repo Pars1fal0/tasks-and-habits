@@ -35,6 +35,21 @@ export default {
     const url = new URL(request.url);
     try {
       if (request.method === "OPTIONS") return corsResponse();
+      if (["GET", "HEAD"].includes(request.method) && url.pathname === "/") {
+        return assetPage(request, env, "/landing.html");
+      }
+      if (["GET", "HEAD"].includes(request.method) && url.pathname === "/app") {
+        return assetPage(request, env, "/index.html");
+      }
+      if (["GET", "HEAD"].includes(request.method) && url.pathname === "/app/") {
+        return Response.redirect(`${url.origin}/app${url.search}`, 308);
+      }
+      if (["GET", "HEAD"].includes(request.method) && url.pathname === "/auth") {
+        return assetPage(request, env, "/auth.html");
+      }
+      if (["GET", "HEAD"].includes(request.method) && url.pathname === "/auth/") {
+        return Response.redirect(`${url.origin}/auth${url.search}`, 308);
+      }
       if (isProtectedResourceMetadataPath(url.pathname)) {
         if (request.method !== "GET") return methodNotAllowed(["GET"]);
         return jsonResponse(protectedResourceMetadata(url, env));
@@ -748,6 +763,11 @@ function publicConfigResponse(env) {
 
 function consentPage(request, env) {
   const assetUrl = new URL("/oauth-consent.html", request.url);
+  return env.ASSETS.fetch(new Request(assetUrl, request));
+}
+
+function assetPage(request, env, pathname) {
+  const assetUrl = new URL(pathname, request.url);
   return env.ASSETS.fetch(new Request(assetUrl, request));
 }
 
