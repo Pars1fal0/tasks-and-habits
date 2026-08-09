@@ -16,14 +16,24 @@
     return 0;
   }
 
+  function calculateMenuMaxHeight(triggerRect, viewportHeight, direction, gap = 8) {
+    const available = direction === "up"
+      ? triggerRect.top - gap
+      : viewportHeight - triggerRect.bottom - gap;
+    return Math.max(0, Math.floor(available));
+  }
+
   function positionDisclosure(details, viewportHeight = global.innerHeight, viewportWidth = global.innerWidth) {
     const trigger = details.querySelector(":scope > summary");
     const menu = details.querySelector(MENU_SELECTOR);
     if (!trigger || !menu || !details.open) return;
     details.classList.remove("menu-opens-up", "menu-opens-down");
     menu.style.removeProperty("--menu-shift-x");
-    const direction = chooseMenuDirection(trigger.getBoundingClientRect(), menu.getBoundingClientRect().height, viewportHeight);
+    menu.style.removeProperty("--menu-max-height");
+    const triggerRect = trigger.getBoundingClientRect();
+    const direction = chooseMenuDirection(triggerRect, menu.getBoundingClientRect().height, viewportHeight);
     details.classList.add(direction === "up" ? "menu-opens-up" : "menu-opens-down");
+    menu.style.setProperty("--menu-max-height", `${calculateMenuMaxHeight(triggerRect, viewportHeight, direction)}px`);
     const shift = calculateMenuShift(menu.getBoundingClientRect(), viewportWidth);
     if (shift) menu.style.setProperty("--menu-shift-x", `${shift}px`);
   }
@@ -41,6 +51,7 @@
         details.removeAttribute("open");
         details.classList.remove("menu-opens-up", "menu-opens-down");
         details.querySelector(MENU_SELECTOR)?.style.removeProperty("--menu-shift-x");
+        details.querySelector(MENU_SELECTOR)?.style.removeProperty("--menu-max-height");
         if (restoreFocus) details.querySelector(":scope > summary")?.focus();
       });
     }
@@ -58,6 +69,8 @@
       if (!details || event.target !== details) return;
       if (!details.open) {
         details.classList.remove("menu-opens-up", "menu-opens-down");
+        details.querySelector(MENU_SELECTOR)?.style.removeProperty("--menu-shift-x");
+        details.querySelector(MENU_SELECTOR)?.style.removeProperty("--menu-max-height");
         return;
       }
       closeMenus(details);
@@ -81,7 +94,13 @@
     return { closeMenus, positionDisclosure };
   }
 
-  const api = { bindDisclosureMenus, calculateMenuShift, chooseMenuDirection, positionDisclosure };
+  const api = {
+    bindDisclosureMenus,
+    calculateMenuMaxHeight,
+    calculateMenuShift,
+    chooseMenuDirection,
+    positionDisclosure,
+  };
   global.RhythmDisclosureMenus = api;
   if (typeof document !== "undefined") bindDisclosureMenus(document);
   if (typeof module !== "undefined" && module.exports) module.exports = api;

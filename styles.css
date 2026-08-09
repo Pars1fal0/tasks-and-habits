@@ -5328,6 +5328,40 @@ body.has-floating-task-form::before {
   box-shadow: var(--shadow-soft);
 }
 
+.task-more-menu,
+.habit-more-menu,
+.goal-menu-popover,
+.overdue-more-menu,
+.nav-more-menu {
+  max-height: var(--menu-max-height, calc(100vh - 16px));
+  overflow-y: auto;
+  transform: translateX(var(--menu-shift-x, 0));
+}
+
+.task-more.menu-opens-up > .task-more-menu,
+.habit-more.menu-opens-up > .habit-more-menu,
+.goal-menu.menu-opens-up > .goal-menu-popover,
+.overdue-more.menu-opens-up > .overdue-more-menu,
+.nav-more.menu-opens-up > .nav-more-menu {
+  top: auto;
+  bottom: calc(100% + 8px);
+}
+
+.task-more.menu-opens-down > .task-more-menu,
+.habit-more.menu-opens-down > .habit-more-menu,
+.goal-menu.menu-opens-down > .goal-menu-popover,
+.overdue-more.menu-opens-down > .overdue-more-menu,
+.nav-more.menu-opens-down > .nav-more-menu {
+  top: calc(100% + 8px);
+  bottom: auto;
+}
+
+.task-item:has(.task-more[open]),
+.habit-item:has(.habit-more[open]),
+.goal-item:has(.goal-menu[open]) {
+  z-index: 40;
+}
+
 .habit-menu-action {
   display: flex;
   align-items: center;

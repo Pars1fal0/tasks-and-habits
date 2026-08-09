@@ -1,5 +1,9 @@
 const assert = require("node:assert/strict");
-const { calculateMenuShift, chooseMenuDirection } = require("../disclosure-menus.js");
+const {
+  calculateMenuMaxHeight,
+  calculateMenuShift,
+  chooseMenuDirection,
+} = require("../disclosure-menus.js");
 
 module.exports = [
   {
@@ -26,6 +30,13 @@ module.exports = [
       assert.equal(calculateMenuShift({ left: -3, right: 277 }, 320), 11);
       assert.equal(calculateMenuShift({ left: 50, right: 325 }, 320), -13);
       assert.equal(calculateMenuShift({ left: 20, right: 300 }, 320), 0);
+    },
+  },
+  {
+    name: "limits a disclosure menu to the room on its chosen side",
+    fn() {
+      assert.equal(calculateMenuMaxHeight({ top: 610, bottom: 650 }, 720, "up"), 602);
+      assert.equal(calculateMenuMaxHeight({ top: 610, bottom: 650 }, 720, "down"), 62);
     },
   },
 ];
