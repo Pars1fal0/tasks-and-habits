@@ -1,6 +1,6 @@
 {
   "name": "rhythm-day",
-  "version": "0.26.5",
+  "version": "0.26.6",
   "private": true,
   "description": "Parsitasks — личное пространство для задач, времени и прогресса",
   "main": "desktop/main.cjs",
@@ -184,7 +184,7 @@
   },
   "overrides": {
     "@hono/node-server": "2.0.11",
-    "brace-expansion": "5.0.8"
+    "brace-expansion": "5.0.9"
   },
   "dependencies": {
     "electron-updater": "^6.8.9"
