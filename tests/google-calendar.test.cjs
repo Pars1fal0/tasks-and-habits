@@ -1,5 +1,5 @@
 const assert = require("node:assert/strict");
-const { buildPayload } = require("../google-calendar-controller.js");
+const { applyCalendarResult, buildPayload } = require("../google-calendar-controller.js");
 const { createGoogleCalendarApi, resolveBaseUrl } = require("../google-calendar-api.js");
 
 module.exports = [
@@ -70,10 +70,23 @@ module.exports = [
         updatedAt: "2026-08-02T12:00:00.000Z",
       });
       assert.equal(calendar.googleEventToTask({ start: { date: "2026-08-03" }, end: { date: "2026-08-04" } }, "all-day"), null);
+      const occurrence = calendar.googleEventToTask({
+        id: "event-2",
+        summary: "Перенесённая практика",
+        start: { dateTime: "2026-08-04T12:00:00+03:00" },
+        end: { dateTime: "2026-08-04T12:30:00+03:00" },
+        updated: "2026-08-03T12:00:00.000Z",
+      }, "series::2026-08-03", "Europe/Moscow", {
+        occurrenceDate: "2026-08-03",
+        sourceTaskId: "series",
+      });
+      assert.equal(occurrence.sourceTaskId, "series");
+      assert.equal(occurrence.occurrenceDate, "2026-08-03");
+      assert.equal(occurrence.date, "2026-08-04");
     },
   },
   {
-    name: "calendar payload includes ordinary blocks and safely skips recurring series",
+    name: "calendar payload expands recurring blocks into safe independent occurrences",
     fn() {
       const state = {
         categories: [{ id: "work", name: "Работа" }],
@@ -85,12 +98,67 @@ module.exports = [
         tombstones: { tasks: { deleted: "2026-08-02T11:00:00.000Z" } },
       };
       const payload = buildPayload(state, "two-way", "Europe/Moscow", new Date("2026-08-02T12:00:00.000Z"));
-      assert.equal(payload.tasks.length, 1);
-      assert.equal(payload.tasks[0].category, "Работа");
+      assert.equal(payload.tasks.length, 181);
+      assert.equal(payload.tasks.find((task) => task.id === "one").category, "Работа");
+      assert.deepEqual(payload.tasks.find((task) => task.id === "series::2026-08-03"), {
+        category: "",
+        date: "2026-08-03",
+        endTime: "13:00",
+        id: "series::2026-08-03",
+        occurrenceDate: "2026-08-03",
+        priority: "medium",
+        sourceTaskId: "series",
+        startTime: "12:00",
+        title: "Серия",
+        updatedAt: "2026-08-02T10:00:00.000Z",
+      });
       assert.equal(payload.direction, "two-way");
-      assert.equal(payload.skipped, 1);
+      assert.equal(payload.skipped, 0);
       assert.deepEqual(payload.outOfRangeTaskIds, []);
       assert.equal(payload.tombstones.deleted, "2026-08-02T11:00:00.000Z");
+    },
+  },
+  {
+    name: "a Google edit replaces only one recurring occurrence",
+    fn() {
+      const state = {
+        categories: [{ id: "work", name: "Работа", color: "#123456" }],
+        googleCalendarLinks: {},
+        tasks: [{
+          id: "series", title: "Серия", date: "2026-08-01", repeat: "daily", excludedDates: {},
+          categoryId: "work", priority: "high", updatedAt: "2026-08-01T10:00:00.000Z",
+        }],
+      };
+      applyCalendarResult(state, {
+        links: { "series::2026-08-03": { eventId: "event" } },
+        upserts: [{
+          id: "series::2026-08-03", sourceTaskId: "series", occurrenceDate: "2026-08-03",
+          title: "Изменённый день", date: "2026-08-04", startTime: "12:00", endTime: "12:30",
+          updatedAt: "2026-08-03T11:00:00.000Z",
+        }],
+      }, { createId: () => "google", deleteTask() {} });
+      assert.equal(state.tasks[0].excludedDates["2026-08-03"], true);
+      assert.equal(state.tasks[0].title, "Серия");
+      const replacement = state.tasks.find((task) => task.id === "series::2026-08-03");
+      assert.equal(replacement.title, "Изменённый день");
+      assert.equal(replacement.date, "2026-08-04");
+      assert.equal(replacement.priority, "high");
+      assert.equal(replacement.categoryId, "work");
+      assert.equal(replacement.sourceTaskId, "series");
+    },
+  },
+  {
+    name: "a deleted Google occurrence excludes only that recurring day",
+    fn() {
+      const state = {
+        categories: [], googleCalendarLinks: {},
+        tasks: [{ id: "series", title: "Серия", repeat: "daily", excludedDates: {} }],
+      };
+      applyCalendarResult(state, {
+        deletions: [{ id: "series::2026-08-03", sourceTaskId: "series", occurrenceDate: "2026-08-03" }],
+      }, { createId: () => "google", deleteTask() {} });
+      assert.equal(state.tasks[0].excludedDates["2026-08-03"], true);
+      assert.equal(state.tasks.length, 1);
     },
   },
   {

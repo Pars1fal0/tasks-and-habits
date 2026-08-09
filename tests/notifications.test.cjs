@@ -15,6 +15,31 @@ function createController() {
 
 module.exports = [
   {
+    name: "delivers PWA reminders through the service worker and marks them sent",
+    async fn() {
+      const originalNavigator = Object.getOwnPropertyDescriptor(global, "navigator");
+      const calls = [];
+      Object.defineProperty(global, "navigator", {
+        configurable: true,
+        value: { serviceWorker: { getRegistration: async () => ({ showNotification: async (...args) => calls.push(args) }) } },
+      });
+      try {
+        let saved = 0;
+        const controller = createNotifications({ saveState: () => { saved += 1; } });
+        const task = { id: "task", title: "Напоминание", notified: {} };
+        await controller.deliverNotification(task, "2026-08-09");
+        assert.equal(calls.length, 1);
+        assert.equal(calls[0][0], "Parsitasks");
+        assert.equal(calls[0][1].data.url, "/app#tasks");
+        assert.equal(task.notified["2026-08-09"], true);
+        assert.equal(saved, 1);
+      } finally {
+        if (originalNavigator) Object.defineProperty(global, "navigator", originalNavigator);
+        else delete global.navigator;
+      }
+    },
+  },
+  {
     name: "uses a time block start for its reminder",
     fn() {
       const reminder = createController().getReminderDate(

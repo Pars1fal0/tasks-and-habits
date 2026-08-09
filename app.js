@@ -1201,6 +1201,15 @@ const notificationsController = window.RhythmNotifications.createNotifications({
   toDateKey,
 });
 
+const dailyPulseController = window.RhythmDailyPulse.createDailyPulse({
+  els,
+  getHabits: habitsForDate,
+  getTasks: getOrderedTasksForDate,
+  isHabitComplete,
+  isTaskDone,
+  taskDetails,
+});
+
 const viewRenderer = window.RhythmViewRenderer.createViewRenderer({
   renderArchive,
   renderCategories,
@@ -1526,39 +1535,7 @@ function renderGoalSurfaces() {
 }
 
 function renderDailyPulse() {
-  const tasks = getOrderedTasksForDate(activeDate);
-  const doneTasks = tasks.filter((task) => isTaskDone(task, activeDate));
-  const openTasks = tasks.filter((task) => !isTaskDone(task, activeDate));
-  const taskPercent = tasks.length ? Math.round((doneTasks.length / tasks.length) * 100) : 0;
-  const habits = habitsForDate(activeDate);
-  const doneHabits = habits.filter((habit) => isHabitComplete(habit, activeDate)).length;
-  const habitPercent = habits.length ? Math.round((doneHabits / habits.length) * 100) : 0;
-  const pulseParts = [];
-  if (tasks.length) pulseParts.push(taskPercent);
-  if (habits.length) pulseParts.push(habitPercent);
-  const pulse = pulseParts.length
-    ? Math.round(pulseParts.reduce((sum, item) => sum + item, 0) / pulseParts.length)
-    : 0;
-  const nextTask = openTasks[0];
-
-  els.focusTitle.textContent = nextTask
-    ? nextTask.title
-    : tasks.length
-      ? "План закрыт"
-      : "Свободный слот";
-  els.focusMeta.textContent = nextTask
-    ? taskDetails(nextTask).join(" · ") || "Без категории"
-    : tasks.length
-      ? "Все задачи на выбранный день выполнены"
-      : "Можно добавить задачу или оставить день без перегруза";
-  els.focusPercent.textContent = `${taskPercent}%`;
-  els.focusBar.style.width = `${taskPercent}%`;
-  els.todayOpenMetric.textContent = openTasks.length;
-  els.todayDoneMetric.textContent = doneTasks.length;
-  els.habitDoneMetric.textContent = `${doneHabits}/${habits.length}`;
-  els.sideProgressValue.textContent = `${pulse}%`;
-  els.sideProgressBar.style.width = `${pulse}%`;
-  els.sideProgressSummary.textContent = `Задачи ${taskPercent}% · привычки ${habitPercent}%`;
+  dailyPulseController.render(activeDate);
 }
 
 function renderTasks() {

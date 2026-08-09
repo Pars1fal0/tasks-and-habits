@@ -3,7 +3,7 @@ import { authenticateSupabaseRequest } from "./supabase-state.mjs";
 const CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.events";
 const CONNECTION_TABLE = "google_calendar_connections";
 const COOKIE_NAME = "parsitasks_google_calendar_oauth";
-const MAX_TASKS = 250;
+const MAX_TASKS = 1000;
 
 export async function handleGoogleCalendarRequest(request, env, options = {}) {
   const url = new URL(request.url);
@@ -124,7 +124,7 @@ export function taskToGoogleEvent(task, timeZone = "UTC") {
   };
 }
 
-export function googleEventToTask(event, taskId, timeZone = "UTC") {
+export function googleEventToTask(event, taskId, timeZone = "UTC", source = {}) {
   if (event?.status === "cancelled" || !event?.start?.dateTime || !event?.end?.dateTime) return null;
   const start = dateTimeParts(event.start.dateTime, timeZone);
   const end = dateTimeParts(event.end.dateTime, timeZone);
@@ -138,6 +138,10 @@ export function googleEventToTask(event, taskId, timeZone = "UTC") {
     endTime: end.time,
     time: end.time,
     updatedAt: cleanTimestamp(event.updated) || new Date().toISOString(),
+    ...(source.sourceTaskId ? {
+      occurrenceDate: source.occurrenceDate,
+      sourceTaskId: source.sourceTaskId,
+    } : {}),
   };
 }
 
@@ -211,6 +215,7 @@ async function synchronizeCalendar(env, auth, payload, fetchFn) {
   const eventById = new Map(events.map((event) => [event.id, event]));
   const taskById = new Map(tasks.map((task) => [task.id, task]));
   const nextLinks = { ...links };
+  const removedEventIds = new Set();
   const upserts = [];
   const deletions = [];
   const summary = { created: 0, deleted: 0, imported: 0, skipped: Number(payload?.skipped) || 0, updated: 0 };
@@ -220,7 +225,7 @@ async function synchronizeCalendar(env, auth, payload, fetchFn) {
     let event = link ? eventById.get(link.eventId) : findLinkedEvent(events, task.id);
     if (!event || event.status === "cancelled") {
       if (link && event?.status === "cancelled" && direction === "two-way" && isNewer(event.updated, link.remoteUpdatedAt)) {
-        deletions.push(task.id);
+        deletions.push(deletionDescriptor(task));
         delete nextLinks[task.id];
         summary.deleted += 1;
         continue;
@@ -232,7 +237,7 @@ async function synchronizeCalendar(env, auth, payload, fetchFn) {
       const localChanged = isNewer(task.updatedAt, link.localUpdatedAt);
       const remoteChanged = isNewer(event.updated, link.remoteUpdatedAt);
       if (direction === "two-way" && remoteChanged && (!localChanged || timestamp(event.updated) >= timestamp(task.updatedAt))) {
-        const patch = googleEventToTask(event, task.id, timeZone);
+        const patch = googleEventToTask(event, task.id, timeZone, task);
         if (patch) {
           upserts.push(patch);
           summary.imported += 1;
@@ -247,10 +252,12 @@ async function synchronizeCalendar(env, auth, payload, fetchFn) {
   }
 
   for (const [taskId, link] of Object.entries(links)) {
-    if (taskById.has(taskId) || !tombstones[taskId] || !isNewer(tombstones[taskId], link.localUpdatedAt)) continue;
+    const sourceTaskId = link.sourceTaskId || taskId;
+    if (taskById.has(taskId) || !tombstones[sourceTaskId] || !isNewer(tombstones[sourceTaskId], link.localUpdatedAt)) continue;
     await googleApi(googleAccessToken, calendarId, link.eventId, "DELETE", null, fetchFn).catch((error) => {
       if (![404, 410].includes(error.status)) throw error;
     });
+    removedEventIds.add(link.eventId);
     delete nextLinks[taskId];
     summary.deleted += 1;
   }
@@ -261,6 +268,7 @@ async function synchronizeCalendar(env, auth, payload, fetchFn) {
     await googleApi(googleAccessToken, calendarId, link.eventId, "DELETE", null, fetchFn).catch((error) => {
       if (![404, 410].includes(error.status)) throw error;
     });
+    removedEventIds.add(link.eventId);
     delete nextLinks[taskId];
     summary.deleted += 1;
   }
@@ -268,7 +276,7 @@ async function synchronizeCalendar(env, auth, payload, fetchFn) {
   if (direction === "two-way") {
     const linkedEventIds = new Set(Object.values(nextLinks).map((link) => link.eventId));
     for (const event of events) {
-      if (event.status === "cancelled" || linkedEventIds.has(event.id)) continue;
+      if (event.status === "cancelled" || linkedEventIds.has(event.id) || removedEventIds.has(event.id)) continue;
       const declaredTaskId = cleanText(event.extendedProperties?.private?.parsitasksTaskId);
       const taskId = declaredTaskId || externalTaskId(event.id);
       if (tombstones[taskId]) continue;
@@ -391,6 +399,8 @@ function normalizeTasks(value) {
     endTime: validTime(task?.endTime),
     id: cleanText(task?.id).slice(0, 160),
     priority: ["low", "medium", "high"].includes(task?.priority) ? task.priority : "medium",
+    occurrenceDate: /^\d{4}-\d{2}-\d{2}$/.test(task?.occurrenceDate) ? task.occurrenceDate : "",
+    sourceTaskId: cleanText(task?.sourceTaskId).slice(0, 160),
     startTime: validTime(task?.startTime),
     title: cleanText(task?.title).slice(0, 500),
     updatedAt: cleanTimestamp(task?.updatedAt) || new Date().toISOString(),
@@ -403,11 +413,14 @@ function normalizeLinks(value) {
   Object.entries(value).slice(0, 1000).forEach(([taskId, link]) => {
     const eventId = cleanText(link?.eventId);
     if (!taskId || !eventId) return;
+    const occurrenceDate = /^\d{4}-\d{2}-\d{2}$/.test(link?.occurrenceDate) ? link.occurrenceDate : "";
+    const sourceTaskId = cleanText(link?.sourceTaskId).slice(0, 160);
     result[taskId] = {
       eventId,
       localUpdatedAt: cleanTimestamp(link?.localUpdatedAt),
       remoteUpdatedAt: cleanTimestamp(link?.remoteUpdatedAt),
       syncedAt: cleanTimestamp(link?.syncedAt),
+      ...(occurrenceDate && sourceTaskId ? { occurrenceDate, sourceTaskId } : {}),
     };
   });
   return result;
@@ -430,11 +443,29 @@ function createLink(event, task) {
     localUpdatedAt: cleanTimestamp(task.updatedAt) || now,
     remoteUpdatedAt: cleanTimestamp(event.updated) || now,
     syncedAt: now,
+    ...(task.sourceTaskId && task.occurrenceDate ? {
+      occurrenceDate: task.occurrenceDate,
+      sourceTaskId: task.sourceTaskId,
+    } : {}),
   };
 }
 
 function linkFromEvent(event, task) {
-  return { eventId: event.id, localUpdatedAt: "", remoteUpdatedAt: "", syncedAt: task.updatedAt || "" };
+  return {
+    eventId: event.id,
+    localUpdatedAt: "",
+    remoteUpdatedAt: "",
+    syncedAt: task.updatedAt || "",
+    ...(task.sourceTaskId && task.occurrenceDate ? {
+      occurrenceDate: task.occurrenceDate,
+      sourceTaskId: task.sourceTaskId,
+    } : {}),
+  };
+}
+
+function deletionDescriptor(task) {
+  if (!task.sourceTaskId) return task.id;
+  return { id: task.id, occurrenceDate: task.occurrenceDate, sourceTaskId: task.sourceTaskId };
 }
 
 function findLinkedEvent(events, taskId) {
@@ -563,7 +594,7 @@ function randomToken() {
 
 async function readJsonBody(request) {
   const text = await request.text();
-  if (text.length > 1024 * 1024) throw new Error("Слишком большой запрос синхронизации");
+  if (text.length > 2 * 1024 * 1024) throw new Error("Слишком большой запрос синхронизации");
   try { return text ? JSON.parse(text) : {}; } catch { throw new Error("Некорректный JSON"); }
 }
 

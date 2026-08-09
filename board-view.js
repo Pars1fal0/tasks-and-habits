@@ -1,4 +1,5 @@
 (function (global) {
+  const cameraApi = global.RhythmBoardCamera || (typeof require === "function" ? require("./board-camera.js") : null);
   const CAMERA_KEY = "rhythm-board-camera-v2";
   const MIN_ZOOM = 0.02;
   const MAX_ZOOM = 8;
@@ -6,7 +7,7 @@
   const RESIZE_DIRECTIONS = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
 
   function createBoardView(ctx) {
-    let camera = loadCamera();
+    let camera = cameraApi.loadCamera(global.localStorage, CAMERA_KEY, MIN_ZOOM, MAX_ZOOM);
     let cameraReady = false;
     let selectedId = "";
     let selectedIds = new Set();
@@ -646,14 +647,7 @@
 
     function zoomAt(factor, point = viewportCenter()) {
       const rect = ctx.els.boardViewport.getBoundingClientRect();
-      const localX = point.x - rect.left;
-      const localY = point.y - rect.top;
-      const worldX = (localX - camera.x) / camera.zoom;
-      const worldY = (localY - camera.y) / camera.zoom;
-      const zoom = clamp(camera.zoom * factor, MIN_ZOOM, MAX_ZOOM);
-      camera.x = localX - worldX * zoom;
-      camera.y = localY - worldY * zoom;
-      camera.zoom = zoom;
+      camera = cameraApi.zoomCamera(camera, factor, point, rect, MIN_ZOOM, MAX_ZOOM);
       applyCamera();
       saveCamera();
     }
@@ -661,21 +655,7 @@
     function focusContent() {
       const content = ctx.model.bounds(ctx.getItems());
       const rect = ctx.els.boardViewport.getBoundingClientRect();
-      if (!content) {
-        camera = { x: rect.width / 2 - 180, y: Math.max(90, rect.height / 3), zoom: 1 };
-      } else {
-        const padding = Math.min(120, Math.max(36, rect.width * 0.08));
-        const zoom = clamp(Math.min(
-          (rect.width - padding * 2) / Math.max(content.width, 1),
-          (rect.height - padding * 2) / Math.max(content.height, 1),
-          1.5,
-        ), MIN_ZOOM, MAX_ZOOM);
-        camera = {
-          zoom,
-          x: rect.width / 2 - (content.left + content.width / 2) * zoom,
-          y: rect.height / 2 - (content.top + content.height / 2) * zoom,
-        };
-      }
+      camera = cameraApi.fitCamera(content, rect, MIN_ZOOM, MAX_ZOOM);
       applyCamera();
       saveCamera();
     }
@@ -1396,7 +1376,7 @@
       cameraReady = true;
       if (!camera) {
         const rect = ctx.els.boardViewport.getBoundingClientRect();
-        camera = { x: rect.width / 2 - 180, y: Math.max(100, rect.height / 3), zoom: 1 };
+        camera = cameraApi.initialCamera(rect);
       }
     }
 
@@ -1404,7 +1384,7 @@
       if (!camera) return;
       ctx.els.boardWorld.style.transform = `translate(${camera.x}px, ${camera.y}px) scale(${camera.zoom})`;
       ctx.els.boardWorld.style.setProperty("--board-unit", `${1 / camera.zoom}px`);
-      ctx.els.boardZoomLabel.textContent = formatZoom(camera.zoom);
+      ctx.els.boardZoomLabel.textContent = cameraApi.formatZoom(camera.zoom);
       ctx.els.boardViewport.style.setProperty("--board-grid-size", `${Math.max(6, 24 * camera.zoom)}px`);
       ctx.els.boardViewport.style.setProperty("--board-grid-x", `${camera.x}px`);
       ctx.els.boardViewport.style.setProperty("--board-grid-y", `${camera.y}px`);
@@ -1424,12 +1404,7 @@
       if (!content) return;
       cameraVisibilityChecked = true;
       const margin = 32;
-      const projected = {
-        left: camera.x + content.left * camera.zoom,
-        top: camera.y + content.top * camera.zoom,
-        right: camera.x + (content.left + content.width) * camera.zoom,
-        bottom: camera.y + (content.top + content.height) * camera.zoom,
-      };
+      const projected = cameraApi.projectBounds(camera, content);
       const isVisible = projected.right >= margin
         && projected.bottom >= margin
         && projected.left <= rect.width - margin
@@ -1438,19 +1413,7 @@
     }
 
     function saveCamera() {
-      try {
-        global.localStorage.setItem(CAMERA_KEY, JSON.stringify(camera));
-      } catch {}
-    }
-
-    function loadCamera() {
-      try {
-        const value = JSON.parse(global.localStorage.getItem(CAMERA_KEY));
-        if (!Number.isFinite(value?.x) || !Number.isFinite(value?.y) || !Number.isFinite(value?.zoom)) return null;
-        return { x: value.x, y: value.y, zoom: clamp(value.zoom, MIN_ZOOM, MAX_ZOOM) };
-      } catch {
-        return null;
-      }
+      cameraApi.saveCamera(global.localStorage, CAMERA_KEY, camera);
     }
 
     function viewportCenter() {
@@ -1460,10 +1423,7 @@
 
     function screenToWorld(clientX, clientY) {
       const rect = ctx.els.boardViewport.getBoundingClientRect();
-      return {
-        x: (clientX - rect.left - camera.x) / camera.zoom,
-        y: (clientY - rect.top - camera.y) / camera.zoom,
-      };
+      return cameraApi.screenToWorld(camera, rect, clientX, clientY);
     }
 
     function findItemNode(id) {
@@ -1601,11 +1561,6 @@
     range.collapse(false);
     selection.removeAllRanges();
     selection.addRange(range);
-  }
-
-  function formatZoom(zoom) {
-    const percent = zoom * 100;
-    return percent < 10 ? `${percent.toFixed(1)}%` : `${Math.round(percent)}%`;
   }
 
   function cloneItems(items) {

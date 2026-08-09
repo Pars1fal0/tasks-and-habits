@@ -11,7 +11,9 @@ module.exports = [
           task: {
             eventId: "event-1",
             localUpdatedAt: "2026-08-02T10:00:00.000Z",
+            occurrenceDate: "2026-08-03",
             remoteUpdatedAt: "bad-date",
+            sourceTaskId: "series",
             syncedAt: "2026-08-02T11:00:00.000Z",
           },
           broken: { eventId: "" },
@@ -21,7 +23,9 @@ module.exports = [
         task: {
           eventId: "event-1",
           localUpdatedAt: "2026-08-02T10:00:00.000Z",
+          occurrenceDate: "2026-08-03",
           remoteUpdatedAt: "",
+          sourceTaskId: "series",
           syncedAt: "2026-08-02T11:00:00.000Z",
         },
       });

@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "rhythm-day-";
-const CACHE_NAME = `${CACHE_PREFIX}app-v73-__BUILD_HASH__`;
+const CACHE_NAME = `${CACHE_PREFIX}app-v74-__BUILD_HASH__`;
 const APP_SHELL = [
   "./",
   "landing.html",
@@ -20,6 +20,7 @@ const APP_SHELL = [
   "recurrence.js",
   "remote-auth.js",
   "remote-auth-controller.js",
+  "google-calendar-occurrences.js",
   "google-calendar-api.js",
   "google-calendar-controller.js",
   "remote-sync.js",
@@ -46,6 +47,7 @@ const APP_SHELL = [
   "planning-history.js",
   "board-model.js",
   "board-assets.js",
+  "board-camera.js",
   "journal-model.js",
   "journal-editor.js",
   "journal-view.js",
@@ -87,6 +89,7 @@ const APP_SHELL = [
   "timeline-drag.js",
   "timeline-view.js",
   "timeline-controller.js",
+  "daily-pulse.js",
   "view-renderer.js",
   "app-shell-controller.js",
   "toast.js",
@@ -121,6 +124,22 @@ self.addEventListener("activate", (event) => {
         ),
       )
       .then(() => self.clients.claim()),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const targetUrl = new URL(event.notification.data?.url || "/app#tasks", self.location.origin).href;
+  event.waitUntil(
+    self.clients.matchAll({ includeUncontrolled: true, type: "window" }).then(async (clients) => {
+      const existing = clients.find((client) => new URL(client.url).origin === self.location.origin);
+      if (existing) {
+        await existing.focus();
+        if ("navigate" in existing) await existing.navigate(targetUrl);
+        return;
+      }
+      await self.clients.openWindow(targetUrl);
+    }),
   );
 });
 

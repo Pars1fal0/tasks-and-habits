@@ -1,4 +1,7 @@
 (function (global) {
+  const occurrenceApi = global.RhythmGoogleCalendarOccurrences
+    || (typeof require === "function" ? require("./google-calendar-occurrences.js") : null);
+
   function createGoogleCalendarController(ctx) {
     let connected = false;
     let configured = true;
@@ -135,38 +138,7 @@
     }
 
     function applyResult(result) {
-      const state = ctx.getState();
-      state.googleCalendarLinks = result.links && typeof result.links === "object" ? result.links : {};
-      const googleCategoryId = result.upserts?.length ? ensureGoogleCategory(state, ctx.createId) : "";
-      const taskById = new Map(state.tasks.map((task) => [task.id, task]));
-      (result.upserts || []).forEach((patch) => {
-        const existing = taskById.get(patch.id);
-        if (existing) {
-          Object.assign(existing, {
-            date: patch.date,
-            endTime: patch.endTime,
-            scheduleMode: "block",
-            startTime: patch.startTime,
-            time: patch.endTime,
-            title: patch.title,
-            updatedAt: patch.updatedAt,
-          });
-          return;
-        }
-        const now = new Date().toISOString();
-        const task = {
-          acknowledgedOverdue: {}, categoryId: googleCategoryId, completed: {}, createdAt: now,
-          customRepeat: {}, date: patch.date, endTime: patch.endTime, excludedDates: {}, id: patch.id,
-          movedFromDate: "", notified: {}, priority: "medium", reminderOffset: "15", repeat: "none",
-          repeatUntil: "", scheduleMode: "block", sourceTaskId: "", startTime: patch.startTime,
-          time: patch.endTime, title: patch.title, updatedAt: patch.updatedAt,
-        };
-        state.tasks.push(task);
-        taskById.set(task.id, task);
-      });
-      (result.deletions || []).forEach((taskId) => {
-        if (taskById.has(taskId)) ctx.deleteTask(taskId);
-      });
+      applyCalendarResult(ctx.getState(), result, ctx);
       ctx.saveState({ skipGoogleCalendar: true });
       ctx.render();
     }
@@ -214,29 +186,63 @@
     return { bindEvents, initialize, refreshStatus, render, schedule, sync };
   }
 
+  function applyCalendarResult(state, result = {}, ctx) {
+    state.googleCalendarLinks = result.links && typeof result.links === "object" ? result.links : {};
+    const googleCategoryId = result.upserts?.length ? ensureGoogleCategory(state, ctx.createId) : "";
+    const taskById = new Map(state.tasks.map((task) => [task.id, task]));
+    (result.upserts || []).forEach((patch) => {
+      const source = patch.sourceTaskId ? taskById.get(patch.sourceTaskId) : null;
+      if (source && patch.occurrenceDate) {
+        source.excludedDates ||= {};
+        source.excludedDates[patch.occurrenceDate] = true;
+        source.updatedAt = newestTimestamp(source.updatedAt, patch.updatedAt);
+      }
+      const existing = taskById.get(patch.id);
+      if (existing) {
+        Object.assign(existing, {
+          date: patch.date,
+          endTime: patch.endTime,
+          scheduleMode: "block",
+          startTime: patch.startTime,
+          time: patch.endTime,
+          title: patch.title,
+          updatedAt: patch.updatedAt,
+        });
+        return;
+      }
+      const now = new Date().toISOString();
+      const task = {
+        acknowledgedOverdue: {}, categoryId: source?.categoryId || googleCategoryId, completed: {}, createdAt: now,
+        customRepeat: {}, date: patch.date, endTime: patch.endTime, excludedDates: {}, id: patch.id,
+        movedFromDate: patch.occurrenceDate || "", notified: {}, priority: source?.priority || "medium", reminderOffset: "15", repeat: "none",
+        repeatUntil: "", scheduleMode: "block", sourceTaskId: source?.id || "", startTime: patch.startTime,
+        time: patch.endTime, title: patch.title, updatedAt: patch.updatedAt,
+      };
+      state.tasks.push(task);
+      taskById.set(task.id, task);
+    });
+    (result.deletions || []).forEach((value) => {
+      const deletion = typeof value === "string" ? { id: value } : value || {};
+      const source = deletion.sourceTaskId ? taskById.get(deletion.sourceTaskId) : null;
+      if (source && deletion.occurrenceDate) {
+        source.excludedDates ||= {};
+        source.excludedDates[deletion.occurrenceDate] = true;
+        source.updatedAt = new Date().toISOString();
+      }
+      if (taskById.has(deletion.id)) ctx.deleteTask(deletion.id);
+    });
+    return state;
+  }
+
   function buildPayload(state = {}, direction, timeZone, now = new Date()) {
-    const categories = new Map((state.categories || []).map((category) => [category.id, category.name]));
     const range = syncRange(now);
-    const timedTasks = (state.tasks || []).filter((task) => task.scheduleMode === "block" && task.startTime && task.endTime);
-    const eligible = timedTasks.filter((task) => task.repeat === "none" && task.date >= range.from && task.date <= range.to);
-    const outOfRangeTaskIds = timedTasks
-      .filter((task) => task.repeat === "none" && (task.date < range.from || task.date > range.to))
-      .map((task) => task.id);
+    const occurrences = occurrenceApi.buildCalendarTasks(state, range);
     return {
       direction: normalizeDirection(direction),
       links: state.googleCalendarLinks || {},
-      outOfRangeTaskIds,
-      skipped: timedTasks.filter((task) => task.repeat !== "none").length,
-      tasks: eligible.map((task) => ({
-        category: categories.get(task.categoryId) || "",
-        date: task.date,
-        endTime: task.endTime,
-        id: task.id,
-        priority: task.priority,
-        startTime: task.startTime,
-        title: task.title,
-        updatedAt: task.updatedAt,
-      })),
+      outOfRangeTaskIds: occurrences.staleTaskIds,
+      skipped: occurrences.skipped,
+      tasks: occurrences.tasks,
       timeZone,
       tombstones: state.tombstones?.tasks || {},
     };
@@ -277,6 +283,10 @@
     });
   }
 
+  function newestTimestamp(left, right) {
+    return Date.parse(right || "") > Date.parse(left || "") ? right : left || right || new Date().toISOString();
+  }
+
   function callbackError(value) {
     const messages = {
       access_denied: "Подключение Google Calendar отменено",
@@ -299,7 +309,7 @@
     return value === "two-way" ? "two-way" : "export";
   }
 
-  const api = { buildPayload, createGoogleCalendarController, syncRange };
+  const api = { applyCalendarResult, buildPayload, createGoogleCalendarController, syncRange };
   global.RhythmGoogleCalendarController = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

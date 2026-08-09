@@ -1,5 +1,7 @@
 ﻿(function (global) {
   function createNotifications(ctx) {
+    const pendingNotifications = new Set();
+
     function checkDueNotifications() {
       if (ctx.getNotificationsEnabled && !ctx.getNotificationsEnabled()) return;
       if (!("Notification" in window) || Notification.permission !== "granted") return;
@@ -10,19 +12,32 @@
         dates.forEach((dateKey) => {
           const reminderAt = getReminderDate(task, dateKey);
           if (!reminderAt || reminderAt > now || ctx.isTaskDone(task, dateKey) || task.notified?.[dateKey]) return;
-          try {
-            new Notification("Parsitasks", {
-              body: task.title,
-              tag: `${task.id}-${dateKey}`,
-            });
-            task.notified ||= {};
-            task.notified[dateKey] = true;
-            ctx.saveState();
-          } catch {
-            // Keep the reminder pending so a later check can try again.
-          }
+          deliverNotification(task, dateKey);
         });
       });
+    }
+
+    async function deliverNotification(task, dateKey) {
+      const tag = `${task.id}-${dateKey}`;
+      if (pendingNotifications.has(tag)) return;
+      pendingNotifications.add(tag);
+      try {
+        const options = { body: task.title, data: { dateKey, taskId: task.id, url: "/app#tasks" }, tag };
+        if (!global.rhythmDesktop && global.navigator?.serviceWorker) {
+          const registration = await global.navigator.serviceWorker.getRegistration?.();
+          if (registration?.showNotification) await registration.showNotification("Parsitasks", options);
+          else new Notification("Parsitasks", options);
+        } else {
+          new Notification("Parsitasks", options);
+        }
+        task.notified ||= {};
+        task.notified[dateKey] = true;
+        ctx.saveState();
+      } catch {
+        // Keep the reminder pending in state so a later check can try again.
+      } finally {
+        pendingNotifications.delete(tag);
+      }
     }
 
     async function requestNotifications() {
@@ -42,7 +57,7 @@
       updateNotificationButton(permission);
     }
 
-        function updateNotificationButton(permission = "Notification" in window ? Notification.permission : "default") {
+    function updateNotificationButton(permission = "Notification" in window ? Notification.permission : "default") {
       if (ctx.getNotificationsEnabled && !ctx.getNotificationsEnabled()) {
         setNotifyButtonLabel("Напоминания на паузе");
         ctx.els.desktopStatus.textContent = "Уведомления отключены в настройках";
@@ -153,6 +168,7 @@
     return {
       candidateReminderDates,
       checkDueNotifications,
+      deliverNotification,
       getDueDate,
       getReminderDate,
       getTaskDeadlineDate,

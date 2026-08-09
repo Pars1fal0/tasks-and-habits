@@ -257,11 +257,14 @@
     Object.entries(value).forEach(([taskId, link]) => {
       const eventId = config.cleanText(link?.eventId);
       if (!taskId || !eventId) return;
+      const occurrenceDate = /^\d{4}-\d{2}-\d{2}$/.test(link?.occurrenceDate) ? link.occurrenceDate : "";
+      const sourceTaskId = config.cleanText(link?.sourceTaskId);
       result[taskId] = {
         eventId,
         localUpdatedAt: validTimestamp(link?.localUpdatedAt),
         remoteUpdatedAt: validTimestamp(link?.remoteUpdatedAt),
         syncedAt: validTimestamp(link?.syncedAt),
+        ...(occurrenceDate && sourceTaskId ? { occurrenceDate, sourceTaskId } : {}),
       };
     });
     return result;
