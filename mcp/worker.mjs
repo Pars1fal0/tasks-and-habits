@@ -25,6 +25,7 @@ import {
   updateTaskCommand,
 } from "./write-service.mjs";
 import { authenticateSupabaseRequest, createSupabaseStateStore } from "./supabase-state.mjs";
+import { handleGoogleCalendarRequest } from "./google-calendar.mjs";
 
 const OAUTH_SCOPES = ["openid", "email"];
 const OAUTH_SECURITY = [{ type: "oauth2", scopes: OAUTH_SCOPES }];
@@ -57,6 +58,9 @@ export default {
       if (url.pathname === "/api/public-config") {
         if (request.method !== "GET") return methodNotAllowed(["GET"]);
         return publicConfigResponse(env);
+      }
+      if (url.pathname.startsWith("/api/google-calendar/")) {
+        return await handleGoogleCalendarRequest(request, env);
       }
       if (url.pathname === "/oauth/consent") {
         if (request.method !== "GET") return methodNotAllowed(["GET"]);

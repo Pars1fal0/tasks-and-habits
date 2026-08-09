@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "rhythm-day-";
-const CACHE_NAME = `${CACHE_PREFIX}app-v70-__BUILD_HASH__`;
+const CACHE_NAME = `${CACHE_PREFIX}app-v73-__BUILD_HASH__`;
 const APP_SHELL = [
   "./",
   "landing.html",
@@ -9,6 +9,7 @@ const APP_SHELL = [
   "auth.html",
   "auth.css",
   "auth-page.js",
+  "google-g.svg",
   "index.html",
   "auth-gate.js",
   "shell-version.js",
@@ -19,6 +20,8 @@ const APP_SHELL = [
   "recurrence.js",
   "remote-auth.js",
   "remote-auth-controller.js",
+  "google-calendar-api.js",
+  "google-calendar-controller.js",
   "remote-sync.js",
     "remote-sync-controller.js",
     "remote-data-controller.js",
@@ -44,6 +47,7 @@ const APP_SHELL = [
   "board-model.js",
   "board-assets.js",
   "journal-model.js",
+  "journal-editor.js",
   "journal-view.js",
   "board-view.js",
   "nutrition-model.js",

@@ -13,6 +13,7 @@
       ctx.els.nutritionNextWeek?.addEventListener("click", () => shiftWeek(7));
       ctx.els.nutritionCurrentWeek?.addEventListener("click", () => ctx.setActiveDate(ctx.today()));
       ctx.els.nutritionAddMeal?.addEventListener("click", () => openMealForm());
+      ctx.els.nutritionEmptyAction?.addEventListener("click", () => openMealForm());
       ctx.els.nutritionMealClose?.addEventListener("click", closeMealForm);
       ctx.els.nutritionMealCancel?.addEventListener("click", closeMealForm);
       ctx.els.nutritionMealForm?.addEventListener("submit", saveMeal);
@@ -39,11 +40,13 @@
       ctx.els.nutritionWeekLabel.textContent = `${ctx.formatDate(week.start)} — ${ctx.formatDate(week.end)}`;
       const meals = week.days.flatMap((date) => week.byDate[date]);
       const summary = ctx.model.summarizeMeals(meals, state.nutritionFoods);
-      setMetric("nutritionCaloriesMetric", summary.calories);
-      setMetric("nutritionProteinMetric", summary.protein);
-      setMetric("nutritionFatMetric", summary.fat);
-      setMetric("nutritionCarbsMetric", summary.carbs);
+      const targets = state.nutritionSettings?.targets || {};
+      setMetric("nutritionCaloriesMetric", summary.calories, Number(targets.calories) * 7, "ккал");
+      setMetric("nutritionProteinMetric", summary.protein, Number(targets.protein) * 7, "г");
+      setMetric("nutritionFatMetric", summary.fat, Number(targets.fat) * 7, "г");
+      setMetric("nutritionCarbsMetric", summary.carbs, Number(targets.carbs) * 7, "г");
       ctx.els.nutritionEmpty.hidden = meals.length > 0;
+      ctx.els.nutritionWeekBoard.classList.toggle("is-empty", meals.length === 0);
       renderWeek(week, state);
       renderShopping(meals);
       renderTargets(state.nutritionSettings);
@@ -270,8 +273,21 @@
       ctx.setActiveDate(ctx.model.addDays(ctx.getActiveDate(), days));
     }
 
-    function setMetric(id, value) {
-      ctx.els[id].textContent = round(value);
+    function setMetric(id, value, target, unit) {
+      const current = Number(value) || 0;
+      const metric = ctx.els[id];
+      metric.textContent = round(current);
+      const detail = metric.parentElement?.querySelector("small");
+      if (!detail) return;
+      if (!(target > 0)) {
+        detail.textContent = unit;
+        metric.parentElement.removeAttribute("data-progress");
+        return;
+      }
+      const delta = Math.round(Math.abs(target - current));
+      const status = current <= target ? `осталось ${formatNumber(delta)}` : `превышение ${formatNumber(delta)}`;
+      detail.textContent = `из ${formatNumber(target)} ${unit} · ${status}`;
+      metric.parentElement.dataset.progress = current > target ? "over" : "within";
     }
 
     return { bindEvents, openMealForm, render };
@@ -281,6 +297,10 @@
     const button = text("button", label, `nutrition-action ${className}`.trim());
     button.type = "button";
     return button;
+  }
+
+  function formatNumber(value) {
+    return Math.round(Number(value) || 0).toLocaleString("ru-RU");
   }
 
   function iconButton(icon, label) {

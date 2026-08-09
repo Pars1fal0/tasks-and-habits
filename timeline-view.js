@@ -26,9 +26,11 @@
   function createTimelineView(ctx) {
     const scaleHeights = { compact: 72, comfortable: 96, large: 144 };
     let timelineScale = loadTimelineScale();
-    const taskMenu = menuApi.createTimelineMenu(ctx);
+    let justScheduledTaskId = "";
+    let justScheduledTimer = null;
+    const taskMenu = menuApi.createTimelineMenu({ ...ctx, createTaskBeside });
     const timelineDrag = dragApi.createTimelineDrag({
-      ctx,
+      ctx: { ...ctx, moveTaskTime: scheduleDraggedTask },
       formatHourMinute,
       minuteFromPointer,
       taskDragMime: TASK_DRAG_MIME,
@@ -36,6 +38,7 @@
     bindScaleControls();
 
     function renderTimeline() {
+      const viewport = captureViewport();
       taskMenu.closeTaskMenu();
       const hourHeight = scaleHeights[timelineScale];
       const activeDate = ctx.getActiveDate();
@@ -88,6 +91,7 @@
       model.unscheduledTasks.forEach((entry) => {
         ctx.els.timelineUnscheduledList.appendChild(createTimelineTask(entry));
       });
+      restoreViewport(viewport);
     }
 
     function createTimelineTask(entry) {
@@ -106,11 +110,12 @@
       card.classList.toggle("is-overdue", entry.isOverdue);
       card.classList.toggle("is-time-block", entry.isTimeBlock);
       card.classList.toggle("is-deadline-marker", Number.isFinite(entry.minutes) && !entry.isTimeBlock);
+      card.classList.toggle("is-just-scheduled", entry.task.id === justScheduledTaskId && entry.isTimeBlock);
       card.dataset.taskId = entry.task.id;
       if (!Number.isFinite(entry.minutes)) card.setAttribute("role", "listitem");
       if (entry.categoryColor) card.style.setProperty("--timeline-color", entry.categoryColor);
       card.addEventListener("click", (event) => {
-        if (card.dataset.suppressClick === "true" || event.target.closest(".timeline-resize-handle, .timeline-menu-button, .timeline-task-menu")) return;
+        if (card.dataset.suppressClick === "true" || event.target.closest(".timeline-resize-handle, .timeline-create-neighbor-button, .timeline-menu-button, .timeline-task-menu")) return;
         ctx.fillTaskForm(entry.task);
       });
       if (Number.isFinite(entry.minutes)) {
@@ -118,6 +123,7 @@
         card.style.setProperty("--timeline-column-left", `${((entry.columnIndex || 0) / (entry.columnCount || 1)) * 100}%`);
         card.style.setProperty("--timeline-column-width", `${(1 / (entry.columnCount || 1)) * 100}%`);
         card.style.setProperty("--timeline-column-gap", entry.columnCount > 1 ? "6px" : "0px");
+        card.dataset.overlapCount = String(entry.columnCount || 1);
         card.setAttribute("aria-grabbed", "false");
         if (ctx.moveTaskTime) card.addEventListener("pointerdown", (event) => startTaskDrag(event, entry));
       } else if (ctx.moveTaskTime) {
@@ -144,7 +150,10 @@
       meta.textContent = entry.isOverdue ? `${entry.metaLabel} · просрочено` : entry.metaLabel;
       top.append(time, title);
       main.append(top, meta);
-      card.append(main, actions);
+      if (!Number.isFinite(entry.minutes) && ctx.moveTaskTime) card.appendChild(createUnscheduledDragHandle(entry));
+      card.append(main);
+      if (Number.isFinite(entry.minutes) && ctx.createTaskAtTime) card.appendChild(createNeighborButton(entry));
+      card.append(actions);
 
       if (entry.isTimeBlock && ctx.resizeTaskBlockTime) {
         card.appendChild(createResizeHandle(entry, "start"));
@@ -152,6 +161,87 @@
       }
 
       return card;
+    }
+
+    function createUnscheduledDragHandle(entry) {
+      const handle = document.createElement("button");
+      const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+      handle.type = "button";
+      handle.className = "timeline-unscheduled-drag-handle";
+      handle.setAttribute("aria-label", `Перетащить «${entry.title}» на временную шкалу`);
+      handle.title = "Перетащить на временную шкалу";
+      handle.draggable = false;
+      icon.classList.add("ui-icon");
+      use.setAttribute("href", "#icon-grip");
+      icon.appendChild(use);
+      handle.appendChild(icon);
+      handle.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      });
+      return handle;
+    }
+
+    function scheduleDraggedTask(taskId, targetTime) {
+      justScheduledTaskId = taskId;
+      const result = ctx.moveTaskTime?.(taskId, targetTime);
+      if (result && typeof result.then === "function") {
+        return result.then((changed) => {
+          if (changed) armJustScheduledHighlight(taskId);
+          else clearJustScheduledHighlight(taskId);
+          return changed;
+        });
+      }
+      if (result) armJustScheduledHighlight(taskId);
+      else clearJustScheduledHighlight(taskId);
+      return result;
+    }
+
+    function armJustScheduledHighlight(taskId) {
+      global.clearTimeout(justScheduledTimer);
+      justScheduledTimer = global.setTimeout(() => clearJustScheduledHighlight(taskId), 3200);
+    }
+
+    function clearJustScheduledHighlight(taskId) {
+      if (taskId && justScheduledTaskId !== taskId) return;
+      justScheduledTaskId = "";
+      global.clearTimeout(justScheduledTimer);
+      justScheduledTimer = null;
+      ctx.els.timelineGrid
+        ?.querySelector(`[data-task-id="${escapeSelector(taskId)}"]`)
+        ?.classList.remove("is-just-scheduled");
+    }
+
+    function createNeighborButton(entry) {
+      const button = document.createElement("button");
+      const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+      button.type = "button";
+      button.className = "timeline-create-neighbor-button";
+      button.setAttribute("aria-label", `Создать задачу рядом с ${entry.title}`);
+      button.title = "Создать задачу в это же время";
+      icon.classList.add("ui-icon");
+      use.setAttribute("href", "#icon-plus");
+      icon.appendChild(use);
+      button.appendChild(icon);
+      button.addEventListener("pointerdown", (event) => event.stopPropagation());
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        createTaskBeside(entry);
+      });
+      return button;
+    }
+
+    function createTaskBeside(entry) {
+      if (!Number.isFinite(entry?.minutes) || !ctx.createTaskAtTime) return false;
+      const start = entry.minutes;
+      const end = entry.isTimeBlock && Number.isFinite(entry.endMinutes)
+        ? entry.endMinutes
+        : Math.min(TIMELINE_LAST_MINUTE, start + DEFAULT_BLOCK_MINUTES);
+      ctx.createTaskAtTime(formatMinutes(start), formatMinutes(Math.max(start + TIMELINE_SLOT_MINUTES, end)));
+      return true;
     }
 
     function createResizeHandle(entry, edge) {
@@ -233,7 +323,7 @@
 
     function startTaskDrag(event, entry) {
       if (!Number.isFinite(entry.minutes) || !ctx.moveTaskTime) return;
-      if (event.button !== 0 || event.target.closest(".timeline-resize-handle, .timeline-menu-button, .timeline-task-menu")) return;
+      if (event.button !== 0 || event.target.closest(".timeline-resize-handle, .timeline-create-neighbor-button, .timeline-menu-button, .timeline-task-menu")) return;
       const card = event.currentTarget;
       const startX = event.clientX;
       const startY = event.clientY;
@@ -343,7 +433,23 @@
     }
 
     function setBlockHeight(card, duration) {
-      card.style.setProperty("--block-min-height", `${Math.max(20, Math.round(minutesToPx(Math.max(TIMELINE_SLOT_MINUTES, duration), scaleHeights[timelineScale]) - 4))}px`);
+      const normalizedDuration = Math.max(TIMELINE_SLOT_MINUTES, duration);
+      card.classList.toggle("is-short-block", normalizedDuration <= 30);
+      card.classList.toggle("is-tiny-block", normalizedDuration <= 15);
+      card.style.setProperty("--block-height", `${Math.max(20, Math.round(minutesToPx(normalizedDuration, scaleHeights[timelineScale]) - 4))}px`);
+    }
+
+    function captureViewport() {
+      return {
+        x: Number(global.scrollX) || 0,
+        y: Number(global.scrollY) || document.documentElement?.scrollTop || document.body?.scrollTop || 0,
+      };
+    }
+
+    function restoreViewport(position) {
+      global.requestAnimationFrame?.(() => {
+        global.scrollTo?.({ left: position.x, top: position.y, behavior: "auto" });
+      });
     }
 
     function handleTaskKeydown(event, entry) {
@@ -517,7 +623,28 @@
       return global.matchMedia?.("(max-width: 720px)")?.matches ? "large" : "comfortable";
     }
 
-    return { renderTimeline };
+    function scrollToRelevantTime(options = {}) {
+      const keepUnscheduledVisible = options.keepUnscheduledVisible !== false;
+      if (keepUnscheduledVisible && ctx.els.timelineUnscheduledList?.children.length) return false;
+      global.requestAnimationFrame?.(() => {
+        const nowLine = ctx.els.timelineGrid?.querySelector(".timeline-now-line");
+        const firstTask = ctx.els.timelineGrid?.querySelector(".timeline-task.is-scheduled");
+        const morning = ctx.els.timelineGrid?.querySelector('.timeline-hour-slot[data-hour="8"]');
+        const target = nowLine || firstTask || morning;
+        if (!target) return;
+        const offset = Math.min(180, Math.max(112, (global.innerHeight || 800) * 0.18));
+        const top = target.getBoundingClientRect().top + (Number(global.scrollY) || 0) - offset;
+        global.scrollTo?.({ left: 0, top: Math.max(0, top), behavior: "auto" });
+      });
+      return true;
+    }
+
+    function escapeSelector(value) {
+      if (global.CSS?.escape) return global.CSS.escape(String(value || ""));
+      return String(value || "").replace(/["\\]/g, "\\$&");
+    }
+
+    return { renderTimeline, scrollToRelevantTime };
   }
 
   const api = { buildTimelineModel, createTimelineView };

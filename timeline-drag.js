@@ -4,12 +4,21 @@
     let unscheduledTarget = null;
 
     function attachUnscheduledDrag(card, entry) {
+      let pointerCandidate = false;
       card.draggable = true;
       card.setAttribute("aria-grabbed", "false");
       card.addEventListener("dragstart", (event) => {
+        if (pointerCandidate && event.isTrusted) {
+          event.preventDefault();
+          return;
+        }
         event.dataTransfer.effectAllowed = "move";
         event.dataTransfer.setData("text/plain", entry.task.id);
-        event.dataTransfer.setData(taskDragMime, JSON.stringify({ taskId: entry.task.id }));
+        event.dataTransfer.setData(taskDragMime, JSON.stringify({
+          categoryColor: entry.categoryColor || "",
+          taskId: entry.task.id,
+          title: entry.title || entry.task.title || "",
+        }));
         card.classList.add("is-dragging");
         card.setAttribute("aria-grabbed", "true");
       });
@@ -23,19 +32,131 @@
           delete card.dataset.suppressClick;
         }, 0);
       });
+      card.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0 || event.target.closest(".timeline-menu-button, .timeline-task-menu")) return;
+        pointerCandidate = true;
+        startPointerDrag(event, card, entry, () => {
+          pointerCandidate = false;
+        });
+      });
+    }
+
+    function startPointerDrag(event, card, entry, onFinish) {
+      const startX = event.clientX;
+      const startY = event.clientY;
+      const isTouch = event.pointerType === "touch";
+      let active = false;
+      let cancelled = false;
+      let currentSlot = null;
+      let currentMinutes = NaN;
+      let longPressTimer = null;
+
+      const activate = () => {
+        if (active || cancelled) return;
+        active = true;
+        card.setPointerCapture?.(event.pointerId);
+        card.classList.add("is-dragging", "is-pointer-dragging");
+        card.setAttribute("aria-grabbed", "true");
+        card.setAttribute("data-drag-label", "Перетащи на время");
+        if (isTouch) global.navigator?.vibrate?.(12);
+      };
+
+      if (isTouch) longPressTimer = global.setTimeout(activate, 320);
+
+      const onMove = (moveEvent) => {
+        const distance = Math.hypot(moveEvent.clientX - startX, moveEvent.clientY - startY);
+        if (!active && !isTouch && distance > 5) activate();
+        if (!active) {
+          if (isTouch && distance > 8) {
+            cancelled = true;
+            global.clearTimeout(longPressTimer);
+          }
+          return;
+        }
+        moveEvent.preventDefault();
+        autoScrollViewport(moveEvent);
+        const slot = slotFromPointer(moveEvent);
+        if (slot !== currentSlot) {
+          clearPointerDropTarget(currentSlot);
+          currentSlot = slot;
+        }
+        if (!currentSlot) {
+          currentMinutes = NaN;
+          card.setAttribute("data-drag-label", "Перетащи на время");
+          hidePointerHint();
+          return;
+        }
+        const hour = Number(currentSlot.dataset.hour);
+        currentMinutes = minuteFromPointer(moveEvent, currentSlot, hour);
+        const label = formatMinutes(currentMinutes);
+        currentSlot.classList.add("is-drop-target");
+        updateDropPreview(currentSlot, currentMinutes, label, entry);
+        card.setAttribute("data-drag-label", label);
+        showPointerHint(label, moveEvent);
+      };
+
+      const onUp = (upEvent) => {
+        global.clearTimeout(longPressTimer);
+        const shouldMove = active && currentSlot && Number.isFinite(currentMinutes);
+        cleanup(upEvent);
+        if (!shouldMove) return;
+        card.dataset.suppressClick = "true";
+        global.setTimeout(() => delete card.dataset.suppressClick, 0);
+        ctx.moveTaskTime(entry.task.id, formatMinutes(currentMinutes));
+      };
+
+      const onCancel = (cancelEvent) => {
+        cancelled = true;
+        global.clearTimeout(longPressTimer);
+        cleanup(cancelEvent);
+      };
+
+      const cleanup = (nextEvent) => {
+        if (active) card.releasePointerCapture?.(nextEvent?.pointerId);
+        global.removeEventListener("pointermove", onMove);
+        global.removeEventListener("pointerup", onUp);
+        global.removeEventListener("pointercancel", onCancel);
+        clearPointerDropTarget(currentSlot);
+        card.classList.remove("is-dragging", "is-pointer-dragging");
+        card.setAttribute("aria-grabbed", "false");
+        card.removeAttribute("data-drag-label");
+        hidePointerHint();
+        onFinish?.();
+      };
+
+      global.addEventListener("pointermove", onMove, { passive: false });
+      global.addEventListener("pointerup", onUp);
+      global.addEventListener("pointercancel", onCancel);
+    }
+
+    function slotFromPointer(event) {
+      return document.elementFromPoint?.(event.clientX, event.clientY)?.closest?.(".timeline-hour-slot") || null;
+    }
+
+    function clearPointerDropTarget(slot) {
+      slot?.classList.remove("is-drop-target");
+      if (slot) removeDropPreview(slot);
+    }
+
+    function autoScrollViewport(event) {
+      const edge = 72;
+      const viewportHeight = global.innerHeight || document.documentElement?.clientHeight || 0;
+      if (event.clientY < edge) global.scrollBy?.({ top: -18, behavior: "auto" });
+      else if (viewportHeight && event.clientY > viewportHeight - edge) global.scrollBy?.({ top: 18, behavior: "auto" });
     }
 
     function attachDropZone(slot, hour) {
       if (!ctx.moveTaskTime) return;
 
       slot.addEventListener("dragover", (event) => {
-        if (!readDragData(event.dataTransfer)) return;
+        const dragData = readDragData(event.dataTransfer);
+        if (!dragData) return;
         event.preventDefault();
         event.dataTransfer.dropEffect = "move";
         const minutes = minuteFromPointer(event, slot, hour);
         const label = formatMinutes(minutes);
         slot.classList.add("is-drop-target");
-        updateDropPreview(slot, minutes, label);
+        updateDropPreview(slot, minutes, label, dragData);
         showPointerHint(label, event);
       });
 
@@ -72,10 +193,14 @@
       return taskId ? { minute: 0, taskId } : null;
     }
 
-    function updateDropPreview(slot, minutes, label) {
+    function updateDropPreview(slot, minutes, label, entry = {}) {
       const preview = ensureDropPreview(slot);
       preview.style.setProperty("--drop-preview-top", `${((minutes % 60) / 60) * 100}%`);
-      preview.textContent = label;
+      if (entry.categoryColor) preview.style.setProperty("--timeline-color", entry.categoryColor);
+      else preview.style.removeProperty("--timeline-color");
+      const end = Math.min(23 * 60 + 59, minutes + 60);
+      const title = String(entry.title || "").trim();
+      preview.textContent = `${label}–${formatMinutes(end)}${title ? ` · ${title}` : ""}`;
     }
 
     function ensureDropPreview(slot) {

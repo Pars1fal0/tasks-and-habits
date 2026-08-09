@@ -1,7 +1,21 @@
 # Changelog
 
-## Unreleased
+## 0.25.0
 
+- Упрощены основные экраны: фильтры задач больше не занимают место без запроса, настройки стали компактнее, аккаунт и выход доступны сразу, а мобильный календарь начинается с самой доски.
+- План питания показывает недельные цели и остаток по калориям и БЖУ, а пустая неделя получила прямое действие для добавления первого блюда.
+- Доска автоматически возвращает содержимое в поле зрения после неудачного перемещения камеры; архив и достигнутые цели получили более ясные и спокойные состояния.
+- Мобильная страница входа стала заметно короче, а пересекающиеся блоки таймлайна сохраняют читаемость и доступ к меню на узком экране.
+
+- Перетаскивание задач без времени переведено на плавный pointer-drag с 15-минутной подсказкой, автопрокруткой и сохранением позиции страницы после переноса.
+- Таймлайн теперь показывает реальную высоту 15/30-минутного блока прямо во время resize, а дневник получил безопасное форматирование текста, H1 и H2.
+- На занятом блоке таймлайна можно сразу создать вторую задачу с тем же интервалом; после сохранения пересекающиеся задачи автоматически располагаются рядом.
+- Добавлена защищённая синхронизация временных блоков с Google Calendar: отдельный OAuth, ручной и автоматический запуск, экспортный и двусторонний режимы.
+- Refresh token Google шифруется серверным ключом, связь задач с событиями синхронизируется между устройствами, удаления не воскрешают старые задачи.
+- Добавлен единый вход и регистрация через Google на странице аккаунта.
+- OAuth-возврат Supabase теперь восстанавливает сессию и безопасно возвращает пользователя в приложение.
+- Improved account UX with password visibility controls, refresh-safe sign-in/registration modes, keyboard tab navigation, stronger color contrast, and accurate browser titles.
+- Fixed legacy backup folders being detected but not opened, declared icon generation dependencies for clean installs, and replaced the outdated local-only product subtitle.
 - Rebuilt the landing and account pages around a responsive Parsitasks design system with a real populated product timeline, stronger hierarchy, and zero horizontal overflow at mobile and desktop widths.
 - Renamed all user-facing web, PWA, notification, export, backup, tray, and desktop surfaces to Parsitasks while preserving legacy storage keys and old backup discovery.
 - Replaced the old Rhythm monogram with a consistent Parsitasks application icon and added reproducible scripts for product screenshots and icon assets.
@@ -268,7 +282,7 @@
 - Added PNG PWA icons for Windows and Android installation.
 - Extracted shared data normalizers, synchronization metadata, and PWA registration from `app.js`.
 
-## Unreleased
+## 0.12.4
 
 - Added an isolated low-load Windows voice assistant with offline Russian wake-word recognition and Win32-based Codex prompt submission.
 - Removed the ineffective simple/advanced interface mode and its obsolete persisted setting.

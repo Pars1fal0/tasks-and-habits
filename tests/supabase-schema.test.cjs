@@ -4,6 +4,17 @@ const path = require("node:path");
 
 module.exports = [
   {
+    name: "protects encrypted Google Calendar connections with per-user RLS",
+    fn() {
+      const source = fs.readFileSync(path.resolve(__dirname, "../supabase-schema.sql"), "utf8");
+      assert.match(source, /create table if not exists public\.google_calendar_connections/);
+      assert.match(source, /encrypted_refresh_token text not null/);
+      assert.match(source, /alter table public\.google_calendar_connections enable row level security/);
+      assert.match(source, /google_calendar_connections_select_own[\s\S]*auth\.uid\(\)[\s\S]*user_id/);
+      assert.match(source, /revoke all on table public\.google_calendar_connections from anon/);
+    },
+  },
+  {
     name: "allows state access only through authenticated RLS policies",
     fn() {
       const sql = fs.readFileSync(path.join(__dirname, "..", "supabase-schema.sql"), "utf8");

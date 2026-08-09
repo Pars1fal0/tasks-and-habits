@@ -125,13 +125,50 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 
 Parsitasks использует один общий Supabase-проект. Администратор один раз создаёт проект, выполняет `supabase-schema.sql` и задаёт публичный ключ в Cloudflare. После этого пользователю не нужны URL, ключи и собственная база:
 
-1. Открыть `Настройки` → `Синхронизация`.
-2. Создать аккаунт по email или войти в существующий.
+1. Открыть отдельную страницу `/auth`.
+2. Создать аккаунт по email, войти в существующий или продолжить через Google.
 3. На остальных устройствах войти в тот же аккаунт.
 
 Синхронизация включается автоматически после входа, сначала безопасно объединяет данные, затем сохраняет их в общую БД. Каждая строка и изображение изолированы по `auth.uid()` через RLS. При смене аккаунта приложение создаёт safety backup и не переносит локальные данные предыдущего аккаунта в новый.
 
 Для локальной разработки без Worker технические поля Supabase остаются доступны. В web и desktop production-конфигурация загружается автоматически с `https://parsitasks.ru/api/public-config`.
+
+### Вход через Google
+
+1. В Google Auth Platform создай OAuth client типа `Web application`.
+2. Добавь origin `https://parsitasks.ru` и Supabase callback `https://wvkiborhargrzsfwiliq.supabase.co/auth/v1/callback`.
+3. В Supabase открой `Authentication` → `Providers` → `Google`, включи провайдер и укажи Client ID и Client Secret.
+4. В `Authentication` → `URL Configuration` установи Site URL `https://parsitasks.ru` и добавь Redirect URL `https://parsitasks.ru/auth`.
+
+Для локальной проверки отдельно добавь origin `http://127.0.0.1:8790` в Google и Redirect URL `http://127.0.0.1:8790/auth` в Supabase. В production локальные адреса лучше убрать.
+
+### Синхронизация с Google Calendar
+
+Интеграция использует отдельное согласие Google и не получает доступ к календарю при обычном входе. Refresh token хранится в Supabase только в зашифрованном виде.
+
+1. В Google Cloud включи `Google Calendar API` для того же проекта.
+2. В OAuth client типа `Web application` добавь redirect URI `https://parsitasks.ru/api/google-calendar/callback`.
+3. Если OAuth consent screen находится в режиме Testing, добавь свой Google-аккаунт в `Test users`.
+4. Снова выполни актуальный `supabase-schema.sql`, чтобы создать таблицу `google_calendar_connections` и её RLS-политики.
+5. Добавь секреты в Cloudflare Worker:
+
+```powershell
+npx wrangler secret put GOOGLE_CALENDAR_CLIENT_ID
+npx wrangler secret put GOOGLE_CALENDAR_CLIENT_SECRET
+npx wrangler secret put GOOGLE_TOKEN_ENCRYPTION_KEY
+```
+
+Для `GOOGLE_TOKEN_ENCRYPTION_KEY` используй случайную строку длиной не меньше 32 символов. Например:
+
+```powershell
+$bytes = New-Object byte[] 32
+[Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+[Convert]::ToBase64String($bytes)
+```
+
+После `git push` Cloudflare развернёт новую версию. Затем открой `Настройки` → `Google Calendar` → `Подключить Google Calendar`.
+
+Режим `Parsitasks → Google` отправляет обычные временные блоки в основной календарь. Режим `Двусторонняя` дополнительно импортирует обычные события Google как временные блоки Parsitasks. Синхронизируется период от 30 дней назад до 180 дней вперёд; повторяющиеся серии пока пропускаются, чтобы исключение одного экземпляра не повреждало всю серию.
 
 После обновления до `0.17.1` выполни актуальный `supabase-schema.sql` ещё раз. Он добавит историю последних 30 облачных версий, краткую сводку для каждой версии и защищённое удаление собственного аккаунта; существующие задачи и аккаунт при этом сохранятся.
 

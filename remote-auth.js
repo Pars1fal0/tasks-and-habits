@@ -7,6 +7,7 @@
     const getConfig = options.getConfig || (() => ({}));
     let session = loadSession();
     let recoveryMode = false;
+    let callbackError = "";
     let refreshTimer = null;
 
     function loadSession() {
@@ -36,6 +37,16 @@
 
     async function signIn(email, password) {
       return authenticate("token?grant_type=password", { email: cleanEmail(email), password });
+    }
+
+    function createOAuthUrl(provider, redirectTo) {
+      const config = requireConfig();
+      const normalizedProvider = String(provider || "").trim().toLowerCase();
+      if (normalizedProvider !== "google") throw new Error("Этот способ входа не поддерживается");
+      const url = new URL(`${config.supabaseUrl}/auth/v1/authorize`);
+      url.searchParams.set("provider", normalizedProvider);
+      if (redirectTo) url.searchParams.set("redirect_to", validateOAuthRedirect(redirectTo));
+      return url.href;
     }
 
     async function authenticate(path, body) {
@@ -136,7 +147,7 @@
       const data = await readResponse(response);
       if (!response.ok) throw createAuthError(response, data);
       recoveryMode = false;
-      clearRecoveryHash();
+      clearCallbackHash();
       return data;
     }
 
@@ -154,6 +165,10 @@
 
     function isRecoveryMode() {
       return recoveryMode;
+    }
+
+    function getCallbackError() {
+      return callbackError;
     }
 
     async function ensureFreshSession() {
@@ -175,10 +190,12 @@
       return config;
     }
 
-    restoreRecoverySession();
+    restoreCallbackSession();
     scheduleRefresh();
     return {
       ensureFreshSession,
+      createOAuthUrl,
+      getCallbackError,
       getSession,
       isRecoveryMode,
       refreshSession,
@@ -190,12 +207,17 @@
       validateSession,
     };
 
-    function restoreRecoverySession() {
+    function restoreCallbackSession() {
       const params = new URLSearchParams(String(global.location?.hash || "").replace(/^#/, ""));
-      if (params.get("type") !== "recovery" || !params.get("access_token")) return;
+      callbackError = String(params.get("error_description") || params.get("error") || "").replace(/\+/g, " ");
+      if (callbackError) {
+        clearCallbackHash();
+        return;
+      }
+      if (!params.get("access_token")) return;
       const user = userFromAccessToken(params.get("access_token"));
       if (!user.id) return;
-      recoveryMode = true;
+      recoveryMode = params.get("type") === "recovery";
       saveSession({
         access_token: params.get("access_token"),
         refresh_token: params.get("refresh_token") || "",
@@ -203,6 +225,7 @@
         expires_at: Math.floor(Date.now() / 1000) + Math.max(60, Number(params.get("expires_in") || 3600)),
         user,
       });
+      if (!recoveryMode) clearCallbackHash();
     }
 
     function getRecoveryRedirectUrl() {
@@ -211,7 +234,7 @@
       return `${location.origin}${location.pathname}`;
     }
 
-    function clearRecoveryHash() {
+    function clearCallbackHash() {
       if (!global.history?.replaceState || !global.location) return;
       global.history.replaceState(null, "", `${global.location.pathname}${global.location.search}`);
     }
@@ -229,6 +252,17 @@
     if (String(value || "").length < 8) {
       throw new Error("Пароль должен содержать не меньше 8 символов");
     }
+  }
+
+  function validateOAuthRedirect(value) {
+    let url;
+    try {
+      url = new URL(String(value || ""));
+    } catch {
+      throw new Error("Некорректный адрес возврата после входа");
+    }
+    if (!/^https?:$/.test(url.protocol)) throw new Error("Некорректный адрес возврата после входа");
+    return url.href;
   }
 
   function userFromAccessToken(token) {

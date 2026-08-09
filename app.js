@@ -260,6 +260,7 @@ const els = {
   journalSearchTo: document.querySelector("#journalSearchTo"),
   journalStatus: document.querySelector("#journalStatus"),
   journalText: document.querySelector("#journalText"),
+  journalFormatButtons: [...document.querySelectorAll("[data-journal-format]")],
   journalWeekdays: document.querySelector("#journalWeekdays"),
   mcpJournalRead: document.querySelector("#mcpJournalRead"),
   mcpJournalWrite: document.querySelector("#mcpJournalWrite"),
@@ -404,7 +405,7 @@ const els = {
   "boardModePan", "boardModeSelect", "boardRedo", "boardSelectionToolbar", "boardSendBack", "boardStatus",
   "boardTextColor", "boardTextControls", "boardUndo", "boardViewport", "boardWorld", "boardZoomIn", "boardZoomLabel", "boardZoomOut",
   "nutritionAddMeal", "nutritionCaloriesMetric", "nutritionCarbsMetric", "nutritionCurrentWeek",
-  "nutritionEmpty", "nutritionFatMetric", "nutritionFoodCalories", "nutritionFoodCarbs",
+  "nutritionEmpty", "nutritionEmptyAction", "nutritionFatMetric", "nutritionFoodCalories", "nutritionFoodCarbs",
   "nutritionFoodCount", "nutritionFoodFat", "nutritionFoodForm", "nutritionFoodId",
   "nutritionFoodList", "nutritionFoodName", "nutritionFoodProtein", "nutritionFoodUnit",
   "nutritionMealCalories", "nutritionMealCancel", "nutritionMealCarbs", "nutritionMealClose",
@@ -415,6 +416,7 @@ const els = {
   "nutritionProteinMetric", "nutritionShoppingCount", "nutritionShoppingList",
   "nutritionTargetCalories", "nutritionTargetCarbs", "nutritionTargetFat", "nutritionTargetProtein",
   "nutritionTargetsForm", "nutritionView", "nutritionWeekBoard", "nutritionWeekLabel",
+  "googleCalendarConnect", "googleCalendarDirection", "googleCalendarDisconnect", "googleCalendarStatus", "googleCalendarSync",
 ].forEach((id) => {
   els[id] = document.querySelector(`#${id}`);
 });
@@ -454,6 +456,23 @@ const remoteAuth = window.RhythmRemoteAuth.createRemoteAuth({
     if (session || window.RhythmAuthGate.isAutomationLocation()) return;
     queueMicrotask(() => window.RhythmAuthGate.redirectAfterSignOut());
   },
+});
+const googleCalendarApi = window.RhythmGoogleCalendarApi.createGoogleCalendarApi({
+  getAccessToken: async () => (await remoteAuth.ensureFreshSession().catch(() => null))?.access_token || "",
+});
+const googleCalendarController = window.RhythmGoogleCalendarController.createGoogleCalendarController({
+  api: googleCalendarApi,
+  confirmAction,
+  createId,
+  deleteTask: (taskId) => taskState.deleteTask(taskId),
+  els,
+  formatDate: formatBackupDate,
+  getAccessToken: () => remoteAuth.getSession()?.access_token || "",
+  getState: () => state,
+  getTimeZone: () => state.profile?.timeZone || "Europe/Moscow",
+  render,
+  saveState,
+  showToast,
 });
 const syncHistory = window.RhythmSyncHistory.createSyncHistory();
 let syncDiagnosticsController = null;
@@ -1210,6 +1229,7 @@ const appShellController = window.RhythmAppShellController.createAppShellControl
   renderSaveStatus,
   restoreTaskFormPanel,
   saveUiState,
+  scrollActiveViewStart: (view) => view === "timeline" && timelineView.scrollToRelevantTime(),
   setActiveView: (value) => { activeView = value; },
   setOverviewMode: (value) => { overviewMode = value; },
   syncTaskTimePresets,
@@ -1367,6 +1387,7 @@ async function init() {
   journalView.bindEvents();
   nutritionView.bindEvents();
   boardView.bindEvents();
+  googleCalendarController.bindEvents();
   globalSearch.bindEvents();
   appEvents.bind();
   syncNavigationRoute({ replace: true });
@@ -1380,6 +1401,7 @@ async function init() {
   renderRemoteSyncStatus();
   updateFileBackupStatus();
   render();
+  scrollWorkspaceTop();
   if (initialStateLoad.status === "recovered") showToast("Поврежденные локальные данные восстановлены из backup");
   if (initialStateLoad.status === "recovered-memory") showToast("Backup восстановлен только в памяти. Экспортируй данные");
   if (initialStateLoad.status === "corrupt") showToast("Локальные данные повреждены. Загрузи backup или данные из облака");
@@ -1394,7 +1416,10 @@ async function init() {
 
 async function initializeHostedConfig() {
   const result = await window.RhythmHostedConfig.loadHostedConfig();
-  if (!result.managed) return;
+  if (!result.managed) {
+    await googleCalendarController.initialize();
+    return;
+  }
   managedRemoteConfig = true;
   remoteSyncUrl = result.supabaseUrl;
   remoteSyncAnonKey = result.anonKey;
@@ -1410,6 +1435,7 @@ async function initializeHostedConfig() {
     await remoteAuth.validateSession().catch(() => null);
     if (remoteAuth.getSession()?.access_token) await synchronizeAuthenticatedAccount();
   }
+  await googleCalendarController.initialize();
 }
 
 async function synchronizeAuthenticatedAccount() {
@@ -1481,7 +1507,7 @@ function renderSaveStatus() {
     localStorageError,
     localUpdatedAt: localStateUpdatedAt,
     online: navigator.onLine,
-    remoteEnabled: remoteSyncEnabled === "on",
+    remoteEnabled: remoteSyncEnabled === "on" && Boolean(remoteAuth.getSession()?.user?.id),
     remoteLastPushedAt: remoteSyncLastPushedAt,
     syncStatus: remoteSyncWorkflow.getStatus(),
   });
@@ -2941,6 +2967,7 @@ function saveState(options = {}) {
   if (!options.skipBackup) updateBackupStatus();
   syncDesktopReminders();
   if (!options.skipBackup && !options.skipRemote) scheduleRemotePush();
+  if (!options.skipGoogleCalendar) googleCalendarController.schedule();
   return true;
 }
 

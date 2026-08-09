@@ -3,6 +3,22 @@ const { mergeStates } = require("../state-merge.js");
 
 module.exports = [
   {
+    name: "keeps the newest Google Calendar task link across devices",
+    fn() {
+      const merged = mergeStates(
+        {
+          tasks: [], habits: [], goals: [], categories: [], taskOrder: {},
+          googleCalendarLinks: { task: { eventId: "old", syncedAt: "2026-08-02T10:00:00.000Z" } },
+        },
+        {
+          tasks: [], habits: [], goals: [], categories: [], taskOrder: {},
+          googleCalendarLinks: { task: { eventId: "new", syncedAt: "2026-08-02T11:00:00.000Z" } },
+        },
+      );
+      assert.equal(merged.googleCalendarLinks.task.eventId, "new");
+    },
+  },
+  {
     name: "keeps the newest journal text edited on another device",
     fn() {
       const local = {

@@ -52,6 +52,60 @@ module.exports = [
     },
   },
   {
+    name: "builds a Google OAuth URL with an explicit safe callback",
+    fn() {
+      const auth = createRemoteAuth({
+        fetch: async () => { throw new Error("OAuth URL creation must not call fetch"); },
+        getConfig: () => ({ anonKey: "anon", supabaseUrl: "https://demo.supabase.co/" }),
+        storage: createStorage(),
+      });
+
+      const url = new URL(auth.createOAuthUrl("google", "https://parsitasks.ru/auth"));
+      assert.equal(url.origin, "https://demo.supabase.co");
+      assert.equal(url.pathname, "/auth/v1/authorize");
+      assert.equal(url.searchParams.get("provider"), "google");
+      assert.equal(url.searchParams.get("redirect_to"), "https://parsitasks.ru/auth");
+      assert.throws(() => auth.createOAuthUrl("github", "https://parsitasks.ru/auth"), /не поддерживается/);
+      assert.throws(() => auth.createOAuthUrl("google", "javascript:alert(1)"), /Некорректный адрес/);
+    },
+  },
+  {
+    name: "restores a Supabase session after the Google OAuth callback",
+    async fn() {
+      const previousLocation = global.location;
+      const previousHistory = global.history;
+      const payload = Buffer.from(JSON.stringify({ sub: "google-user", email: "me@gmail.com" })).toString("base64url");
+      const token = `header.${payload}.signature`;
+      const historyCalls = [];
+      global.location = {
+        hash: `#access_token=${token}&refresh_token=refresh&expires_in=3600`,
+        pathname: "/auth",
+        protocol: "https:",
+        search: "",
+      };
+      global.history = { replaceState: (...args) => historyCalls.push(args) };
+      try {
+        const auth = createRemoteAuth({
+          fetch: async () => ({ ok: true, text: async () => "" }),
+          getConfig: () => ({ anonKey: "anon", supabaseUrl: "https://demo.supabase.co" }),
+          storage: createStorage(),
+        });
+
+        assert.equal(auth.isRecoveryMode(), false);
+        assert.equal(auth.getSession().user.id, "google-user");
+        assert.equal(auth.getSession().user.email, "me@gmail.com");
+        assert.equal(historyCalls.length, 1);
+        assert.equal(historyCalls[0][2], "/auth");
+        await auth.signOut();
+      } finally {
+        if (previousLocation === undefined) delete global.location;
+        else global.location = previousLocation;
+        if (previousHistory === undefined) delete global.history;
+        else global.history = previousHistory;
+      }
+    },
+  },
+  {
     name: "clears the local session on sign out",
     async fn() {
       const storage = createStorage();

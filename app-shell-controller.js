@@ -75,6 +75,7 @@
     }
 
     function scrollTop() {
+      if (ctx.scrollActiveViewStart?.(ctx.getActiveView())) return;
       global.requestAnimationFrame(() => global.scrollTo({ top: 0, left: 0, behavior: "auto" }));
     }
 

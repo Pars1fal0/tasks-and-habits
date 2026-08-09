@@ -3,6 +3,31 @@ const { createStateNormalizer } = require("./test-utils.cjs");
 
 module.exports = [
   {
+    name: "preserves valid Google Calendar task links and drops malformed entries",
+    fn() {
+      const normalizer = createStateNormalizer();
+      const normalized = normalizer.normalizeState({
+        googleCalendarLinks: {
+          task: {
+            eventId: "event-1",
+            localUpdatedAt: "2026-08-02T10:00:00.000Z",
+            remoteUpdatedAt: "bad-date",
+            syncedAt: "2026-08-02T11:00:00.000Z",
+          },
+          broken: { eventId: "" },
+        },
+      });
+      assert.deepEqual(normalized.googleCalendarLinks, {
+        task: {
+          eventId: "event-1",
+          localUpdatedAt: "2026-08-02T10:00:00.000Z",
+          remoteUpdatedAt: "",
+          syncedAt: "2026-08-02T11:00:00.000Z",
+        },
+      });
+    },
+  },
+  {
     name: "cleans imported tasks and habits",
     fn() {
       const normalizer = createStateNormalizer();

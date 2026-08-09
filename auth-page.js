@@ -5,12 +5,14 @@
     description: document.querySelector("#authDescription"),
     email: document.querySelector("#authEmail"),
     form: document.querySelector("#authForm"),
+    googleButton: document.querySelector("#authGoogle"),
     homeLink: document.querySelector("#authHomeLink"),
     modeButtons: [...document.querySelectorAll("[data-auth-mode]")],
     newPassword: document.querySelector("#authNewPassword"),
     newPasswordConfirm: document.querySelector("#authNewPasswordConfirm"),
     password: document.querySelector("#authPassword"),
     passwordConfirm: document.querySelector("#authPasswordConfirm"),
+    passwordToggles: [...document.querySelectorAll("[data-password-toggle]")],
     recoveryFlow: document.querySelector("#authRecoveryFlow"),
     recoveryForm: document.querySelector("#authRecoveryForm"),
     resetButton: document.querySelector("#authResetPassword"),
@@ -40,12 +42,21 @@
   }
 
   function appTarget() {
-    return safeNextTarget(new URLSearchParams(global.location.search).get("next"));
+    const queryTarget = new URLSearchParams(global.location.search).get("next");
+    let storedTarget = "";
+    try { storedTarget = global.sessionStorage?.getItem("parsitasks-auth-next") || ""; } catch {}
+    return safeNextTarget(queryTarget || storedTarget);
+  }
+
+  function oauthRedirectUrl() {
+    if (!/^https?:$/.test(global.location.protocol)) return "https://parsitasks.ru/auth";
+    return `${global.location.origin}/auth`;
   }
 
   function setMode(nextMode) {
     mode = nextMode === "signup" ? "signup" : "signin";
     const isSignUp = mode === "signup";
+    document.title = `${isSignUp ? "Регистрация" : "Вход"} — Parsitasks`;
     elements.title.textContent = isSignUp ? "Создать аккаунт" : "Вход";
     elements.description.textContent = isSignUp
       ? "Создайте пространство, которое будет доступно на всех устройствах."
@@ -62,7 +73,53 @@
       button.setAttribute("aria-selected", String(selected));
       button.tabIndex = selected ? 0 : -1;
     });
+    updateModeLocation();
+    resetPasswordVisibility();
     clearStatus();
+  }
+
+  function updateModeLocation() {
+    if (!global.history?.replaceState || !global.location?.href) return;
+    try {
+      const url = new URL(global.location.href);
+      url.searchParams.set("mode", mode);
+      global.history.replaceState(global.history.state, "", url.href);
+    } catch {}
+  }
+
+  function resetPasswordVisibility() {
+    elements.passwordToggles.forEach((button) => {
+      const input = document.querySelector(`#${button.dataset.passwordToggle}`);
+      if (!input) return;
+      input.type = "password";
+      button.textContent = "Показать";
+      button.setAttribute("aria-pressed", "false");
+    });
+  }
+
+  function togglePasswordVisibility(button) {
+    const input = document.querySelector(`#${button.dataset.passwordToggle}`);
+    if (!input) return;
+    const visible = input.type === "password";
+    input.type = visible ? "text" : "password";
+    button.textContent = visible ? "Скрыть" : "Показать";
+    button.setAttribute("aria-pressed", String(visible));
+    input.focus();
+  }
+
+  function handleModeKeydown(event) {
+    const keys = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"];
+    if (!keys.includes(event.key)) return;
+    event.preventDefault();
+    const currentIndex = Math.max(0, elements.modeButtons.indexOf(event.currentTarget));
+    let nextIndex = currentIndex;
+    if (["ArrowRight", "ArrowDown"].includes(event.key)) nextIndex = (currentIndex + 1) % elements.modeButtons.length;
+    if (["ArrowLeft", "ArrowUp"].includes(event.key)) nextIndex = (currentIndex - 1 + elements.modeButtons.length) % elements.modeButtons.length;
+    if (event.key === "Home") nextIndex = 0;
+    if (event.key === "End") nextIndex = elements.modeButtons.length - 1;
+    const nextButton = elements.modeButtons[nextIndex];
+    setMode(nextButton.dataset.authMode);
+    nextButton.focus();
   }
 
   async function initialize() {
@@ -77,7 +134,9 @@
       auth = global.RhythmRemoteAuth.createRemoteAuth({
         getConfig: () => ({ anonKey: config.anonKey, supabaseUrl: config.supabaseUrl }),
       });
+      const callbackError = auth.getCallbackError();
       if (auth.isRecoveryMode()) {
+        document.title = "Новый пароль — Parsitasks";
         elements.standardFlow.hidden = true;
         elements.recoveryFlow.hidden = false;
         clearStatus();
@@ -92,7 +151,8 @@
           return;
         }
       }
-      clearStatus();
+      if (callbackError) showError(localizeError({ message: callbackError }));
+      else clearStatus();
       elements.email.focus();
     } catch (error) {
       showError(localizeError(error));
@@ -102,10 +162,34 @@
   }
 
   function bindEvents() {
-    elements.modeButtons.forEach((button) => button.addEventListener("click", () => setMode(button.dataset.authMode)));
+    elements.modeButtons.forEach((button) => {
+      button.addEventListener("click", () => setMode(button.dataset.authMode));
+      button.addEventListener("keydown", handleModeKeydown);
+    });
+    elements.passwordToggles.forEach((button) => {
+      button.addEventListener("click", () => togglePasswordVisibility(button));
+    });
     elements.form.addEventListener("submit", submitAuth);
+    elements.googleButton.addEventListener("click", continueWithGoogle);
     elements.recoveryForm.addEventListener("submit", submitRecovery);
     elements.resetButton.addEventListener("click", requestReset);
+  }
+
+  function continueWithGoogle() {
+    if (busy || !auth) return;
+    if (global.location.protocol === "file:") {
+      global.open?.(`https://parsitasks.ru/auth?mode=${mode}`, "_blank", "noopener");
+      showStatus("Вход через Google открыт в браузере.");
+      return;
+    }
+    setBusy(true, "Открываем Google...");
+    try {
+      try { global.sessionStorage?.setItem("parsitasks-auth-next", appTarget()); } catch {}
+      global.location.assign(auth.createOAuthUrl("google", oauthRedirectUrl()));
+    } catch (error) {
+      showError(localizeError(error));
+      setBusy(false);
+    }
   }
 
   async function submitAuth(event) {
@@ -186,7 +270,7 @@
 
   function setBusy(value, message = "") {
     busy = value;
-    [...elements.form.elements, ...elements.recoveryForm.elements, ...elements.modeButtons]
+    [...elements.form.elements, ...elements.recoveryForm.elements, ...elements.modeButtons, elements.googleButton]
       .forEach((element) => { element.disabled = value; });
     if (message) showStatus(message);
   }
@@ -214,6 +298,8 @@
     if (/email not confirmed/i.test(message)) return "Сначала подтвердите email по ссылке из письма";
     if (/user already registered/i.test(message)) return "Аккаунт с таким email уже существует";
     if (/rate limit/i.test(message)) return "Слишком много попыток. Подождите и попробуйте снова";
+    if (/provider is not enabled|unsupported provider/i.test(message)) return "Вход через Google ещё не включён в настройках сервиса";
+    if (/access_denied|cancelled|canceled/i.test(message)) return "Вход через Google отменён";
     return message || "Не удалось выполнить запрос";
   }
 

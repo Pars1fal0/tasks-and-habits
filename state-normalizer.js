@@ -16,6 +16,7 @@
         nutritionMeals: [],
         nutritionTemplates: [],
         nutritionSettings: config.normalizeNutritionSettings?.(),
+        googleCalendarLinks: normalizeGoogleCalendarLinks(raw?.googleCalendarLinks, config),
         categories: [],
         taskOrder: {},
         mcpActivity: config.normalizeMcpActivity?.(raw?.mcpActivity) || [],
@@ -248,6 +249,26 @@
     const start = timeToMinutes(startTime);
     const end = timeToMinutes(endTime);
     return Number.isFinite(start) && Number.isFinite(end) && end > start;
+  }
+
+  function normalizeGoogleCalendarLinks(value, config) {
+    const result = {};
+    if (!value || typeof value !== "object" || Array.isArray(value)) return result;
+    Object.entries(value).forEach(([taskId, link]) => {
+      const eventId = config.cleanText(link?.eventId);
+      if (!taskId || !eventId) return;
+      result[taskId] = {
+        eventId,
+        localUpdatedAt: validTimestamp(link?.localUpdatedAt),
+        remoteUpdatedAt: validTimestamp(link?.remoteUpdatedAt),
+        syncedAt: validTimestamp(link?.syncedAt),
+      };
+    });
+    return result;
+  }
+
+  function validTimestamp(value) {
+    return typeof value === "string" && Number.isFinite(Date.parse(value)) ? value : "";
   }
 
   function timeToMinutes(value) {

@@ -22,6 +22,7 @@
     let imageUploadBusy = false;
     let spacePressed = false;
     let interactionMode = "select";
+    let cameraVisibilityChecked = false;
     const objectUrls = new Map();
     const pendingUploadAttempts = new Map();
 
@@ -103,6 +104,7 @@
       ctx.els.boardEmpty.hidden = items.length > 0;
       syncHistoryControls();
       applyCamera();
+      scheduleCameraVisibilityCheck(items);
       syncInteractionMode();
       updateSelection();
       items.filter((item) => item.type === "image").forEach(loadImage);
@@ -1407,6 +1409,32 @@
       ctx.els.boardViewport.style.setProperty("--board-grid-x", `${camera.x}px`);
       ctx.els.boardViewport.style.setProperty("--board-grid-y", `${camera.y}px`);
       ctx.els.boardViewport.classList.toggle("is-grid-hidden", camera.zoom < 0.12);
+    }
+
+    function scheduleCameraVisibilityCheck(items) {
+      const schedule = global.requestAnimationFrame || ((callback) => global.setTimeout(callback, 0));
+      schedule(() => ensureContentVisible(items));
+    }
+
+    function ensureContentVisible(items) {
+      if (cameraVisibilityChecked || !isBoardActive() || !items.length) return;
+      const rect = ctx.els.boardViewport.getBoundingClientRect();
+      if (rect.width < 1 || rect.height < 1) return;
+      const content = ctx.model.bounds(items);
+      if (!content) return;
+      cameraVisibilityChecked = true;
+      const margin = 32;
+      const projected = {
+        left: camera.x + content.left * camera.zoom,
+        top: camera.y + content.top * camera.zoom,
+        right: camera.x + (content.left + content.width) * camera.zoom,
+        bottom: camera.y + (content.top + content.height) * camera.zoom,
+      };
+      const isVisible = projected.right >= margin
+        && projected.bottom >= margin
+        && projected.left <= rect.width - margin
+        && projected.top <= rect.height - margin;
+      if (!isVisible) focusContent();
     }
 
     function saveCamera() {

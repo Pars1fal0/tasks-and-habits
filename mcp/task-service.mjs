@@ -8,7 +8,7 @@ const CATEGORY_COLORS = ["#19b394", "#4f8cff", "#f59e0b", "#e96b75", "#8b7cf6", 
 
 export function createEmptyState() {
   return {
-    schemaVersion: 14,
+    schemaVersion: 15,
     defaultsSeeded: false,
     profile: { timeZone: "Europe/Moscow" },
     tasks: [],
@@ -19,6 +19,7 @@ export function createEmptyState() {
     nutritionMeals: [],
     nutritionTemplates: [],
     nutritionSettings: { targets: { calories: 0, protein: 0, fat: 0, carbs: 0 }, paused: false, updatedAt: "" },
+    googleCalendarLinks: {},
     categories: [],
     taskOrder: {},
     mcpActivity: [],

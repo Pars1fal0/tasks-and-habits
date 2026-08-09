@@ -48,7 +48,7 @@ const { _electron: electron } = require("playwright-core");
     );
     await page.reload();
     await page.waitForSelector('body[data-view="journal"]');
-    assert.match(await page.locator("#journalText").inputValue(), /Запись сохранилась/);
+    assert.match(await page.locator("#journalText").textContent(), /Запись сохранилась/);
 
     assert.equal(await page.locator(".journal-calendar-day").count(), 42);
     await page.locator("#journalSearch").evaluate((node) => node.closest("details")?.querySelector("summary")?.click());
@@ -336,7 +336,11 @@ const { _electron: electron } = require("playwright-core");
     assert.equal(await page.evaluate(() => window.__verificationResult), true);
 
     await page.setViewportSize({ height: 780, width: 390 });
-    await page.waitForFunction(() => !document.querySelector(".task-filter-disclosure")?.hasAttribute("open"));
+    await page.waitForFunction(() => [
+      ".task-filter-disclosure",
+      ".quick-task-disclosure",
+      ".timeline-unscheduled-panel",
+    ].every((selector) => !document.querySelector(selector)?.hasAttribute("open")));
     assert.equal(await page.locator(".task-filter-disclosure").getAttribute("open"), null);
     assert.equal(await page.locator(".quick-task-disclosure").getAttribute("open"), null);
     assert.equal(await page.locator(".timeline-unscheduled-panel").getAttribute("open"), null);
@@ -358,9 +362,11 @@ const { _electron: electron } = require("playwright-core");
     await page.locator('.nav-tab[data-view="overview"]:visible').click();
     await page.locator('[data-overview-mode="week"]').click();
     assert.equal(await page.locator(".focus-board").evaluate((node) => getComputedStyle(node).display), "none");
-    const weekPanelTop = await page.locator('[data-overview-panel="week"]').evaluate((node) => node.getBoundingClientRect().top);
-    const overviewMetricTop = await page.locator("#overviewView .metric-panel").first().evaluate((node) => node.getBoundingClientRect().top);
-    assert.ok(weekPanelTop < overviewMetricTop, "the selected calendar period must appear before summary metrics on mobile");
+    assert.equal(
+      await page.locator("#overviewView .metric-panel").first().evaluate((node) => getComputedStyle(node).display),
+      "none",
+      "summary metrics must not push the selected calendar period below the fold on mobile",
+    );
     await page.locator("#updateBanner").evaluate((node) => { node.hidden = false; });
     const updateBox = await page.locator("#updateBanner").boundingBox();
     assert.ok(updateBox && updateBox.x >= 0 && updateBox.x + updateBox.width <= 390.5, "update banner must fit mobile");

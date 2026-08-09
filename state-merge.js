@@ -94,11 +94,25 @@
       nutritionMeals,
       nutritionTemplates,
       nutritionSettings: chooseNewest(localState.nutritionSettings || {}, remoteState.nutritionSettings || {}),
+      googleCalendarLinks: mergeGoogleCalendarLinks(localState.googleCalendarLinks, remoteState.googleCalendarLinks),
       mcpActivity: mcpActivity.mergeActivity(localState.mcpActivity, remoteState.mcpActivity),
       taskOrder: mergeTaskOrder(localState.taskOrder, remoteState.taskOrder, localMeta, remoteMeta, new Set(tasks.map((task) => task.id))),
       tombstones,
       syncMeta,
     };
+  }
+
+  function mergeGoogleCalendarLinks(local = {}, remote = {}) {
+    const result = {};
+    const taskIds = new Set([...Object.keys(local || {}), ...Object.keys(remote || {})]);
+    taskIds.forEach((taskId) => {
+      const localLink = local?.[taskId];
+      const remoteLink = remote?.[taskId];
+      if (!localLink) result[taskId] = clone(remoteLink);
+      else if (!remoteLink) result[taskId] = clone(localLink);
+      else result[taskId] = clone(String(remoteLink.syncedAt || "") >= String(localLink.syncedAt || "") ? remoteLink : localLink);
+    });
+    return result;
   }
 
   function mergeSimpleEntities(local, remote, type, localMeta, remoteMeta, tombstones) {

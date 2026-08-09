@@ -1,4 +1,5 @@
 (function (global) {
+  const editorApi = global.RhythmJournalEditor || (typeof require !== "undefined" ? require("./journal-editor.js") : null);
   const PROMPTS = [
     "Что сегодня запомнилось?",
     "Что сегодня получилось?",
@@ -16,6 +17,14 @@
     function bindEvents() {
       ctx.els.journalText?.addEventListener("input", handleInput);
       ctx.els.journalText?.addEventListener("blur", flush);
+      ctx.els.journalText?.addEventListener("paste", handlePaste);
+      (ctx.els.journalFormatButtons || []).forEach((button) => {
+        button.addEventListener("pointerdown", (event) => event.preventDefault());
+        button.addEventListener("click", () => {
+          editorApi.applyFormat(ctx.els.journalText, button.dataset.journalFormat);
+          handleInput();
+        });
+      });
       ctx.els.journalPrompt?.addEventListener("click", cyclePrompt);
       ctx.els.journalPrevMonth?.addEventListener("click", () => shiftMonth(-1));
       ctx.els.journalNextMonth?.addEventListener("click", () => shiftMonth(1));
@@ -29,7 +38,7 @@
       if (!monthAnchor || monthAnchor.slice(0, 7) !== date.slice(0, 7)) monthAnchor = date;
       ctx.els.journalDate.textContent = ctx.formatLongDate(date);
       if (document.activeElement !== ctx.els.journalText || pendingDate !== date) {
-        ctx.els.journalText.value = entry?.text || "";
+        editorApi.writeText(ctx.els.journalText, entry?.text || "");
       }
       pendingDate = date;
       renderCount();
@@ -42,8 +51,10 @@
 
     function handleInput() {
       pendingDate = ctx.getActiveDate();
+      const text = editorText();
+      if (text.length > ctx.maxLength) editorApi.writeText(ctx.els.journalText, text.slice(0, ctx.maxLength));
       renderCount();
-      renderPrompt({ text: ctx.els.journalText.value });
+      renderPrompt({ text: editorText() });
       renderStatus("Сохраняю...");
       if (saveTimer) global.clearTimeout(saveTimer);
       saveTimer = global.setTimeout(flush, 550);
@@ -53,7 +64,7 @@
       if (saveTimer) global.clearTimeout(saveTimer);
       saveTimer = null;
       const date = pendingDate || ctx.getActiveDate();
-      const result = ctx.saveEntry(date, ctx.els.journalText.value);
+      const result = ctx.saveEntry(date, editorText());
       const entry = result?.entry || ctx.getEntry(date);
       renderStatus(entry?.updatedAt ? `Сохранено ${ctx.formatTime(entry.updatedAt)}` : "Запись сохранится автоматически");
       if (result?.changed) {
@@ -139,7 +150,7 @@
           if (confirmed === false) return;
           const result = ctx.restoreRevision(entry.date, revision.savedAt);
           if (!result?.changed) return;
-          ctx.els.journalText.value = result.entry.text;
+          editorApi.writeText(ctx.els.journalText, result.entry.text);
           render();
           ctx.showToast?.("Предыдущая версия восстановлена");
         });
@@ -149,7 +160,7 @@
 
     function cyclePrompt() {
       promptIndex = (promptIndex + 1) % PROMPTS.length;
-      renderPrompt({ text: ctx.els.journalText.value });
+      renderPrompt({ text: editorText() });
       ctx.els.journalText.focus();
     }
 
@@ -157,7 +168,7 @@
       const empty = !String(entry?.text || "").trim();
       ctx.els.journalPrompt.hidden = !empty;
       ctx.els.journalPrompt.textContent = PROMPTS[promptIndex];
-      ctx.els.journalText.placeholder = PROMPTS[promptIndex];
+      editorApi.setPlaceholder(ctx.els.journalText, PROMPTS[promptIndex]);
     }
 
     function shiftMonth(delta) {
@@ -168,8 +179,18 @@
     }
 
     function renderCount() {
-      const length = ctx.els.journalText?.value.length || 0;
+      const length = editorText().length;
       ctx.els.journalCount.textContent = `${length.toLocaleString("ru-RU")} / ${ctx.maxLength.toLocaleString("ru-RU")}`;
+    }
+
+    function handlePaste(event) {
+      if (!event.clipboardData || ["INPUT", "TEXTAREA"].includes(ctx.els.journalText.tagName)) return;
+      event.preventDefault();
+      editorApi.insertPlainText(ctx.els.journalText, event.clipboardData.getData("text/plain"));
+    }
+
+    function editorText() {
+      return editorApi.readText(ctx.els.journalText);
     }
 
     function renderStatus(message) {

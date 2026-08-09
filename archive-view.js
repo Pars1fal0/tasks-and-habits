@@ -125,7 +125,7 @@
       appendArchiveMeta(meta, ctx.priorityLabels[entry.task.priority] || "Средний");
       restoreButton.className = "ghost-button restore-task";
       restoreButton.type = "button";
-      restoreButton.textContent = "Вернуть...";
+      restoreButton.textContent = "Вернуть в задачи";
       restoreButton.addEventListener("click", async () => {
         const choice = await ctx.confirmAction({
           title: "Куда вернуть задачу?",

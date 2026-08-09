@@ -1107,7 +1107,8 @@ function registerIpc() {
 
   ipcMain.handle("backups:open-folder", async (event) => {
     if (!isTrustedIpcEvent(event)) return { ok: false, reason: "untrusted-sender" };
-    const backupDir = getFileBackupDir();
+    const info = await getFileBackupInfo();
+    const backupDir = info.latest?.path ? path.dirname(info.latest.path) : getFileBackupDir();
     await fs.promises.mkdir(backupDir, { recursive: true });
     if (isSmokeTest) return { ok: true, path: backupDir, smoke: true };
     const error = await shell.openPath(backupDir);
@@ -1229,7 +1230,7 @@ async function getFileBackupInfo() {
     }
   }))).flat();
   const latest = backups.sort((a, b) => b.mtimeMs - a.mtimeMs)[0] || null;
-  return { ok: true, path: backupDir, latest };
+  return { ok: true, path: latest?.path ? path.dirname(latest.path) : backupDir, latest };
 }
 
 async function pruneFileBackups(backupDir) {

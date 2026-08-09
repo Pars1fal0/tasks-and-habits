@@ -21,6 +21,9 @@
       menu.hidden = true;
       menu.append(
         createMenuItem(entry.done ? "Снова активна" : "Завершить", "complete", () => ctx.toggleTaskDone?.(entry.task.id)),
+        ...(Number.isFinite(entry.minutes)
+          ? [createMenuItem("Создать рядом", "create-neighbor", () => ctx.createTaskBeside?.(entry))]
+          : []),
         createMenuItem("Дублировать", "duplicate", () => ctx.duplicateTask?.(entry.task.id)),
         ...(Number.isFinite(entry.minutes)
           ? [createMenuItem("Убрать время", "unschedule", () => ctx.clearTaskTime?.(entry.task.id))]

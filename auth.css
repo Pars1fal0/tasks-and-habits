@@ -6,7 +6,7 @@
   --paper-deep: #e7ebe5;
   --ink: #111613;
   --ink-soft: #57615c;
-  --muted: #7b8781;
+  --muted: #5e6963;
   --line: #ced4cf;
   --line-dark: #303b36;
   --accent: #24b996;
@@ -255,6 +255,10 @@ input {
   letter-spacing: 0;
 }
 
+.auth-panel .eyebrow {
+  color: #08755d;
+}
+
 .auth-heading > p:last-child {
   margin: 0;
   color: var(--ink-soft);
@@ -263,8 +267,56 @@ input {
 .auth-mode {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  margin: 32px 0 27px;
+  margin: 32px 0 24px;
   border-bottom: 1px solid var(--line);
+}
+
+.google-button {
+  display: flex;
+  width: 100%;
+  min-height: 52px;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+  padding: 0 18px;
+  border: 1px solid #bfc7c1;
+  border-radius: var(--radius);
+  background: #fbfcfa;
+  color: var(--ink);
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease, transform 150ms ease;
+}
+
+.google-button img {
+  flex: 0 0 auto;
+}
+
+.google-button:hover:not(:disabled) {
+  border-color: #8f9b94;
+  background: #fff;
+  transform: translateY(-1px);
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0;
+  color: #66716b;
+  font-size: 0.75rem;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  height: 1px;
+  flex: 1;
+  background: var(--line);
+  content: "";
+}
+
+.auth-divider span {
+  white-space: nowrap;
 }
 
 .auth-mode button {
@@ -297,7 +349,8 @@ input {
 }
 
 form,
-form label {
+form label,
+.form-field {
   display: grid;
 }
 
@@ -313,6 +366,11 @@ form label {
   font-weight: 680;
 }
 
+.form-field {
+  min-width: 0;
+  gap: 7px;
+}
+
 input {
   width: 100%;
   min-width: 0;
@@ -326,8 +384,37 @@ input {
   transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
 }
 
+.password-control {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+
+.password-control input {
+  padding-right: 92px;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 11px;
+  min-height: 34px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: #47534d;
+  font-size: 0.78rem;
+  font-weight: 690;
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+
+.password-toggle:hover:not(:disabled) {
+  color: var(--ink);
+}
+
 input::placeholder {
-  color: #929c96;
+  color: #6d7872;
 }
 
 input:hover {
@@ -343,9 +430,9 @@ input:focus {
 .primary-button {
   min-height: 52px;
   margin-top: 4px;
-  border: 1px solid #159a7b;
+  border: 1px solid #087a61;
   border-radius: var(--radius);
-  background: #159a7b;
+  background: #087a61;
   color: #fff;
   font-weight: 740;
   cursor: pointer;
@@ -354,8 +441,8 @@ input:focus {
 }
 
 .primary-button:hover:not(:disabled) {
-  border-color: #0c7f65;
-  background: #0c876b;
+  border-color: #05634f;
+  background: #056b55;
   transform: translateY(-1px);
 }
 
@@ -453,8 +540,8 @@ input:disabled {
   }
 
   .auth-intro {
-    min-height: 310px;
-    padding: 118px 24px 38px;
+    min-height: 198px;
+    padding: 92px 24px 24px;
   }
 
   .auth-intro-visual {
@@ -470,7 +557,7 @@ input:disabled {
   .auth-intro h1 {
     max-width: 530px;
     margin-bottom: 0;
-    font-size: 34px;
+    font-size: 28px;
   }
 
   .auth-intro-copy > p:not(.eyebrow),
@@ -487,7 +574,7 @@ input:disabled {
   }
 
   .auth-panel {
-    padding: 52px 24px 56px;
+    padding: 36px 24px 48px;
   }
 
   .auth-panel-inner {
@@ -517,8 +604,12 @@ input:disabled {
   }
 
   .auth-intro {
-    min-height: 260px;
-    padding: 102px 18px 30px;
+    min-height: 150px;
+    padding: 78px 18px 16px;
+  }
+
+  .auth-intro .eyebrow {
+    display: none;
   }
 
   .auth-intro-visual {
@@ -526,11 +617,12 @@ input:disabled {
   }
 
   .auth-intro h1 {
-    font-size: 28px;
+    font-size: 22px;
+    line-height: 1.25;
   }
 
   .auth-panel {
-    padding: 42px 18px 48px;
+    padding: 28px 18px 40px;
   }
 
   .auth-heading h2 {
@@ -538,7 +630,7 @@ input:disabled {
   }
 
   .auth-mode {
-    margin-top: 27px;
+    margin-top: 20px;
   }
 
   input,
@@ -549,7 +641,8 @@ input:disabled {
 
 @media (prefers-reduced-motion: reduce) {
   input,
-  .primary-button {
+  .primary-button,
+  .google-button {
     transition: none;
   }
 }

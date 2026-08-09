@@ -64,10 +64,10 @@
     <div class="app-shell">
       <aside class="sidebar" aria-label="Навигация">
         <div class="brand">
-          <div class="brand-mark" aria-hidden="true">R</div>
+          <div class="brand-mark" aria-hidden="true">P</div>
           <div>
             <div class="brand-title">Parsitasks</div>
-            <div class="brand-subtitle">Локальный трекер</div>
+            <div class="brand-subtitle">Личный планировщик</div>
           </div>
         </div>
 
@@ -202,7 +202,10 @@
             <button class="icon-button" id="nextDay" type="button" aria-label="Следующий день">
               <svg class="ui-icon"><use href="#icon-chevron-right"></use></svg>
             </button>
-            <button class="ghost-button compact-button today-button" id="todayButton" type="button">Сегодня</button>
+            <button class="ghost-button compact-button today-button" id="todayButton" type="button" aria-label="Перейти к сегодняшнему дню" title="Сегодня">
+              <svg class="ui-icon" aria-hidden="true"><use href="#icon-target"></use></svg>
+              <span>Сегодня</span>
+            </button>
           </div>
         </header>
 
@@ -259,7 +262,7 @@
 
         <section class="view is-active" id="tasksView" aria-labelledby="tasksHeading">
           <div class="toolbar">
-            <details class="task-filter-disclosure" open>
+            <details class="task-filter-disclosure">
               <summary>Фильтры и поиск</summary>
               <div class="task-toolbar-meta">
               <div class="filter-group" aria-label="Фильтр задач">
@@ -860,6 +863,7 @@
               <div class="empty-state" id="nutritionEmpty">
                 <strong>На этой неделе пока нет блюд</strong>
                 <span>Добавь первое блюдо или попроси ChatGPT составить план.</span>
+                <button class="primary-button compact-button" id="nutritionEmptyAction" type="button">Добавить первое блюдо</button>
               </div>
             </section>
             <aside class="nutrition-side">
@@ -995,8 +999,13 @@
             <div class="journal-main">
               <section class="panel journal-panel">
                 <button class="journal-prompt" id="journalPrompt" type="button"></button>
-                <label class="sr-only" for="journalText">Запись в дневнике за выбранный день</label>
-                <textarea id="journalText" maxlength="50000" placeholder="Что произошло сегодня?" spellcheck="true"></textarea>
+                <div class="journal-editor-toolbar" role="toolbar" aria-label="Форматирование записи">
+                  <button type="button" data-journal-format="body" title="Обычный текст" aria-label="Обычный текст">Текст</button>
+                  <button type="button" data-journal-format="h1" title="Заголовок первого уровня" aria-label="Заголовок первого уровня">H1</button>
+                  <button type="button" data-journal-format="h2" title="Заголовок второго уровня" aria-label="Заголовок второго уровня">H2</button>
+                  <button type="button" data-journal-format="bold" title="Полужирный" aria-label="Полужирный"><strong>B</strong></button>
+                </div>
+                <div id="journalText" class="journal-text-editor" contenteditable="true" role="textbox" aria-label="Запись в дневнике за выбранный день" aria-multiline="true" data-placeholder="Что произошло сегодня?" spellcheck="true"></div>
                 <div class="journal-editor-footer">
                   <span>Личная запись</span>
                   <span id="journalCount">0 / 50 000</span>
@@ -1155,7 +1164,7 @@
             <label class="archive-select-all"><input id="archiveSelectAll" type="checkbox"> Выбрать видимые</label>
             <span class="archive-bulk-count" id="archiveBulkCount">Выбрано: 0</span>
             <div class="archive-bulk-actions">
-              <button class="ghost-button compact-button" id="archiveBulkRestore" type="button">Вернуть в план</button>
+              <button class="ghost-button compact-button" id="archiveBulkRestore" type="button">Вернуть в задачи</button>
               <button class="ghost-button compact-button danger-button" id="archiveBulkDelete" type="button">Удалить навсегда</button>
             </div>
           </div>
@@ -1172,6 +1181,20 @@
               <p class="muted">Персонализация интерфейса и поведения приложения.</p>
             </div>
           </div>
+          <section class="settings-account-card panel" aria-labelledby="remoteAuthHeading">
+            <div>
+              <strong id="remoteAuthHeading">Аккаунт</strong>
+              <small>Данные этого пространства синхронизируются только с вашим аккаунтом.</small>
+            </div>
+            <div class="sync-account-session">
+              <span class="sync-account-avatar" aria-hidden="true">P</span>
+              <span class="sync-account-identity">
+                <small>Текущий аккаунт</small>
+                <strong id="remoteAuthStatus" aria-live="polite">Проверяем сессию...</strong>
+              </span>
+              <button class="ghost-button compact-button" id="remoteAuthSignOutButton" type="button">Выйти</button>
+            </div>
+          </section>
           <div class="settings-grid">
             <details class="panel settings-panel settings-accordion" aria-labelledby="appearanceHeading">
               <summary class="panel-heading compact settings-summary">
@@ -1372,20 +1395,6 @@
                   <input id="remoteSyncAnonKey" type="password" autocomplete="off" placeholder="eyJ...">
                 </label>
               </details>
-              <div class="sync-account" aria-labelledby="remoteAuthHeading">
-                <div>
-                  <strong id="remoteAuthHeading">Аккаунт</strong>
-                  <small>Данные этого пространства синхронизируются только с вашим аккаунтом.</small>
-                </div>
-                <div class="sync-account-session">
-                  <span class="sync-account-avatar" aria-hidden="true">P</span>
-                  <span class="sync-account-identity">
-                    <small>Текущий аккаунт</small>
-                    <strong id="remoteAuthStatus" aria-live="polite">Проверяем сессию...</strong>
-                  </span>
-                  <button class="ghost-button compact-button" id="remoteAuthSignOutButton" type="button">Выйти</button>
-                </div>
-              </div>
               <p class="settings-status" id="remoteSyncStatus" aria-live="polite" aria-atomic="true">Облачная синхронизация не настроена</p>
               <div class="sync-diagnostics" id="syncDiagnostics" aria-label="Диагностика синхронизации"></div>
               <div class="sync-history" id="remoteSyncHistory" aria-label="Последние события синхронизации"></div>
@@ -1414,6 +1423,39 @@
                 <button class="ghost-button compact-button" id="settingsExportSettingsButton" type="button">Экспорт настроек</button>
                 <button class="ghost-button compact-button" id="settingsImportSettingsButton" type="button">Импорт настроек</button>
                 <input id="settingsImportFile" type="file" accept="application/json,.json" hidden>
+              </div>
+            </details>
+            <details class="panel settings-panel settings-accordion" aria-labelledby="googleCalendarHeading">
+              <summary class="panel-heading compact settings-summary">
+                <div>
+                  <span class="metric-label">Календарь</span>
+                  <h2 id="googleCalendarHeading">Google Calendar</h2>
+                </div>
+              </summary>
+              <div class="calendar-connection">
+                <span class="calendar-connection-mark" aria-hidden="true">
+                  <img src="google-g.svg" width="20" height="20" alt="">
+                </span>
+                <span>
+                  <strong>Расписание Google</strong>
+                  <small>Временные блоки синхронизируются автоматически. Повторяющиеся серии пока остаются только в Parsitasks.</small>
+                </span>
+              </div>
+              <label class="settings-row">
+                <span>
+                  <strong>Направление</strong>
+                  <small>Двусторонний режим также переносит обычные события Google в Parsitasks.</small>
+                </span>
+                <select id="googleCalendarDirection" aria-label="Направление синхронизации Google Calendar" disabled>
+                  <option value="export">Parsitasks → Google</option>
+                  <option value="two-way">Двусторонняя</option>
+                </select>
+              </label>
+              <p class="settings-status" id="googleCalendarStatus" aria-live="polite" aria-atomic="true">Проверяем подключение...</p>
+              <div class="settings-actions">
+                <button class="primary-button compact-button" id="googleCalendarConnect" type="button">Подключить Google Calendar</button>
+                <button class="ghost-button compact-button" id="googleCalendarSync" type="button" hidden>Синхронизировать</button>
+                <button class="ghost-button compact-button danger-button" id="googleCalendarDisconnect" type="button" hidden>Отключить</button>
               </div>
             </details>
             <details class="panel settings-panel settings-accordion" aria-labelledby="mcpActivityHeading">
@@ -1556,6 +1598,8 @@
     <script src="recurrence.js?v=2" defer></script>
     <script src="remote-auth.js?v=2" defer></script>
     <script src="remote-auth-controller.js?v=2" defer></script>
+    <script src="google-calendar-api.js?v=1" defer></script>
+    <script src="google-calendar-controller.js?v=1" defer></script>
     <script src="remote-sync.js?v=2" defer></script>
     <script src="remote-sync-controller.js?v=5" defer></script>
     <script src="remote-data-controller.js?v=3" defer></script>
@@ -1568,6 +1612,7 @@
     <script src="board-model.js?v=4" defer></script>
     <script src="board-assets.js?v=4" defer></script>
     <script src="journal-model.js?v=3" defer></script>
+    <script src="journal-editor.js?v=1" defer></script>
     <script src="nutrition-model.js?v=1" defer></script>
     <script src="data-normalizers.js?v=1" defer></script>
     <script src="sync-metadata.js?v=6" defer></script>
@@ -1583,7 +1628,7 @@
     <script src="state-merge.js?v=8" defer></script>
     <script src="date-rollover.js?v=1" defer></script>
     <script src="planning-history.js?v=1" defer></script>
-    <script src="journal-view.js?v=2" defer></script>
+    <script src="journal-view.js?v=3" defer></script>
     <script src="board-view.js?v=5" defer></script>
     <script src="nutrition-controller.js?v=1" defer></script>
     <script src="nutrition-view.js?v=1" defer></script>
@@ -1616,9 +1661,9 @@
     <script src="save-status.js?v=2" defer></script>
     <script src="settings-controller.js?v=7" defer></script>
     <script src="timeline-layout.js?v=1" defer></script>
-    <script src="timeline-menu.js?v=2" defer></script>
-    <script src="timeline-drag.js?v=2" defer></script>
-    <script src="timeline-view.js?v=8" defer></script>
+    <script src="timeline-menu.js?v=3" defer></script>
+    <script src="timeline-drag.js?v=3" defer></script>
+    <script src="timeline-view.js?v=10" defer></script>
     <script src="timeline-controller.js?v=8" defer></script>
     <script src="view-renderer.js?v=2" defer></script>
     <script src="app-shell-controller.js?v=2" defer></script>
