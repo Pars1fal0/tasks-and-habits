@@ -1,9 +1,12 @@
 {
   "name": "rhythm-day",
-  "version": "0.26.0",
+  "version": "0.26.1",
   "private": true,
   "description": "Parsitasks — личное пространство для задач, времени и прогресса",
   "main": "desktop/main.cjs",
+  "engines": {
+    "node": ">=24.11.1"
+  },
   "scripts": {
     "desktop": "electron .",
     "desktop:smoke": "electron . --smoke-test",
