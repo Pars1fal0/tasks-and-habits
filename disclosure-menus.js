@@ -74,6 +74,7 @@
         return;
       }
       closeMenus(details);
+      positionDisclosure(details);
       schedulePosition();
     }, true);
 
