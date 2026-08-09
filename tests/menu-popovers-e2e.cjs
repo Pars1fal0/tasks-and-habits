@@ -39,6 +39,7 @@ const { _electron: electron } = require("playwright-core");
     await page.locator('.nav-tab[data-view="tasks"]:visible').click();
     const taskCard = page.locator(".task-item").first();
     await taskCard.locator(".task-more > summary").click();
+    await waitForDisclosurePosition(taskCard.locator(".task-more"));
     assertMenuFits(await menuBounds(taskCard.locator(".task-more-menu")), "task menu");
     assert.ok((await taskCard.locator(".task-more-menu").boundingBox()).height > 100, "task menu must not collapse on mobile");
     await page.locator("#pageTitle").click();
@@ -48,6 +49,7 @@ const { _electron: electron } = require("playwright-core");
     const habitCards = page.locator(".habit-item");
     await habitCards.first().locator(".habit-more > summary").click();
     await habitCards.nth(1).locator(".habit-more > summary").click();
+    await waitForDisclosurePosition(habitCards.nth(1).locator(".habit-more"));
     assert.equal(await habitCards.first().locator(".habit-more").getAttribute("open"), null, "opening another menu must close the previous one");
     assertMenuFits(await menuBounds(habitCards.nth(1).locator(".habit-more-menu")), "habit menu");
     await page.keyboard.press("Escape");
@@ -84,6 +86,27 @@ async function menuBounds(locator) {
       viewportWidth: window.innerWidth,
     };
   });
+}
+
+async function waitForDisclosurePosition(locator) {
+  await locator.evaluate((node) => new Promise((resolve, reject) => {
+    const isPositioned = () => node.classList.contains("menu-opens-up") || node.classList.contains("menu-opens-down");
+    if (isPositioned()) {
+      resolve();
+      return;
+    }
+    const timeout = setTimeout(() => {
+      observer.disconnect();
+      reject(new Error("Disclosure menu was not positioned"));
+    }, 2000);
+    const observer = new MutationObserver(() => {
+      if (!isPositioned()) return;
+      clearTimeout(timeout);
+      observer.disconnect();
+      resolve();
+    });
+    observer.observe(node, { attributeFilter: ["class"] });
+  }));
 }
 
 function assertMenuFits(bounds, label) {
