@@ -1,5 +1,5 @@
 (function (global) {
-  const shellVersion = "0.26.1";
+  const shellVersion = "0.26.2";
   const versionKey = "rhythm-shell-version";
   const retryKey = "rhythm-shell-refresh";
   let storedVersion = "";

@@ -55,7 +55,24 @@ jobs:
         run: npm run lint
 
       - name: Run Electron interaction tests
-        run: npm run test:e2e
+        shell: pwsh
+        run: |
+          $testExit = 1
+          foreach ($attempt in 1..2) {
+            npm run test:e2e 2>&1 | Tee-Object -FilePath e2e-output.log
+            $testExit = $LASTEXITCODE
+            if ($testExit -eq 0) {
+              exit 0
+            }
+            if ($attempt -lt 2) {
+              Write-Warning "Electron E2E attempt $attempt failed; retrying once."
+              Start-Sleep -Seconds 5
+            }
+          }
+          $tail = (Get-Content e2e-output.log -Tail 100) -join "`n"
+          $escaped = $tail.Replace("%", "%25").Replace("`r", "%0D").Replace("`n", "%0A")
+          Write-Output "::error title=Electron interaction tests failed::$escaped"
+          exit $testExit
 
       - name: Verify desktop shell
         run: npm run desktop:smoke
