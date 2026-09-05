@@ -56,7 +56,7 @@
         input.type = "number";
         input.min = "0";
         const step = habitNumberStep(habitConfig);
-        input.step = String(step);
+        input.step = "any";
         input.value = String(current);
         input.setAttribute("aria-label", habitTitle);
         increment.type = "button";
@@ -73,7 +73,14 @@
         control.replaceChildren(row, track);
 
         const updateValue = (nextRawValue) => {
-          const nextValue = Math.max(0, Number(nextRawValue || 0));
+          const parsedValue = Number(nextRawValue || 0);
+          if (!Number.isFinite(parsedValue)) return;
+          const nextValue = Math.max(0, Math.round(parsedValue * 1000) / 1000);
+          if (nextValue === Number(habit.logs[activeDate] || 0)) {
+            input.value = String(nextValue);
+            return;
+          }
+          const undo = ctx.createUndoSnapshot();
           if (nextValue > 0) {
             habit.logs[activeDate] = nextValue;
           } else {
@@ -89,11 +96,33 @@
           fill.style.width = `${nextPercent}%`;
           value.textContent = `${loggedValue} / ${goal} ${habitConfig.unit || ""}`;
           input.value = String(loggedValue);
+          ctx.showToast(`${habitTitle}: ${loggedValue} ${habitConfig.unit || ""}`.trim(), { undo });
         };
 
-        input.addEventListener("input", (event) => updateValue(event.target.value));
+        input.addEventListener("change", (event) => {
+          if (input.validity.badInput) return;
+          updateValue(event.target.value);
+        });
         decrement.addEventListener("click", () => updateValue(Number(input.value || 0) - step));
         increment.addEventListener("click", () => updateValue(Number(input.value || 0) + step));
+        const quickAdds = document.createElement("div");
+        quickAdds.className = "habit-quick-adds";
+        quickAdds.setAttribute("role", "group");
+        quickAdds.setAttribute("aria-label", `Быстрые отметки: ${habitTitle}`);
+        const unit = (habitConfig.unit || "").trim().toLocaleLowerCase("ru-RU");
+        const amounts = ["мл", "ml"].includes(unit) ? [250, 500]
+          : ["л", "l"].includes(unit) ? [0.25, 0.5]
+          : ["мин", "мин.", "минут"].includes(unit) ? [5, 15]
+          : [...new Set([step, Math.min(goal, step * 5)])].filter((amount) => amount > 0);
+        amounts.forEach((amount) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "ghost-button compact-button";
+          button.textContent = `+${amount.toLocaleString("ru-RU")} ${habitConfig.unit || ""}`.trim();
+          button.addEventListener("click", () => updateValue(Number(habit.logs[activeDate] || 0) + amount));
+          quickAdds.appendChild(button);
+        });
+        control.appendChild(quickAdds);
       } else {
         const done = habit.logs[activeDate] === true;
         const row = document.createElement("div");

@@ -70,6 +70,7 @@
     }
 
     function fillTaskForm(task) {
+      resetInlineCategory();
       ctx.els.taskFormPanel.classList.remove("is-collapsed");
       if (ctx.els.taskFormHeading) ctx.els.taskFormHeading.textContent = "Редактировать задачу";
       if (ctx.els.resetTaskForm) ctx.els.resetTaskForm.textContent = "Отмена";
@@ -102,6 +103,7 @@
       if (ctx.els.taskFormHeading) ctx.els.taskFormHeading.textContent = "Новая задача";
       if (ctx.els.resetTaskForm) ctx.els.resetTaskForm.textContent = "Очистить";
       ctx.els.taskForm.reset();
+      resetInlineCategory();
       ctx.els.taskId.value = "";
       editingOccurrenceDate = "";
       ctx.els.taskDate.value = ctx.getActiveDate();
@@ -121,6 +123,18 @@
       ctx.syncTaskTimePresets();
       syncRepeatEditScope(false);
       ctx.markFormPristine?.(ctx.els.taskForm);
+    }
+
+    function resetInlineCategory() {
+      const panel = ctx.els.taskForm.querySelector("#taskInlineCategory");
+      const name = ctx.els.taskForm.querySelector("#taskInlineCategoryName");
+      const color = ctx.els.taskForm.querySelector("#taskInlineCategoryColor");
+      if (panel) panel.open = false;
+      if (name) {
+        name.value = "";
+        name.setCustomValidity("");
+      }
+      if (color) color.value = "#00a78e";
     }
 
     function getRepeatEditScope() {

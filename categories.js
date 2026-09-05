@@ -1,5 +1,42 @@
 ﻿(function (global) {
   function createCategories(ctx) {
+    const inlinePanel = document.querySelector("#taskInlineCategory");
+    const inlineName = document.querySelector("#taskInlineCategoryName");
+    const inlineColor = document.querySelector("#taskInlineCategoryColor");
+    document.querySelector("#taskInlineCategorySave")?.addEventListener("click", saveInlineCategory);
+    inlineName?.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      saveInlineCategory();
+    });
+    inlineName?.addEventListener("input", () => inlineName.setCustomValidity(""));
+    inlinePanel?.addEventListener("toggle", () => {
+      if (!inlinePanel.open) inlineName.setCustomValidity("");
+    });
+
+    function saveInlineCategory() {
+      const name = ctx.cleanText(inlineName.value);
+      if (!name) {
+        inlineName.setCustomValidity("Напиши название категории");
+        inlineName.reportValidity();
+        return;
+      }
+      let category = ctx.getState().categories.find((item) => item.name.toLocaleLowerCase("ru-RU") === name.toLocaleLowerCase("ru-RU"));
+      if (!category) {
+        const now = new Date().toISOString();
+        category = { id: ctx.createId(), name, color: inlineColor.value, createdAt: now, updatedAt: now };
+        ctx.getState().categories.push(category);
+        ctx.saveState();
+      }
+      renderCategories();
+      ctx.els.taskCategoryId.value = category.id;
+      inlineName.value = "";
+      inlineName.setCustomValidity("");
+      inlinePanel.open = false;
+      ctx.els.taskCategoryId.focus();
+      ctx.showToast(`Выбрана категория: ${category.name}`);
+    }
+
     function renderCategories() {
       const selectedCategoryId = ctx.els.taskCategoryId.value;
       ctx.els.taskCategoryId.replaceChildren();

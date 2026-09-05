@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <script src="auth-gate.js?v=1"></script>
     <script src="shell-version.js?v=1"></script>
-    <link rel="stylesheet" href="styles.css?v=39">
+    <link rel="stylesheet" href="styles.css?v=40">
     <link rel="stylesheet" href="disclosure-menus.css?v=1">
   </head>
   <body>
@@ -304,7 +304,7 @@
             <summary>Быстрый ввод</summary>
           <form class="quick-task-form" id="quickTaskForm">
             <label class="quick-task-input">
-              <span>Быстрый ввод</span>
+              <span class="sr-only">Быстрый ввод</span>
               <input id="quickTaskInput" type="text" maxlength="200" autocomplete="off" placeholder="Созвон завтра 14:00-15:30 #работа !high">
             </label>
             <button class="primary-button compact-button" type="submit">Добавить</button>
@@ -445,6 +445,18 @@
                       </select>
                     </label>
                   </div>
+                  <details class="task-inline-category" id="taskInlineCategory">
+                    <summary>Создать категорию</summary>
+                    <div class="task-inline-category-fields">
+                      <label>Название категории
+                        <input id="taskInlineCategoryName" type="text" maxlength="28" autocomplete="off">
+                      </label>
+                      <input id="taskInlineCategoryColor" type="color" value="#00a78e" aria-label="Цвет новой категории">
+                      <button class="icon-button" id="taskInlineCategorySave" type="button" aria-label="Создать и выбрать категорию" title="Создать и выбрать категорию">
+                        <svg class="ui-icon"><use href="#icon-plus"></use></svg>
+                      </button>
+                    </div>
+                  </details>
                   <label>
                     Повтор
                     <select id="taskRepeat">
@@ -1649,17 +1661,17 @@
     <script src="calendar-drag-controller.js?v=2" defer></script>
     <script src="confirm-dialog.js?v=3" defer></script>
     <script src="form-dialog.js?v=1" defer></script>
-    <script src="categories.js?v=5" defer></script>
+    <script src="categories.js?v=6" defer></script>
     <script src="goal-checkpoint-editor.js?v=2" defer></script>
     <script src="global-search.js?v=2" defer></script>
     <script src="goals-view.js?v=10" defer></script>
     <script src="habit-form.js?v=5" defer></script>
-    <script src="habits-view.js?v=5" defer></script>
+    <script src="habits-view.js?v=6" defer></script>
     <script src="import-export.js?v=5" defer></script>
     <script src="notifications.js?v=2" defer></script>
     <script src="overdue-controller.js?v=4" defer></script>
     <script src="task-schedule.js?v=1" defer></script>
-    <script src="task-form.js?v=11" defer></script>
+    <script src="task-form.js?v=12" defer></script>
     <script src="tasks-view.js?v=13" defer></script>
     <script src="task-moves.js?v=9" defer></script>
     <script src="task-state.js?v=4" defer></script>
