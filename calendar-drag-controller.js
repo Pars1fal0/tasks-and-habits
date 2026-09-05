@@ -3,6 +3,7 @@
     let draggedTaskId = "";
     let draggedTaskDate = "";
     let pointerDragTask = null;
+    let suppressClickUntil = 0;
 
     function bindGlobalEvents() {
       document.addEventListener("pointermove", handlePointerMove);
@@ -39,10 +40,11 @@
       chip.tabIndex = 0;
       chip.setAttribute("role", "button");
       chip.setAttribute("aria-keyshortcuts", "Enter Space Alt+ArrowLeft Alt+ArrowRight Alt+ArrowUp Alt+ArrowDown");
-      chip.setAttribute("aria-label", `${chip.textContent.trim()}. Enter открыть день. Alt и стрелки — перенести задачу по календарю.`);
+      chip.setAttribute("aria-label", `${chip.textContent.trim()}. Enter редактировать задачу. Alt и стрелки — перенести задачу по календарю.`);
       chip.addEventListener("click", (event) => {
         event.stopPropagation();
-        ctx.openDateTasks(chip.dataset.date);
+        if (Date.now() < suppressClickUntil) return;
+        ctx.openDateTasks(chip.dataset.date, chip.dataset.taskId);
       });
       chip.addEventListener("keydown", (event) => handleChipKeydown(event, chip));
       chip.addEventListener("pointerdown", (event) => startPointerDrag(event, chip));
@@ -55,6 +57,7 @@
         event.dataTransfer.setData("application/x-rhythm-task", JSON.stringify({ taskId: chip.dataset.taskId, dateKey: chip.dataset.date }));
       });
       chip.addEventListener("dragend", () => {
+        suppressClickUntil = Date.now() + 350;
         chip.classList.remove("is-dragging");
         clearTaskDragState();
       });
@@ -64,7 +67,7 @@
       event.stopPropagation();
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
-        ctx.openDateTasks(chip.dataset.date);
+        ctx.openDateTasks(chip.dataset.date, chip.dataset.taskId);
         return;
       }
       if (!event.altKey) return;
@@ -143,6 +146,7 @@
     function finishPointerDrag(event) {
       if (!pointerDragTask) return;
       const drag = pointerDragTask;
+      if (drag.dragging) suppressClickUntil = Date.now() + 350;
       const target = document.elementFromPoint(event.clientX, event.clientY)?.closest(".calendar-drop-zone");
       cancelPointerDrag();
       if (!drag.dragging || !target?.dataset.date || target.dataset.date === drag.dateKey) return;

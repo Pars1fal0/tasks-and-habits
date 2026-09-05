@@ -106,7 +106,8 @@
       ctx.showToast(existing ? "Цель обновлена" : "Цель добавлена", { undo });
     }
 
-    function fillGoalForm(goal) {
+    async function fillGoalForm(goal) {
+      if (ctx.confirmDiscardOpenForms && !(await ctx.confirmDiscardOpenForms())) return;
       ctx.els.goalId.value = goal.id;
       ctx.els.goalTitle.value = goal.title || "";
       ctx.els.goalDueDate.value = goal.dueDate || ctx.getActiveDate();

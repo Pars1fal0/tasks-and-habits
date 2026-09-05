@@ -30,7 +30,9 @@
 
       document.querySelector("#closeTaskForm").addEventListener("click", ctx.closeTaskForm);
       els.openTaskForm.addEventListener("click", ctx.openTaskForm);
-      els.resetTaskForm.addEventListener("click", () => ctx.resetTaskForm({ open: true }));
+      els.resetTaskForm.addEventListener("click", async () => {
+        if (await ctx.confirmDiscardOpenForms()) ctx.resetTaskForm({ open: true });
+      });
       els.taskForm.addEventListener("submit", ctx.saveTaskFromForm);
       els.quickTaskForm.addEventListener("submit", ctx.saveQuickTask);
       els.quickTaskInput.addEventListener("input", ctx.updateQuickTaskPreview);
@@ -57,7 +59,9 @@
 
       document.querySelector("#closeHabitForm").addEventListener("click", ctx.closeHabitForm);
       els.openHabitForm.addEventListener("click", ctx.openHabitForm);
-      els.resetHabitForm.addEventListener("click", () => ctx.resetHabitForm({ open: true }));
+      els.resetHabitForm.addEventListener("click", async () => {
+        if (await ctx.confirmDiscardOpenForms()) ctx.resetHabitForm({ open: true });
+      });
       els.habitForm.addEventListener("submit", ctx.saveHabitFromForm);
       els.habitType.addEventListener("change", ctx.syncHabitTypeFields);
       els.habitRepeat.addEventListener("change", ctx.syncHabitCustomRepeatPanel);
@@ -69,7 +73,9 @@
 
       els.closeGoalForm.addEventListener("click", ctx.closeGoalForm);
       els.openGoalForm.addEventListener("click", ctx.openGoalForm);
-      els.resetGoalForm.addEventListener("click", () => ctx.resetGoalForm({ open: true }));
+      els.resetGoalForm.addEventListener("click", async () => {
+        if (await ctx.confirmDiscardOpenForms()) ctx.resetGoalForm({ open: true });
+      });
       els.goalForm.addEventListener("submit", ctx.saveGoalFromForm);
 
       els.categoryForm.addEventListener("submit", ctx.saveCategoryFromForm);
@@ -83,6 +89,11 @@
       window.matchMedia?.("(prefers-color-scheme: light)")?.addEventListener("change", ctx.handleSystemThemeChange);
       window.addEventListener("offline", ctx.renderSaveStatus);
       window.addEventListener("popstate", ctx.handleNavigationChange);
+      window.addEventListener("beforeunload", (event) => {
+        if (!ctx.hasUnsavedForms()) return;
+        event.preventDefault();
+        event.returnValue = "";
+      });
 
       els.archiveSearch.addEventListener("input", () => ctx.changeArchiveSearch(els.archiveSearch.value));
       els.archiveCategoryFilter.addEventListener("change", () => ctx.changeArchiveCategoryFilter(els.archiveCategoryFilter.value));

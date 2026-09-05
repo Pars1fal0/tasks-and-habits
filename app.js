@@ -599,6 +599,7 @@ const goalCheckpointEditor = window.RhythmGoalCheckpointEditor.createGoalCheckpo
 });
 
 const goalsView = window.RhythmGoalsView.createGoalsView({
+  confirmDiscardOpenForms,
   checkpointEditor: goalCheckpointEditor,
   els,
   cleanText,
@@ -837,7 +838,18 @@ const globalSearch = window.RhythmGlobalSearch.createGlobalSearch({
   els,
   formatDate: formatLongDate,
   getState: () => state,
-  openResult: (result) => {
+  openResult: async (result) => {
+    if (!(await confirmDiscardOpenForms())) return;
+    resetTaskForm({ open: false });
+    resetHabitForm({ open: false });
+    resetGoalForm({ open: false });
+    if (result.view === "tasks") clearTaskFilters();
+    if (result.view === "archive") {
+      archiveCategoryFilter = "all";
+      archiveSearchQuery = result.title;
+      els.archiveSearch.value = archiveSearchQuery;
+      archiveView.setPeriod("all");
+    }
     if (result.date) {
       activeDate = result.date;
       els.activeDate.value = activeDate;
@@ -847,6 +859,14 @@ const globalSearch = window.RhythmGlobalSearch.createGlobalSearch({
     syncNavigationRoute();
     render();
     scrollWorkspaceTop();
+    if (result.type === "task") {
+      requestAnimationFrame(() => {
+        const row = [...els.taskList.children].find((item) => item.dataset.taskId === result.id);
+        if (!row) return;
+        row.scrollIntoView({ block: "center" });
+        row.querySelector(".check-button")?.focus({ preventScroll: true });
+      });
+    }
   },
   search: window.RhythmGlobalSearch.searchWorkspace,
 });
@@ -897,7 +917,18 @@ const nutritionView = window.RhythmNutritionView.createNutritionView({
 
 const taskFormController = window.RhythmTaskForm.createTaskForm({
   els,
-  afterSave: () => {
+  getDefaultCategoryId: () => state.categories.some((category) => category.id === taskCategoryFilter)
+    ? taskCategoryFilter : "",
+  afterSave: (task) => {
+    if (activeView === "tasks" && (
+      (taskFilter === "done" && !isTaskDone(task, activeDate)) ||
+      (taskFilter === "open" && isTaskDone(task, activeDate)) || !matchesCategoryFilter(task, taskCategoryFilter) ||
+      !taskMatchesSearch(task, taskSearchQuery, activeDate)
+    )) {
+      clearTaskFilters();
+      saveUiState();
+      renderTasks();
+    }
     if (activeView === "timeline") {
       els.taskFormPanel.classList.add("is-collapsed");
       closeFloatingTaskForm();
@@ -1246,6 +1277,12 @@ const appShellController = window.RhythmAppShellController.createAppShellControl
 });
 
 const appEvents = window.RhythmAppEvents.createAppEvents({
+  confirmDiscardOpenForms,
+  hasUnsavedForms: () => [
+    [els.taskForm, els.taskFormPanel],
+    [els.habitForm, els.habitFormPanel],
+    [els.goalForm, els.goalFormPanel],
+  ].some(([form, panel]) => !panel.classList.contains("is-collapsed") && isFormDirty(form)),
   calendarDragController,
   changeOverviewMode: (mode, activeButton) => {
     overviewMode = ["week", "month", "year"].includes(mode) ? mode : "week";
@@ -1334,15 +1371,18 @@ const appEvents = window.RhythmAppEvents.createAppEvents({
   handleNavigationChange,
   importData,
   openBackupFolder,
-  openGoalForm: () => {
+  openGoalForm: async () => {
+    if (!(await confirmDiscardOpenForms())) return;
     resetGoalForm({ open: true });
     els.goalTitle.focus();
   },
-  openHabitForm: () => {
+  openHabitForm: async () => {
+    if (!(await confirmDiscardOpenForms())) return;
     resetHabitForm({ open: true });
     els.habitTitle.focus();
   },
-  openTaskForm: () => {
+  openTaskForm: async () => {
+    if (!(await confirmDiscardOpenForms())) return;
     restoreTaskFormPanel();
     resetTaskForm({ open: true });
     els.taskTitle.focus();
@@ -1657,8 +1697,9 @@ function deleteGoal(goalId) {
   taskState.deleteGoal(goalId);
 }
 
-async function openDateTasks(dateKey) {
+async function openDateTasks(dateKey, taskId = "") {
   if (!(await confirmDiscardOpenForms())) return;
+  if (taskId) clearTaskFilters();
   activeDate = dateKey;
   activeView = "tasks";
   saveUiState();
@@ -1667,6 +1708,10 @@ async function openDateTasks(dateKey) {
   resetHabitForm({ open: false });
   render();
   scrollWorkspaceTop();
+  if (taskId) {
+    const task = state.tasks.find((item) => item.id === taskId);
+    if (task) taskFormController.fillTaskForm(task);
+  }
 }
 
 async function moveTaskToDate(taskId, sourceDateKey, targetDateKey) {
@@ -1695,12 +1740,12 @@ async function moveTaskToDate(taskId, sourceDateKey, targetDateKey) {
         showToast("Не удалось перенести серию");
         return;
       }
-      activeDate = targetDate;
       saveState();
-      resetTaskForm({ open: false });
-      resetHabitForm({ open: false });
       render();
-      showToast(`Серия перенесена на ${formatLongDate(targetDate)}`, { undo });
+      showToast(`Серия перенесена на ${formatLongDate(targetDate)}`, {
+        undo,
+        action: { label: "Открыть день", onClick: () => openDateTasks(targetDate) },
+      });
       return;
     }
   }
@@ -1740,12 +1785,12 @@ function postponeTask(task, sourceDateKey, targetDateKey, options = {}) {
     },
   });
 
-  activeDate = targetDate;
   saveState();
-  resetTaskForm({ open: false });
-  resetHabitForm({ open: false });
   render();
-  showToast(`Задача перенесена на ${formatLongDate(targetDate)}`, { undo });
+  showToast(`Задача перенесена на ${formatLongDate(targetDate)}`, {
+    undo,
+    action: { label: "Открыть день", onClick: () => openDateTasks(targetDate) },
+  });
 }
 
 function renderHabits() {
@@ -1804,8 +1849,9 @@ function resetGoalForm(options) {
   goalsView.resetGoalForm(options);
 }
 
-function saveQuickTask(event) {
+async function saveQuickTask(event) {
   event.preventDefault();
+  if (!(await confirmDiscardOpenForms())) return;
   const parsed = parseQuickTaskPreview(els.quickTaskInput.value);
   if (!parsed.title) {
     showToast("Напиши название задачи");
@@ -1841,6 +1887,9 @@ function saveQuickTask(event) {
   state.tasks.push(task);
   activeDate = task.date;
   activeView = "tasks";
+  if (taskFilter === "done" || !matchesCategoryFilter(task, taskCategoryFilter) ||
+    !taskMatchesSearch(task, taskSearchQuery, activeDate)) clearTaskFilters();
+  saveUiState();
   syncNavigationRoute();
   els.quickTaskInput.value = "";
   updateQuickTaskPreview();
@@ -2036,7 +2085,8 @@ function updateHabitCustomRepeatSummary() {
   els.habitCustomRepeatSummary.textContent = window.RhythmRecurrence.customRepeatLabel(getHabitCustomRepeatFromForm());
 }
 
-function fillTaskForm(task) {
+async function fillTaskForm(task) {
+  if (!(await confirmDiscardOpenForms())) return;
   if (activeView === "timeline") openFloatingTaskForm();
   taskFormController.fillTaskForm(task);
 }
@@ -2049,7 +2099,8 @@ function saveHabitFromForm(event) {
   habitFormController.saveHabitFromForm(event);
 }
 
-function fillHabitForm(habit) {
+async function fillHabitForm(habit) {
+  if (!(await confirmDiscardOpenForms())) return;
   habitFormController.fillHabitForm(habit);
 }
 
@@ -2066,8 +2117,24 @@ function isFormDirty(form) {
 }
 
 function serializeForm(form) {
-  const values = [...new FormData(form).entries()].map(([key, value]) => [key, String(value)]);
-  return JSON.stringify(values);
+  const values = [...form.querySelectorAll("input, select, textarea")].map((control) => [
+    control.id || control.name || "",
+    control.type === "checkbox" || control.type === "radio" ? control.checked : control.value,
+  ]);
+  const choices = [...form.querySelectorAll("[data-weekday], [data-habit-weekday], [data-repeat-mode], [data-habit-repeat-mode]")]
+    .map((button) => [Object.entries(button.dataset), button.classList.contains("is-active")]);
+  return JSON.stringify({ values, choices });
+}
+
+function clearTaskFilters() {
+  taskFilter = "all";
+  taskCategoryFilter = "all";
+  taskSearchQuery = "";
+  els.taskSearch.value = "";
+  els.taskCategoryFilter.value = "all";
+  document.querySelectorAll("[data-task-filter]").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.taskFilter === "all");
+  });
 }
 
 async function closeFormWithConfirmation(form, panel, focusTarget, afterClose) {

@@ -7,7 +7,7 @@
       taskOccursOn,
       tasks = [],
       todayKey,
-      recurringWindowDays = 30,
+      recurringWindowDays,
     } = options;
     const yesterdayKey = addDays(todayKey, -1);
     const entries = [];
@@ -20,17 +20,19 @@
         return;
       }
 
-      for (let offset = recurringWindowDays; offset >= 2; offset -= 1) {
-        const dateKey = addDays(todayKey, -offset);
+      const startDate = Number.isFinite(recurringWindowDays)
+        ? [task.date, addDays(todayKey, -recurringWindowDays)].sort().at(-1)
+        : task.date;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate || "")) return;
+      for (let dateKey = startDate; dateKey < yesterdayKey; dateKey = addDays(dateKey, 1)) {
+        if (task.repeatUntil && dateKey > task.repeatUntil) break;
         if (!taskOccursOn(task, dateKey) || isTaskDone(task, dateKey) || isTaskExcluded(task, dateKey)) continue;
         if (task.acknowledgedOverdue?.[dateKey] === true) continue;
         entries.push({ dateKey, recurring: true, task });
       }
     });
 
-    return entries
-      .sort((a, b) => b.dateKey.localeCompare(a.dateKey) || a.task.title.localeCompare(b.task.title, "ru"))
-      .slice(0, 60);
+    return entries.sort((a, b) => b.dateKey.localeCompare(a.dateKey) || a.task.title.localeCompare(b.task.title, "ru"));
   }
 
   function archiveEntryInPeriod(dateKey, period, todayKey, addDays) {

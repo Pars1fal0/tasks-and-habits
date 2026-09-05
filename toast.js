@@ -9,6 +9,14 @@
       text.textContent = message;
       element.appendChild(text);
 
+      if (options.action?.label && typeof options.action.onClick === "function") {
+        const actionButton = document.createElement("button");
+        actionButton.type = "button";
+        actionButton.textContent = options.action.label;
+        actionButton.addEventListener("click", options.action.onClick);
+        element.appendChild(actionButton);
+      }
+
       if (options.undo) {
         const undoButton = document.createElement("button");
         undoButton.type = "button";
@@ -22,10 +30,10 @@
       }
 
       element.classList.add("is-visible");
-      element.classList.toggle("has-action", Boolean(options.undo));
+      element.classList.toggle("has-action", Boolean(options.undo || options.action));
       clearTimeout(toastTimer);
       clearTimeout(undoTimer);
-      const timeout = options.undo ? undoTimeout : defaultTimeout;
+      const timeout = options.undo || options.action ? undoTimeout : defaultTimeout;
       toastTimer = setTimeout(() => {
         element.classList.remove("is-visible");
         element.classList.remove("has-action");

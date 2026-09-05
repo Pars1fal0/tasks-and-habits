@@ -3,6 +3,11 @@
     let draggedTaskId = null;
     let draggedTaskDate = "";
     let overdueVisibleCount = 20;
+    let historicalVisibleCount = 60;
+    const activeFilters = document.querySelector("#activeTaskFilters");
+    const activeFiltersLabel = document.querySelector("#activeTaskFiltersLabel");
+    const filterSummary = document.querySelector("#taskFilterSummary");
+    document.querySelector("#resetActiveTaskFilters")?.addEventListener("click", () => ctx.els.clearTaskSearch.click());
     ctx.els.overdueToggle?.addEventListener("click", () => {
       ctx.setOverdueHidden(!ctx.getOverdueHidden());
       renderOverdueTasks();
@@ -25,6 +30,14 @@
       });
       const hasActiveFilters = ctx.getTaskFilter() !== "all" || ctx.getTaskCategoryFilter() !== "all" || ctx.getTaskSearchQuery();
       const canReorder = !hasActiveFilters;
+      const filterLabels = [];
+      if (ctx.getTaskFilter() !== "all") filterLabels.push(ctx.getTaskFilter() === "open" ? "Активные" : "Готовые");
+      const categoryFilter = ctx.getTaskCategoryFilter();
+      if (categoryFilter !== "all") filterLabels.push(categoryFilter === "none" ? "Без категории" : ctx.getCategory(categoryFilter)?.name || "Категория");
+      if (ctx.getTaskSearchQuery()) filterLabels.push(`Поиск: ${ctx.getTaskSearchQuery()}`);
+      if (activeFilters) activeFilters.hidden = filterLabels.length === 0;
+      if (activeFiltersLabel) activeFiltersLabel.textContent = filterLabels.join(" · ");
+      if (filterSummary) filterSummary.textContent = filterLabels.length ? `Фильтры и поиск (${filterLabels.length})` : "Фильтры и поиск";
 
       renderOverdueTasks();
       ctx.els.taskList.replaceChildren();
@@ -58,7 +71,7 @@
       ctx.els.historicalTaskPanel.hidden = entries.length === 0;
       ctx.els.historicalTaskCount.textContent = String(entries.length);
       ctx.els.historicalTaskList.replaceChildren();
-      entries.forEach((entry) => {
+      entries.slice(0, historicalVisibleCount).forEach((entry) => {
         const { task, dateKey } = entry;
         const row = document.createElement("article");
         const content = document.createElement("div");
@@ -79,6 +92,14 @@
         today.addEventListener("click", () => ctx.postponeTask(task, dateKey, ctx.toDateKey(new Date()), { clearPastTimeToday: true }));
         ctx.els.historicalTaskList.appendChild(row);
       });
+      if (entries.length > historicalVisibleCount) {
+        const more = createButton("ghost-button compact-button", `Показать ещё (${entries.length - historicalVisibleCount})`);
+        more.addEventListener("click", () => {
+          historicalVisibleCount += 60;
+          renderHistoricalTasks();
+        });
+        ctx.els.historicalTaskList.appendChild(more);
+      }
     }
 
     function createTaskNode(task, canReorder = true) {

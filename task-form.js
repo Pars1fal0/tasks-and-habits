@@ -110,7 +110,7 @@
       ctx.setTaskScheduleMode("none");
       ctx.els.taskStartTime.value = "";
       ctx.els.taskEndTime.value = "";
-      ctx.els.taskCategoryId.value = "";
+      ctx.els.taskCategoryId.value = ctx.getDefaultCategoryId?.() || "";
       ctx.els.taskPriority.value = "medium";
       ctx.els.taskRepeat.value = "none";
       ctx.els.taskRepeatUntil.value = "";

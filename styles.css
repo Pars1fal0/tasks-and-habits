@@ -6138,12 +6138,31 @@ body.has-floating-task-form::before {
   font-size: 13px;
 }
 
+.active-task-filters:not([hidden]) {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-bottom: 16px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--text-soft);
+  font-size: 13px;
+}
+
+.active-task-filters > span {
+  flex: 1 1 180px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .toast {
   position: fixed;
   right: 22px;
   bottom: 22px;
   z-index: 30;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
   max-width: min(380px, calc(100vw - 32px));
@@ -6169,6 +6188,7 @@ body.has-floating-task-form::before {
 
 .toast span {
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .toast button {

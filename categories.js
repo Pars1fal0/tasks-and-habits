@@ -1,6 +1,7 @@
 ﻿(function (global) {
   function createCategories(ctx) {
     function renderCategories() {
+      const selectedCategoryId = ctx.els.taskCategoryId.value;
       ctx.els.taskCategoryId.replaceChildren();
       ctx.els.taskCategoryFilter.replaceChildren();
       ctx.els.archiveCategoryFilter.replaceChildren();
@@ -43,6 +44,8 @@
         ctx.els.archiveCategoryFilter.appendChild(archiveFilterOption);
       });
 
+      ctx.els.taskCategoryId.value = categories.some((category) => category.id === selectedCategoryId)
+        ? selectedCategoryId : "";
       const taskCategoryFilter = ctx.getTaskCategoryFilter();
       const archiveCategoryFilter = ctx.getArchiveCategoryFilter();
       const filterExists =
