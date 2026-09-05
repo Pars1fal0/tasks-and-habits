@@ -4,10 +4,10 @@
     let draggedTaskDate = "";
     let overdueVisibleCount = 20;
     let historicalVisibleCount = 60;
-    const activeFilters = document.querySelector("#activeTaskFilters");
-    const activeFiltersLabel = document.querySelector("#activeTaskFiltersLabel");
-    const filterSummary = document.querySelector("#taskFilterSummary");
-    document.querySelector("#resetActiveTaskFilters")?.addEventListener("click", () => ctx.els.clearTaskSearch.click());
+    const activeFilters = ctx.els.activeTaskFilters;
+    const activeFiltersLabel = ctx.els.activeTaskFiltersLabel;
+    const filterSummary = ctx.els.taskFilterSummary;
+    ctx.els.resetActiveTaskFilters?.addEventListener("click", () => ctx.els.clearTaskSearch.click());
     ctx.els.overdueToggle?.addEventListener("click", () => {
       ctx.setOverdueHidden(!ctx.getOverdueHidden());
       renderOverdueTasks();

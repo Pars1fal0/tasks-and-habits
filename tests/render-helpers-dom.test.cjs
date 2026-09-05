@@ -167,7 +167,10 @@ module.exports = [
       const input = node.querySelector("input");
 
       input.value = "0";
+      input.validity = { badInput: false };
       input.dispatchEvent({ type: "input" });
+      assert.equal(habit.logs["2026-07-02"], 4);
+      input.dispatchEvent({ type: "change" });
 
       assert.equal(habit.logs["2026-07-02"], undefined);
       assert.equal(node.querySelector(".progress-fill").style.values.width, "0%");

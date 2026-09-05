@@ -1,9 +1,9 @@
 ﻿(function (global) {
   function createCategories(ctx) {
-    const inlinePanel = document.querySelector("#taskInlineCategory");
-    const inlineName = document.querySelector("#taskInlineCategoryName");
-    const inlineColor = document.querySelector("#taskInlineCategoryColor");
-    document.querySelector("#taskInlineCategorySave")?.addEventListener("click", saveInlineCategory);
+    const inlinePanel = ctx.els.taskInlineCategory;
+    const inlineName = ctx.els.taskInlineCategoryName;
+    const inlineColor = ctx.els.taskInlineCategoryColor;
+    ctx.els.taskInlineCategorySave?.addEventListener("click", saveInlineCategory);
     inlineName?.addEventListener("keydown", (event) => {
       if (event.key !== "Enter") return;
       event.preventDefault();
